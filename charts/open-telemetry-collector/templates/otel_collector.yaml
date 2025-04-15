@@ -1,0 +1,34 @@
+{{- if .Values.OTEC_ENABLE_TAIL_SAMPLING }}
+apiVersion: opentelemetry.io/v1alpha1
+kind: OpenTelemetryCollector
+metadata:
+  name: {{ .Values.SERVICE_NAME }}
+  namespace: {{ .Values.NAMESPACE }}
+  labels:
+    app.kubernetes.io/name: opentelemetry-collector
+    app.kubernetes.io/instance: {{ .Values.SERVICE_NAME }}
+spec:
+  mode: deployment
+  config: |
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+          http:
+
+    processors:
+      tail_sampling:
+{{ toYaml .Values.OTEC_TAIL_SAMPLING_PROCESSOR_CONFIG | indent 8 }}
+      batch:
+
+    exporters:
+      logging:
+        loglevel: debug
+
+    service:
+      pipelines:
+        traces:
+          receivers: [otlp]
+          processors: [tail_sampling, batch]
+          exporters: [logging]
+{{- end }}

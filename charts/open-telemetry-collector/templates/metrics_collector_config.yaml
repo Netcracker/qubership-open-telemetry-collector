@@ -40,6 +40,10 @@ data:
     {{- end }}
     processors:
       batch:
+      {{- if .Values.OTEC_ENABLE_TAIL_SAMPLING }}
+      tail_sampling: 
+          {{- toYaml (.Values.OTEC_TAIL_SAMPLING_PROCESSOR_CONFIG) | nindent 6 }}
+      {{- end }}  
     connectors:
       spanmetrics:
         histogram:
@@ -66,7 +70,11 @@ data:
       pipelines:
         traces:
           receivers: [jaeger, otlp]
-          processors: [batch]
+          processors:
+            {{- if .Values.OTEC_ENABLE_TAIL_SAMPLING }}
+            - tail_sampling
+            {{- end }}
+            - batch
           {{- if .Values.OTEC_ENABLE_ARBITRARY_TRACES_LOGGING | default false }}
           exporters: [otlp, spanmetrics, logtcpexporter]
           {{- else }}

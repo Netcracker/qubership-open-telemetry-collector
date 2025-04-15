@@ -39,6 +39,7 @@ import (
 	jaegerreceiver "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/jaegerreceiver"
 	zipkinreceiver "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/zipkinreceiver"
 	sentryreceiver "otec/receiver/sentryreceiver"
+	tailsamplingprocessor "go.opentelemetry.io/collector-contrib/processor/tailsamplingprocessor"
 )
 
 func components() (otelcol.Factories, error) {
@@ -93,6 +94,7 @@ func components() (otelcol.Factories, error) {
 		filterprocessor.NewFactory(),
 		transformprocessor.NewFactory(),
 		probabilisticsamplerprocessor.NewFactory(),
+		tailsamplingprocessor.NewFactory(),
 	)
 	if err != nil {
 		return otelcol.Factories{}, err
@@ -102,6 +104,7 @@ func components() (otelcol.Factories, error) {
 	factories.ProcessorModules[filterprocessor.NewFactory().Type()] = "go.opentelemetry.io/collector/processor/filterprocessor v0.106.1"
 	factories.ProcessorModules[transformprocessor.NewFactory().Type()] = "go.opentelemetry.io/collector/processor/transformprocessor v0.106.1"
 	factories.ProcessorModules[probabilisticsamplerprocessor.NewFactory().Type()] = "go.opentelemetry.io/collector/processor/probabilisticsamplerprocessor v0.106.1"
+    factories.ProcessorModules[tailsamplingprocessor.NewFactory().Type()] = "go.opentelemetry.io/collector/processor/tailsamplingprocessor v0.106.1"
 
 	factories.Connectors, err = connector.MakeFactoryMap(
 		spanmetricsconnector.NewFactory(),

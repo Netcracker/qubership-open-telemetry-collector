@@ -240,3 +240,30 @@ OTEC_ARBITRARY_TRACES_LOGGING_CONFIG: {}
 # Default: kubernetes.io/hostname
 #
 CLOUD_TOPOLOGY_KEY: kubernetes.io/hostname
+
+# Configuration for the tail sampling processor
+# Type: object
+# Default: empty
+#
+# Enable or disable tail-based sampling
+OTEC_ENABLE_TAIL_SAMPLING: true
+
+OTEC_TAIL_SAMPLING_PROCESSOR_CONFIG:
+  decision_wait: 10s
+  num_traces: 50000
+  expected_new_traces_per_sec: 1500
+  policies:
+    - name: latency
+      type: latency
+      latency:
+        threshold_ms: 500
+    - name: status-error
+      type: status_code
+      status_code:
+        status_codes: [ERROR]
+    - name: always-sample
+      type: always_sample
+    - name: probabilistic-sample
+      type: probabilistic
+      probabilistic:
+        sampling_percentage: 5

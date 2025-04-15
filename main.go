@@ -28,10 +28,14 @@ func main() {
 		Description: "Custom NC OTeC implementation",
 		Version:     "1.0.0",
 	}
-
+    
+	factories, err := components()
+	if err != nil {
+		log.Fatalf("failed to build components >>>>: %v", err)
+	}
 	set := otelcol.CollectorSettings{
 		BuildInfo: info,
-		Factories: components,
+		Factories: factories,
 		ConfigProviderSettings: otelcol.ConfigProviderSettings{
 			ResolverSettings: confmap.ResolverSettings{
 				ProviderFactories: []confmap.ProviderFactory{
