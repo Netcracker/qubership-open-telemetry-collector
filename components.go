@@ -39,7 +39,7 @@ import (
 	jaegerreceiver "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/jaegerreceiver"
 	zipkinreceiver "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/zipkinreceiver"
 	sentryreceiver "otec/receiver/sentryreceiver"
-	tailsamplingprocessor "go.opentelemetry.io/collector-contrib/processor/tailsamplingprocessor"
+	tailsamplingprocessor "github.com/open-telemetry/opentelemetry-collector-contrib/processor/tailsamplingprocessor"
 )
 
 func components() (otelcol.Factories, error) {
