@@ -1,0 +1,23 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: localhost:4317
+
+processors:
+  batch:
+  tailsamplingprocessor:
+
+exporters:
+  debug:
+
+service:
+  pipelines:
+    traces:
+      receivers:
+      - otlp
+      processors:
+      - tailsamplingprocessor
+      - batch
+      exporters:
+      - debug

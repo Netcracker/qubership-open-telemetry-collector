@@ -18,6 +18,7 @@ COPY exporter/ exporter/
 COPY receiver/ receiver/
 COPY utils/ utils/
 
+COPY tmp/dist/ .
 RUN go mod download -x
 
 RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -a -o qubership-open-telemetry-collector .
