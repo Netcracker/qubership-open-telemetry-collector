@@ -2,7 +2,7 @@
 # Type: string
 # Default: open-telemetry-collector
 #
-SERVICE_NAME: open-telemetry-collector
+SERVICE_NAME: qubership-open-telemetry-collector
 
 # Allows creating a service monitor that sends SPM metrics to prometheus.
 # Type: boolean

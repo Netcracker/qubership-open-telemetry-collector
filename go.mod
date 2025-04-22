@@ -13,7 +13,6 @@ require (
 	github.com/open-telemetry/opentelemetry-collector-contrib/extension/healthcheckextension v0.110.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/extension/pprofextension v0.110.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/processor/filterprocessor v0.110.0
-	github.com/open-telemetry/opentelemetry-collector-contrib/processor/probabilisticsamplerprocessor v0.110.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/processor/transformprocessor v0.110.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/receiver/jaegerreceiver v0.110.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/receiver/zipkinreceiver v0.110.0
@@ -98,7 +97,6 @@ require (
 	github.com/mostynb/go-grpc-compression v1.2.3 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/common v0.110.0 // indirect
-	github.com/open-telemetry/opentelemetry-collector-contrib/internal/coreinternal v0.124.1 // indirect
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/filter v0.124.1 // indirect
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/pdatautil v0.110.0 // indirect
 	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/ottl v0.124.1 // indirect

@@ -1,32 +1,65 @@
 dist:
-  name: otelcol-custom
-  description: Local OpenTelemetry Collector binary
+  name: qubership-open-telemetry-collector
+  description: Custom OTel Collector for qubership platform
   output_path: ./tmp/dist
 exporters:
-  - gomod: go.opentelemetry.io/collector/exporter/otlpexporter v0.124.0
-  - gomod: go.opentelemetry.io/collector/exporter/debugexporter v0.124.0
-  - gomod: go.opentelemetry.io/collector/exporter/prometheusexporter v0.124.0
+  - gomod:
+      go.opentelemetry.io/collector/exporter/debugexporter latest
+  - gomod:
+      go.opentelemetry.io/collector/exporter/otlpexporter latest
+  - gomod:
+      go.opentelemetry.io/collector/exporter/otlphttpexporter latest
+  - gomod:
+      github.com/open-telemetry/opentelemetry-collector-contrib/exporter/prometheusexporter latest
+  - gomod:    
+      github.com/Netcracker/qubership-open-telemetry-collector/exporter/logtcpexporter add-tailbased-tracing
 
-
-receivers:
-  - gomod: go.opentelemetry.io/collector/receiver/otlpreceiver v0.124.0
-  - gomod: go.opentelemetry.io/collector/receiver/jaegerreceiver v0.124.0
 
 processors:
-  - gomod: go.opentelemetry.io/collector/processor/batchprocessor v0.124.0
-  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/tailsamplingprocessor v0.124.1
+  - gomod:
+      go.opentelemetry.io/collector/processor/batchprocessor latest
+  - gomod:
+      github.com/open-telemetry/opentelemetry-collector-contrib/processor/filterprocessor latest
+  - gomod:
+      github.com/open-telemetry/opentelemetry-collector-contrib/processor/transformprocessor latest
+  - gomod:
+      github.com/open-telemetry/opentelemetry-collector-contrib/processor/tailsamplingprocessor latest
+
+receivers:
+  - gomod:
+      go.opentelemetry.io/collector/receiver/otlpreceiver latest
+  - gomod:
+      github.com/open-telemetry/opentelemetry-collector-contrib/receiver/jaegerreceiver latest
+  - gomod:
+      github.com/open-telemetry/opentelemetry-collector-contrib/receiver/zipkinreceiver latest
+  - gomod:
+      github.com/Netcracker/qubership-open-telemetry-collector/receiver/sentryreceiver latest
+
 
 providers:
-  - gomod: go.opentelemetry.io/collector/confmap/provider/envprovider v1.18.0
-  - gomod: go.opentelemetry.io/collector/confmap/provider/fileprovider v1.18.0
-  - gomod: go.opentelemetry.io/collector/confmap/provider/httpprovider v1.18.0
-  - gomod: go.opentelemetry.io/collector/confmap/provider/httpsprovider v1.18.0
-  - gomod: go.opentelemetry.io/collector/confmap/provider/yamlprovider v1.18.0
-
-connectors:
-  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/connector/spanmetricsconnector v0.124.1
+  - gomod: go.opentelemetry.io/collector/confmap/provider/envprovider latest
+  - gomod: go.opentelemetry.io/collector/confmap/provider/fileprovider latest
+  - gomod: go.opentelemetry.io/collector/confmap/provider/httpprovider latest
+  - gomod: go.opentelemetry.io/collector/confmap/provider/httpsprovider latest
+  - gomod: go.opentelemetry.io/collector/confmap/provider/yamlprovider latest
 
 extensions:
-  - gomod: go.opentelemetry.io/collector/extension/pprofextension v0.124.0
-  - gomod: go.opentelemetry.io/collector/extension/healthcheckextension v0.124.0 
-  
+    - gomod:
+        github.com/open-telemetry/opentelemetry-collector-contrib/extension/healthcheckextension latest
+    - gomod:
+        github.com/open-telemetry/opentelemetry-collector-contrib/extension/pprofextension@v0.124.1
+
+connectors:
+    - gomod:
+        github.com/Netcracker/qubership-open-telemetry-collector/connector/sentrymetricsconnector latest
+    - gomod:
+        github.com/open-telemetry/opentelemetry-collector-contrib/connector/spanmetricsconnector latest
+
+replaces:
+  - github.com/Netcracker/qubership-open-telemetry-collector/exporter/logtcpexporter => ./exporter/logtcpexporter
+  - github.com/Netcracker/qubership-open-telemetry-collector/receiver/sentryreceiver => ./receiver/sentryreceiver
+  - github.com/Netcracker/qubership-open-telemetry-collector/connector/sentrymetricsconnector => ./connector/sentrymetricsconnector
+  - github.com/open-telemetry/opentelemetry-collector-contrib/internal/coreinternal => ./tmp/stub/coreinternal
+  - github.com/open-telemetry/opentelemetry-collector-contrib/pkg/translator/jaeger => ./pkg/translator/jaeger
+
+

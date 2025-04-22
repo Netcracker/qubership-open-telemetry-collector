@@ -10,11 +10,23 @@ import (
 	"go.opentelemetry.io/collector/otelcol"
 	"go.opentelemetry.io/collector/processor"
 	"go.opentelemetry.io/collector/receiver"
-	otlpexporter "go.opentelemetry.io/collector/exporter/otlpexporter"
+	sentrymetricsconnector "github.com/Netcracker/qubership-open-telemetry-collector/connector/sentrymetricsconnector"
+	spanmetricsconnector "github.com/open-telemetry/opentelemetry-collector-contrib/connector/spanmetricsconnector"
 	debugexporter "go.opentelemetry.io/collector/exporter/debugexporter"
+	otlpexporter "go.opentelemetry.io/collector/exporter/otlpexporter"
+	otlphttpexporter "go.opentelemetry.io/collector/exporter/otlphttpexporter"
+	prometheusexporter "github.com/open-telemetry/opentelemetry-collector-contrib/exporter/prometheusexporter"
+	logtcpexporter "github.com/Netcracker/qubership-open-telemetry-collector/exporter/logtcpexporter"
+	healthcheckextension "github.com/open-telemetry/opentelemetry-collector-contrib/extension/healthcheckextension"
+	pprofextension "github.com/open-telemetry/opentelemetry-collector-contrib/extension/pprofextension"
 	batchprocessor "go.opentelemetry.io/collector/processor/batchprocessor"
+	filterprocessor "github.com/open-telemetry/opentelemetry-collector-contrib/processor/filterprocessor"
+	transformprocessor "github.com/open-telemetry/opentelemetry-collector-contrib/processor/transformprocessor"
 	tailsamplingprocessor "github.com/open-telemetry/opentelemetry-collector-contrib/processor/tailsamplingprocessor"
 	otlpreceiver "go.opentelemetry.io/collector/receiver/otlpreceiver"
+	jaegerreceiver "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/jaegerreceiver"
+	zipkinreceiver "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/zipkinreceiver"
+	sentryreceiver "github.com/Netcracker/qubership-open-telemetry-collector/receiver/sentryreceiver"
 )
 
 func components() (otelcol.Factories, error) {
@@ -22,49 +34,73 @@ func components() (otelcol.Factories, error) {
 	factories := otelcol.Factories{}
 
 	factories.Extensions, err = otelcol.MakeFactoryMap[extension.Factory](
+		healthcheckextension.NewFactory(),
+		pprofextension.NewFactory(),
 	)
 	if err != nil {
 		return otelcol.Factories{}, err
 	}
 	factories.ExtensionModules = make(map[component.Type]string, len(factories.Extensions))
+	factories.ExtensionModules[healthcheckextension.NewFactory().Type()] = "github.com/open-telemetry/opentelemetry-collector-contrib/extension/healthcheckextension latest"
+	factories.ExtensionModules[pprofextension.NewFactory().Type()] = "github.com/open-telemetry/opentelemetry-collector-contrib/extension/pprofextension latest"
 
 	factories.Receivers, err = otelcol.MakeFactoryMap[receiver.Factory](
 		otlpreceiver.NewFactory(),
+		jaegerreceiver.NewFactory(),
+		zipkinreceiver.NewFactory(),
+		sentryreceiver.NewFactory(),
 	)
 	if err != nil {
 		return otelcol.Factories{}, err
 	}
 	factories.ReceiverModules = make(map[component.Type]string, len(factories.Receivers))
-	factories.ReceiverModules[otlpreceiver.NewFactory().Type()] = "go.opentelemetry.io/collector/receiver/otlpreceiver v0.124.0"
+	factories.ReceiverModules[otlpreceiver.NewFactory().Type()] = "go.opentelemetry.io/collector/receiver/otlpreceiver latest"
+	factories.ReceiverModules[jaegerreceiver.NewFactory().Type()] = "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/jaegerreceiver latest"
+	factories.ReceiverModules[zipkinreceiver.NewFactory().Type()] = "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/zipkinreceiver latest"
+	factories.ReceiverModules[sentryreceiver.NewFactory().Type()] = "github.com/Netcracker/qubership-open-telemetry-collector/receiver/sentryreceiver latest"
 
 	factories.Exporters, err = otelcol.MakeFactoryMap[exporter.Factory](
-		otlpexporter.NewFactory(),
 		debugexporter.NewFactory(),
+		otlpexporter.NewFactory(),
+		otlphttpexporter.NewFactory(),
+		prometheusexporter.NewFactory(),
+		logtcpexporter.NewFactory(),
 	)
 	if err != nil {
 		return otelcol.Factories{}, err
 	}
 	factories.ExporterModules = make(map[component.Type]string, len(factories.Exporters))
-	factories.ExporterModules[otlpexporter.NewFactory().Type()] = "go.opentelemetry.io/collector/exporter/otlpexporter v0.124.0"
-	factories.ExporterModules[debugexporter.NewFactory().Type()] = "go.opentelemetry.io/collector/exporter/debugexporter v0.124.0"
+	factories.ExporterModules[debugexporter.NewFactory().Type()] = "go.opentelemetry.io/collector/exporter/debugexporter latest"
+	factories.ExporterModules[otlpexporter.NewFactory().Type()] = "go.opentelemetry.io/collector/exporter/otlpexporter latest"
+	factories.ExporterModules[otlphttpexporter.NewFactory().Type()] = "go.opentelemetry.io/collector/exporter/otlphttpexporter latest"
+	factories.ExporterModules[prometheusexporter.NewFactory().Type()] = "github.com/open-telemetry/opentelemetry-collector-contrib/exporter/prometheusexporter latest"
+	factories.ExporterModules[logtcpexporter.NewFactory().Type()] = "github.com/Netcracker/qubership-open-telemetry-collector/exporter/logtcpexporter add-tailbased-tracing"
 
 	factories.Processors, err = otelcol.MakeFactoryMap[processor.Factory](
 		batchprocessor.NewFactory(),
+		filterprocessor.NewFactory(),
+		transformprocessor.NewFactory(),
 		tailsamplingprocessor.NewFactory(),
 	)
 	if err != nil {
 		return otelcol.Factories{}, err
 	}
 	factories.ProcessorModules = make(map[component.Type]string, len(factories.Processors))
-	factories.ProcessorModules[batchprocessor.NewFactory().Type()] = "go.opentelemetry.io/collector/processor/batchprocessor v0.124.0"
-	factories.ProcessorModules[tailsamplingprocessor.NewFactory().Type()] = "github.com/open-telemetry/opentelemetry-collector-contrib/processor/tailsamplingprocessor v0.124.1"
+	factories.ProcessorModules[batchprocessor.NewFactory().Type()] = "go.opentelemetry.io/collector/processor/batchprocessor latest"
+	factories.ProcessorModules[filterprocessor.NewFactory().Type()] = "github.com/open-telemetry/opentelemetry-collector-contrib/processor/filterprocessor latest"
+	factories.ProcessorModules[transformprocessor.NewFactory().Type()] = "github.com/open-telemetry/opentelemetry-collector-contrib/processor/transformprocessor latest"
+	factories.ProcessorModules[tailsamplingprocessor.NewFactory().Type()] = "github.com/open-telemetry/opentelemetry-collector-contrib/processor/tailsamplingprocessor latest"
 
 	factories.Connectors, err = otelcol.MakeFactoryMap[connector.Factory](
+		sentrymetricsconnector.NewFactory(),
+		spanmetricsconnector.NewFactory(),
 	)
 	if err != nil {
 		return otelcol.Factories{}, err
 	}
 	factories.ConnectorModules = make(map[component.Type]string, len(factories.Connectors))
+	factories.ConnectorModules[sentrymetricsconnector.NewFactory().Type()] = "github.com/Netcracker/qubership-open-telemetry-collector/connector/sentrymetricsconnector latest"
+	factories.ConnectorModules[spanmetricsconnector.NewFactory().Type()] = "github.com/open-telemetry/opentelemetry-collector-contrib/connector/spanmetricsconnector latest"
 
 	return factories, nil
 }

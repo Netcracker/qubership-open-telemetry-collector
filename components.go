@@ -33,7 +33,6 @@ import (
 	pprofextension "github.com/open-telemetry/opentelemetry-collector-contrib/extension/pprofextension"
 	batchprocessor "go.opentelemetry.io/collector/processor/batchprocessor"
 	filterprocessor "github.com/open-telemetry/opentelemetry-collector-contrib/processor/filterprocessor"
-	probabilisticsamplerprocessor "github.com/open-telemetry/opentelemetry-collector-contrib/processor/probabilisticsamplerprocessor"
 	transformprocessor "github.com/open-telemetry/opentelemetry-collector-contrib/processor/transformprocessor"
 	otlpreceiver "go.opentelemetry.io/collector/receiver/otlpreceiver"
 	jaegerreceiver "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/jaegerreceiver"
@@ -68,7 +67,7 @@ func components() (otelcol.Factories, error) {
 	}
 	factories.ReceiverModules = make(map[component.Type]string, len(factories.Receivers))
 	factories.ReceiverModules[otlpreceiver.NewFactory().Type()] = "go.opentelemetry.io/collector/receiver/otlpreceiver v0.106.1"
-	factories.ReceiverModules[jaegerreceiver.NewFactory().Type()] = "go.opentelemetry.io/collector/receiver/jaegerreceiver v0.106.1"
+	factories.ReceiverModules[jaegerreceiver.NewFactory().Type()] = "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/jaegerreceiver latest"
 	factories.ReceiverModules[zipkinreceiver.NewFactory().Type()] = "go.opentelemetry.io/collector/receiver/zipkinreceiver v0.106.1"
 	factories.ReceiverModules[sentryreceiver.NewFactory().Type()] = "otec/receiver/sentryreceiver v1.1.17"
 
@@ -93,7 +92,6 @@ func components() (otelcol.Factories, error) {
 		batchprocessor.NewFactory(),
 		filterprocessor.NewFactory(),
 		transformprocessor.NewFactory(),
-		probabilisticsamplerprocessor.NewFactory(),
 		tailsamplingprocessor.NewFactory(),
 	)
 	if err != nil {
@@ -103,7 +101,6 @@ func components() (otelcol.Factories, error) {
 	factories.ProcessorModules[batchprocessor.NewFactory().Type()] = "go.opentelemetry.io/collector/processor/batchprocessor v0.106.1"
 	factories.ProcessorModules[filterprocessor.NewFactory().Type()] = "go.opentelemetry.io/collector/processor/filterprocessor v0.106.1"
 	factories.ProcessorModules[transformprocessor.NewFactory().Type()] = "go.opentelemetry.io/collector/processor/transformprocessor v0.106.1"
-	factories.ProcessorModules[probabilisticsamplerprocessor.NewFactory().Type()] = "go.opentelemetry.io/collector/processor/probabilisticsamplerprocessor v0.106.1"
     factories.ProcessorModules[tailsamplingprocessor.NewFactory().Type()] = "go.opentelemetry.io/collector/processor/tailsamplingprocessor v0.106.1"
 
 	factories.Connectors, err = connector.MakeFactoryMap(
