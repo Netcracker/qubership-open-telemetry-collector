@@ -23,4 +23,6 @@ RUN go mod download -x
 RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -a -o qubership-open-telemetry-collector .
 
 FROM alpine:3.21.0
+COPY ./sample.log /sample.log
+RUN chmod 644 /sample.log
 COPY --from=builder --chown=10001:0 /workspace/qubership-open-telemetry-collector /otec

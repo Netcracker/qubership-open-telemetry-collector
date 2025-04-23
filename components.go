@@ -22,6 +22,7 @@ import (
 	"go.opentelemetry.io/collector/otelcol"
 	"go.opentelemetry.io/collector/processor"
 	"go.opentelemetry.io/collector/receiver"
+	logexporter "otec/exporter/logexporter"
 	spanmetricsconnector "github.com/open-telemetry/opentelemetry-collector-contrib/connector/spanmetricsconnector"
 	sentrymetricsconnector "otec/connector/sentrymetricsconnector"
 	debugexporter "go.opentelemetry.io/collector/exporter/debugexporter"
@@ -77,6 +78,7 @@ func components() (otelcol.Factories, error) {
 		prometheusexporter.NewFactory(),
 		loggingexporter.NewFactory(),
 		logtcpexporter.NewFactory(),
+		logexporter.NewFactory(),
 	)
 	if err != nil {
 		return otelcol.Factories{}, err
@@ -87,6 +89,7 @@ func components() (otelcol.Factories, error) {
 	factories.ExporterModules[prometheusexporter.NewFactory().Type()] = "go.opentelemetry.io/collector/exporter/prometheusexporter v0.106.1"
 	factories.ExporterModules[loggingexporter.NewFactory().Type()] = "go.opentelemetry.io/collector/exporter/loggingexporter v0.106.1"
 	factories.ExporterModules[logtcpexporter.NewFactory().Type()] = "otec/exporter/logtcpexporter v1.1.17"
+	factories.ExporterModules[logexporter.NewFactory().Type()] = "otec/exporter/logexporter v1.1.17"
 
 	factories.Processors, err = processor.MakeFactoryMap(
 		batchprocessor.NewFactory(),
