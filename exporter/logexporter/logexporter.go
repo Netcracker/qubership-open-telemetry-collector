@@ -88,7 +88,7 @@ func (le *logExporter) processLogRecords(scopeLogs plog.ScopeLogs) {
 	}
 }
 
-// pushLogs sends logs to Graylog using 2 loops (ResourceLogs and ScopeLogs)
+// pushLogs sends logs to Graylog (using ResourceLogs and ScopeLogs)
 func (le *logExporter) pushLogs(ctx context.Context, logs plog.Logs) error {
 	var wg sync.WaitGroup
 	for i := 0; i < logs.ResourceLogs().Len(); i++ {
@@ -108,11 +108,10 @@ func (le *logExporter) pushLogs(ctx context.Context, logs plog.Logs) error {
 }
 
 func (le *logExporter) sendLogToGraylog(logRecord plog.LogRecord) error {
-	// Construct message to be sent to Graylog
+
 	messageStr := logRecord.Body().AsString()
 	timestamp, level := le.getTimestampAndLevel(logRecord)
 
-	// Graylog message structure
 	msg := graylog.Message{
 		Host:         "open-telemetry-collector",
 		ShortMessage: messageStr,
@@ -122,7 +121,6 @@ func (le *logExporter) sendLogToGraylog(logRecord plog.LogRecord) error {
 		Extra:        map[string]string{},
 	}
 
-	// Send the message to the Graylog queue
 	err := le.graylogSender.SendToQueue(&msg)
 	if err != nil {
 		le.logger.Sugar().Errorf("Message with timestamp %v has not been put to the graylog queue: %+v\n", msg.Timestamp, err)
@@ -134,7 +132,6 @@ func (le *logExporter) sendLogToGraylog(logRecord plog.LogRecord) error {
 }
 
 func (le *logExporter) getTimestampAndLevel(logRecord plog.LogRecord) (time.Time, uint) {
-	// Use logRecord timestamp for log level calculation (default to INFO)
 	timestamp := logRecord.Timestamp().AsTime()
 	var level uint = 6
 	return timestamp, level

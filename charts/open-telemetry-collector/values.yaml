@@ -73,8 +73,6 @@ PAAS_PLATFORM: KUBERNETES
 
 #imageRepository: ghcr.io/netcracker/qubership-open-telemetry-collector
 #imageTag: 
-imageRepository: exporter
-imageTag: v1
 
 # image:
 
@@ -133,14 +131,14 @@ JAEGER_COLLECTOR_PORT: "14250"
 JAEGER_COLLECTOR_OTLP_PORT: "4317"
 
 # GRAYLOG_COLLECTOR_HOST : https://0.0.0.0
-GRAYLOG_UI_URL : "https://localhost:9000"
+# GRAYLOG_UI_URL : "https://localhost:9000"
 # GRAYLOG_COLLECTOR_HOST is the Graylog hostname or ip
 # Type: string
 # Mandatory: no
 # Default: https://graylog-logging.${CLOUD_PUBLIC_HOST}
 #
-# GRAYLOG_COLLECTOR_HOST: ""
-GRAYLOG_COLLECTOR_HOST: "localhost"
+GRAYLOG_COLLECTOR_HOST: ""
+# GRAYLOG_COLLECTOR_HOST: "localhost"
 # GRAYLOG_COLLECTOR_PORT is the port for the Graylog service above
 # Type: string
 # Mandatory: no

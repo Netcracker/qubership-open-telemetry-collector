@@ -24,13 +24,6 @@ data:
         protocols:
           grpc:
             endpoint: ":4317"
-      # filelog:
-      #   log_file_path: "/sample.log"
-        # operators:
-        #   - type: "json_parser"  
-        #     timestamp:
-        #       parse_from: "timestamp"
-        #       layout: "%Y-%m-%dT%H:%M:%S"
     exporters:
       prometheus:
         endpoint: ":8889"
@@ -87,9 +80,9 @@ data:
         metrics:
           receivers: [spanmetrics]
           exporters: [prometheus]
-        # logs:
-        #   receivers: [filelog, otlp]
-        #   exporters: [logexporter]
+        logs:
+          receivers: [jaeger, otlp]
+          exporters: [logexporter]
       telemetry:
         logs:
           level: "{{ .Values.LOG_LEVEL }}"
@@ -173,9 +166,9 @@ data:
           receivers: [sentryreceiver]
           processors: [filter/removesessiontraces]
           exporters: [otlp, logtcpexporter]
-        # logs:
-        #   receivers: [filelog]
-        #   exporters: [logexporter]
+        logs:
+          receivers: [sentryreceiver]
+          exporters: [logexporter]
       telemetry:
         logs:
           level: "{{ .Values.LOG_LEVEL }}"
