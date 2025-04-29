@@ -7,22 +7,22 @@ dist:
 
 connectors:
   - gomod: github.com/Netcracker/qubership-open-telemetry-collector/connector/sentrymetricsconnector add-tailbased-tracing
-  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/connector/spanmetricsconnector latest
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/connector/spanmetricsconnector v0.124.1
 
 exporters:
   - gomod: github.com/Netcracker/qubership-open-telemetry-collector/exporter/logtcpexporter add-tailbased-tracing
-  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/exporter/prometheusexporter latest
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/exporter/prometheusexporter v0.124.1
   - gomod: go.opentelemetry.io/collector/exporter/debugexporter latest
   - gomod: go.opentelemetry.io/collector/exporter/otlpexporter latest
   - gomod: go.opentelemetry.io/collector/exporter/otlphttpexporter latest
 
 extensions:
-  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/extension/healthcheckextension latest
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/extension/healthcheckextension v0.124.1
   - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/extension/pprofextension latest
 
 processors:
   - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/filterprocessor latest
-  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/tailsamplingprocessor latest
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/tailsamplingprocessor v0.124.1
   - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/transformprocessor latest
   - gomod: go.opentelemetry.io/collector/processor/batchprocessor latest
 
@@ -35,6 +35,6 @@ providers:
 
 receivers:
   - gomod: github.com/Netcracker/qubership-open-telemetry-collector/receiver/sentryreceiver add-tailbased-tracing
-  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/jaegerreceiver latest
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/jaegerreceiver v0.124.1
   - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/zipkinreceiver latest
   - gomod: go.opentelemetry.io/collector/receiver/otlpreceiver latest

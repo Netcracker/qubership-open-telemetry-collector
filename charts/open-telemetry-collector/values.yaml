@@ -56,13 +56,13 @@ OTEC_LOGTCPEXPORTER_PARAMETERS:
 # Default: see below
 #
 OTEC_TAILBASED_GENERAL_PARAMETERS:
-      tail_sampling:
-        decision_wait: 31s
-        num_traces: 7500
-        expected_new_traces_per_sec: 200
-        decision_cache:
-          sampled_cache_size: 75000
-          non_sampled_cache_size: 22500
+  decision_wait: 31s
+  num_traces: 7500
+  expected_new_traces_per_sec: 200
+  decision_cache:
+    sampled_cache_size: 75000
+    non_sampled_cache_size: 22500
+
 # Allows to set up tailbased tracing policy parameters
 # Type: object
 # Default: see below
