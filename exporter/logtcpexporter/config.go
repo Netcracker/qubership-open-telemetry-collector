@@ -17,18 +17,19 @@ package logtcpexporter
 import (
 	"fmt"
 	"time"
+
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/config/confignet"
 )
 
 type Config struct {
-	confignet.TCPAddrConfig `mapstructure:",squash"`
-	ATLCfg ATLConfig  `mapstructure:"arbitrary-traces-logging"`
-	ConnPoolSize      int `mapstructure:"connection-pool-size"`
-	QueueSize         int `mapstructure:"queue-size"`
-	MaxMessageSendRetryCnt      int `mapstructure:"max-message-send-retry-count"`
-	MaxSuccessiveSendErrCnt     int `mapstructure:"max-successive-send-error-count"`
-	SuccessiveSendErrFreezeTime string `mapstructure:"successive-send-error-freeze-time"`
+	confignet.TCPAddrConfig     `mapstructure:",squash"`
+	ATLCfg                      ATLConfig `mapstructure:"arbitrary-traces-logging"`
+	ConnPoolSize                int       `mapstructure:"connection-pool-size"`
+	QueueSize                   int       `mapstructure:"queue-size"`
+	MaxMessageSendRetryCnt      int       `mapstructure:"max-message-send-retry-count"`
+	MaxSuccessiveSendErrCnt     int       `mapstructure:"max-successive-send-error-count"`
+	SuccessiveSendErrFreezeTime string    `mapstructure:"successive-send-error-freeze-time"`
 }
 
 var _ component.Config = (*Config)(nil)
@@ -54,12 +55,12 @@ func (cfg *Config) Validate() error {
 }
 
 type ATLConfig struct {
-	SpanFilters []ATLFilter `mapstructure:"span-filters"`
+	SpanFilters  []ATLFilter `mapstructure:"span-filters"`
 	TraceFilters []ATLFilter `mapstructure:"trace-filters"`
 }
 
 type ATLFilter struct { // ArbitraryTracesLoggingFilter
-	ServiceNames []string `mapstructure:"service-names"`
-	Tags map[string]string `mapstructure:"tags"`
-	Mapping map[string][]string `mapstructure:"mapping"`
+	ServiceNames []string            `mapstructure:"service-names"`
+	Tags         map[string]string   `mapstructure:"tags"`
+	Mapping      map[string][]string `mapstructure:"mapping"`
 }

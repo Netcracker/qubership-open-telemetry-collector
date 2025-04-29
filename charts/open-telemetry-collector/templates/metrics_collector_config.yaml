@@ -39,8 +39,8 @@ data:
           {{- toYaml (.Values.OTEC_ARBITRARY_TRACES_LOGGING_CONFIG) | nindent 10 }}
     {{- end }}
     {{- if .Values.OTEC_ENABLE_LOGGING | default false }}
-      logexporter:
-        endpoint: {{- if .Values.GRAYLOG_COLLECTOR_HOST }} {{ printf "%s:%s" ( .Values.GRAYLOG_COLLECTOR_HOST | replace "https://" "" | replace "http://" "") ( .Values.GRAYLOG_COLLECTOR_PORT | toString ) }} {{- else }} {{ printf "%s:%s" ( .Values.GRAYLOG_UI_URL | replace "https://" "" | replace "http://" "") ( .Values.GRAYLOG_COLLECTOR_PORT | toString ) }} {{- end }}
+      graylogexporter:
+        endpoint: {{ .Values.GRAYLOG_COLLECTOR_HOST }}:{{ .Values.GRAYLOG_COLLECTOR_PORT }}
         {{- toYaml (.Values.OTEC_LOGTCPEXPORTER_PARAMETERS) | nindent 8 }}
     {{- end }}
     processors:

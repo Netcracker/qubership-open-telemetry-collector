@@ -25,7 +25,7 @@ import (
 	"go.uber.org/zap"
 
 	"otec/exporter/logtcpexporter/atl/atlmarshaller"
-	"otec/exporter/logtcpexporter/graylog"
+	"otec/exporter/graylog"
 	"otec/utils"
 
 	"go.opentelemetry.io/collector/component"
