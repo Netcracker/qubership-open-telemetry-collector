@@ -17,8 +17,9 @@ package graylogexporter
 import (
 	"context"
 	"errors"
-	"otec/exporter/logtcpexporter"
+	"sync"
 
+	"github.com/mitchellh/mapstructure"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/config/confignet"
 	"go.opentelemetry.io/collector/exporter"
@@ -30,15 +31,32 @@ const (
 	defaultBindEndpoint = "0.0.0.0:12201"
 )
 
+var (
+	fieldmapping *GELFFieldMapping
+	once         sync.Once
+)
+
+func loadGELFFieldMapping(cfg *Config) error {
+	var err error
+	once.Do(func() {
+		fieldmapping, err = parseGELFFieldMapping(cfg)
+	})
+	return err
+}
+
+func GetGELFFieldMapping() *GELFFieldMapping {
+	return fieldmapping
+}
+
 func NewFactory() exporter.Factory {
 	return exporter.NewFactory(
 		component.MustNewType(typeStr),
 		createDefaultConfig,
-		exporter.WithLogs(newgraylogLogExporter, component.StabilityLevelAlpha))
+		exporter.WithLogs(newgraylogExporter, component.StabilityLevelAlpha))
 }
 
 func createDefaultConfig() component.Config {
-	return &logtcpexporter.Config{
+	return &Config{
 		TCPAddrConfig: confignet.TCPAddrConfig{
 			Endpoint: defaultBindEndpoint,
 		},
@@ -47,27 +65,52 @@ func createDefaultConfig() component.Config {
 		MaxMessageSendRetryCnt:      1,
 		MaxSuccessiveSendErrCnt:     5,
 		SuccessiveSendErrFreezeTime: "1m",
+		GELFMapping:                 *getDefaultGELFFields(),
 	}
 }
 
-func newgraylogLogExporter(
+func parseGELFFieldMapping(cfg *Config) (*GELFFieldMapping, error) {
+	var fieldMapping GELFFieldMapping
+	raw := make(map[string]interface{})
+	if err := mapstructure.Decode(cfg, &raw); err != nil {
+		return nil, errors.New("failed to decode config to map")
+	}
+
+	if fmRaw, ok := raw["field_mapping"]; ok {
+		if err := mapstructure.Decode(fmRaw, &fieldMapping); err != nil {
+			return nil, errors.New("failed to decode field_mapping")
+		}
+	}
+	return &fieldMapping, nil
+}
+
+func newgraylogExporter(
 	ctx context.Context,
 	set exporter.Settings,
 	cfg component.Config,
 ) (exporter.Logs, error) {
-	ltec := cfg.(*logtcpexporter.Config)
+	ltec, ok := cfg.(*Config)
+	if !ok {
+		return nil, errors.New("invalid configuration type")
+	}
 
 	if ltec.Endpoint == "" {
 		return nil, errors.New("exporter config requires a non-empty 'endpoint'")
 	}
-
 	lte := createLogExporter(ltec, set)
+	err := loadGELFFieldMapping(ltec)
+	lte.config.GELFMapping = *GetGELFFieldMapping()
+
+	if err != nil {
+		return nil, errors.New("GELF field mapping is not parseable")
+	}
+
 	return exporterhelper.NewLogsExporter(
 		ctx,
 		set,
 		cfg,
 		lte.pushLogs,
 		exporterhelper.WithStart(lte.start),
-		exporterhelper.WithTimeout(exporterhelper.TimeoutSettings{Timeout: 0}),
+		exporterhelper.WithTimeout(exporterhelper.TimeoutSettings{Timeout: 0}), // Pass the GELF field mapping to the exporter
 	)
 }

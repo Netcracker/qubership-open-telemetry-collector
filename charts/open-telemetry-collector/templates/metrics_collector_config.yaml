@@ -42,6 +42,8 @@ data:
       graylogexporter:
         endpoint: {{ .Values.GRAYLOG_COLLECTOR_HOST }}:{{ .Values.GRAYLOG_COLLECTOR_PORT }}
         {{- toYaml (.Values.OTEC_LOGTCPEXPORTER_PARAMETERS) | nindent 8 }}
+        field_mapping:
+        {{- toYaml .Values.OTEC_GELF_FIELD_MAPPING | nindent 10 }}
     {{- end }}
     processors:
       batch:
@@ -80,9 +82,6 @@ data:
         metrics:
           receivers: [spanmetrics]
           exporters: [prometheus]
-        logs:
-          receivers: [jaeger, otlp]
-          exporters: [logexporter]
       telemetry:
         logs:
           level: "{{ .Values.LOG_LEVEL }}"
@@ -107,9 +106,11 @@ data:
       logtcpexporter:
         endpoint: {{- if .Values.GRAYLOG_COLLECTOR_HOST }} {{ printf "%s:%s" ( .Values.GRAYLOG_COLLECTOR_HOST | replace "https://" "" | replace "http://" "") ( .Values.GRAYLOG_COLLECTOR_PORT | toString ) }} {{- else }} {{ printf "%s:%s" ( .Values.GRAYLOG_UI_URL | replace "https://" "" | replace "http://" "") ( .Values.GRAYLOG_COLLECTOR_PORT | toString ) }} {{- end }}
         {{- toYaml (.Values.OTEC_LOGTCPEXPORTER_PARAMETERS) | nindent 8 }}
-      logexporter:
-        endpoint: {{- if .Values.GRAYLOG_COLLECTOR_HOST }} {{ printf "%s:%s" ( .Values.GRAYLOG_COLLECTOR_HOST | replace "https://" "" | replace "http://" "") ( .Values.GRAYLOG_COLLECTOR_PORT | toString ) }} {{- else }} {{ printf "%s:%s" ( .Values.GRAYLOG_UI_URL | replace "https://" "" | replace "http://" "") ( .Values.GRAYLOG_COLLECTOR_PORT | toString ) }} {{- end }}
+      graylogexporter:
+        endpoint: {{ .Values.GRAYLOG_COLLECTOR_HOST }}:{{ .Values.GRAYLOG_COLLECTOR_PORT }}
         {{- toYaml (.Values.OTEC_LOGTCPEXPORTER_PARAMETERS) | nindent 8 }}
+        field_mapping:
+        {{- toYaml .Values.OTEC_GELF_FIELD_MAPPING | nindent 10 }}
     processors:
       batch:
       filter/removesessiontraces:
@@ -167,8 +168,8 @@ data:
           processors: [filter/removesessiontraces]
           exporters: [otlp, logtcpexporter]
         logs:
-          receivers: [sentryreceiver]
-          exporters: [logexporter]
+          receivers: [otlp, jaeger, sentryreceiver]
+          exporters: [graylogexporter]
       telemetry:
         logs:
           level: "{{ .Values.LOG_LEVEL }}"

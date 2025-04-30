@@ -14,6 +14,7 @@
 
 package graylogexporter
 
+
 import (
 	"context"
 	"encoding/json"
@@ -23,27 +24,27 @@ import (
 	"sync"
 	"time"
 
-	"go.uber.org/zap"
-
 	"otec/exporter/graylog"
-	"otec/exporter/logtcpexporter"
+
+	"go.uber.org/zap"
 
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/exporter"
-	"go.opentelemetry.io/collector/pdata/plog"
 	"go.opentelemetry.io/collector/pdata/pcommon"
+	"go.opentelemetry.io/collector/pdata/plog"
 )
 
-type graylogexporter struct {
+type grayLogExporter struct {
 	url           string
 	graylogSender *graylog.GraylogSender
 	settings      exporter.Settings
 	logger        *zap.Logger
-	config        *logtcpexporter.Config
+	config        *Config
+	// fieldmapping  *GELFFieldMapping
 }
 
-func createLogExporter(cfg *logtcpexporter.Config, settings exporter.Settings) *graylogexporter {
-	return &graylogexporter{
+func createLogExporter(cfg *Config, settings exporter.Settings) *grayLogExporter {
+	return &grayLogExporter{
 		url:      strings.Trim(cfg.Endpoint, " /"),
 		settings: settings,
 		logger:   settings.Logger,
@@ -51,7 +52,7 @@ func createLogExporter(cfg *logtcpexporter.Config, settings exporter.Settings) *
 	}
 }
 
-func (le *graylogexporter) start(_ context.Context, host component.Host) (err error) {
+func (le *grayLogExporter) start(_ context.Context, host component.Host) (err error) {
 	var address string
 	var port uint64
 	useBulk := true
@@ -94,7 +95,7 @@ func (le *graylogexporter) start(_ context.Context, host component.Host) (err er
 	return nil
 }
 
-func (le *graylogexporter) processLogRecords(scopeLogs plog.ScopeLogs) []string {
+func (le *grayLogExporter) processLogRecords(scopeLogs plog.ScopeLogs) []string {
 	var messages []string
 	for i := 0; i < scopeLogs.LogRecords().Len(); i++ {
 		logRecord := scopeLogs.LogRecords().At(i)
@@ -108,13 +109,15 @@ func (le *graylogexporter) processLogRecords(scopeLogs plog.ScopeLogs) []string 
 	return messages
 }
 
-func (le *graylogexporter) formatLogRecordToGELF(logRecord plog.LogRecord) (string, error) {
+func (le *grayLogExporter) formatLogRecordToGELF(logRecord plog.LogRecord) (string, error) {
 	timestamp, level := le.getTimestampAndLevel(logRecord)
-
+	// if le.config.GEL == nil {
+	// 	return "", errors.New("graylog field mapping is not set")
+	// }
 	gelf := map[string]interface{}{
-		"version":       "1.1",
-		"host":          "open-telemetry-collector",
-		"short_message": logRecord.Body().AsString(),
+		"version":       le.config.GELFMapping.Version,
+		"host":          le.config.GELFMapping.Host,
+		"short_message": le.config.GELFMapping.ShortMessage,
 		"timestamp":     float64(timestamp.UnixNano()) / 1e9,
 		"level":         level,
 	}
@@ -131,7 +134,7 @@ func (le *graylogexporter) formatLogRecordToGELF(logRecord plog.LogRecord) (stri
 	return string(msgBytes), nil
 }
 
-func (le *graylogexporter) pushLogs(ctx context.Context, logs plog.Logs) error {
+func (le *grayLogExporter) pushLogs(ctx context.Context, logs plog.Logs) error {
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	var allMessages []string
@@ -156,7 +159,7 @@ func (le *graylogexporter) pushLogs(ctx context.Context, logs plog.Logs) error {
 	return le.sendBulkToGraylog(allMessages)
 }
 
-func (le *graylogexporter) sendBulkToGraylog(messages []string) error {
+func (le *grayLogExporter) sendBulkToGraylog(messages []string) error {
 	var buffer strings.Builder
 	for _, msg := range messages {
 		buffer.WriteString(msg)
@@ -165,7 +168,7 @@ func (le *graylogexporter) sendBulkToGraylog(messages []string) error {
 	return le.graylogSender.SendRaw(buffer.String())
 }
 
-func (le *graylogexporter) getTimestampAndLevel(logRecord plog.LogRecord) (time.Time, uint) {
+func (le *grayLogExporter) getTimestampAndLevel(logRecord plog.LogRecord) (time.Time, uint) {
 	timestamp := logRecord.Timestamp().AsTime()
 
 	text := strings.ToLower(logRecord.SeverityText())
