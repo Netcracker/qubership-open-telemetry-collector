@@ -12,7 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package logtcpexporter
+package graylogexporter
+
 
 import (
 	"fmt"
@@ -22,14 +23,32 @@ import (
 	"go.opentelemetry.io/collector/config/confignet"
 )
 
+type GELFFieldMapping struct {
+	Version      string `mapstructure:"version"`
+	Host         string `mapstructure:"host"`
+	ShortMessage string `mapstructure:"short_message"`
+	FullMessage  string `mapstructure:"full_message"`
+	Level        string `mapstructure:"level"`
+}
+
 type Config struct {
-	confignet.TCPAddrConfig     `mapstructure:",squash"`
-	ATLCfg                      ATLConfig `mapstructure:"arbitrary-traces-logging"`
-	ConnPoolSize                int       `mapstructure:"connection-pool-size"`
-	QueueSize                   int       `mapstructure:"queue-size"`
-	MaxMessageSendRetryCnt      int       `mapstructure:"max-message-send-retry-count"`
-	MaxSuccessiveSendErrCnt     int       `mapstructure:"max-successive-send-error-count"`
-	SuccessiveSendErrFreezeTime string    `mapstructure:"successive-send-error-freeze-time"`
+    confignet.TCPAddrConfig     `mapstructure:",squash"`
+    GELFMapping                 GELFFieldMapping `mapstructure:"field_mapping"`
+    ConnPoolSize                int              `mapstructure:"connection-pool-size"`
+    QueueSize                   int              `mapstructure:"queue-size"`
+    MaxMessageSendRetryCnt      int              `mapstructure:"max-message-send-retry-count"`
+    MaxSuccessiveSendErrCnt     int              `mapstructure:"max-successive-send-error-count"`
+    SuccessiveSendErrFreezeTime string           `mapstructure:"successive-send-error-freeze-time"`
+}
+
+func getDefaultGELFFields() *GELFFieldMapping {
+	return &GELFFieldMapping{
+		Version:      "1.1",
+		Host:         "open-telemetry-collector",
+		ShortMessage: "short_message",
+		FullMessage:  "full_message",
+		Level:        "info",
+	}
 }
 
 var _ component.Config = (*Config)(nil)
@@ -52,15 +71,4 @@ func (cfg *Config) Validate() error {
 		return fmt.Errorf("successive-send-error-freeze-time is not parseable : %+v", err)
 	}
 	return nil
-}
-
-type ATLConfig struct {
-	SpanFilters  []ATLFilter `mapstructure:"span-filters"`
-	TraceFilters []ATLFilter `mapstructure:"trace-filters"`
-}
-
-type ATLFilter struct { // ArbitraryTracesLoggingFilter
-	ServiceNames []string            `mapstructure:"service-names"`
-	Tags         map[string]string   `mapstructure:"tags"`
-	Mapping      map[string][]string `mapstructure:"mapping"`
 }

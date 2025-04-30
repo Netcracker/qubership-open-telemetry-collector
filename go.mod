@@ -39,6 +39,7 @@ require (
 )
 
 require (
+	github.com/mitchellh/mapstructure v1.5.1-0.20231216201459-8508981c8b6c
 	go.opentelemetry.io/collector/confmap v1.16.0
 	go.opentelemetry.io/collector/confmap/converter/expandconverter v0.110.0
 	go.opentelemetry.io/collector/confmap/provider/envprovider v1.16.0

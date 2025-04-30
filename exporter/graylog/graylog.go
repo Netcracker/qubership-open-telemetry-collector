@@ -15,15 +15,16 @@
 package graylog
 
 import (
+	"context"
 	"encoding/json"
-	"runtime/debug"
 	"fmt"
 	"net"
+	"runtime/debug"
+	"strings"
 	"time"
-	"context"
 
-	"go.uber.org/zap"
 	"github.com/Jeffail/gabs"
+	"go.uber.org/zap"
 )
 
 type Transport string
@@ -40,13 +41,14 @@ type Endpoint struct {
 }
 
 type GraylogSender struct {
-	ctx       context.Context
-	endpoint  Endpoint
-	msgQueue  chan *Message
-	logger    *zap.Logger
+	ctx                         context.Context
+	endpoint                    Endpoint
+	msgQueue                    chan *Message
+	logger                      *zap.Logger
 	maxMessageSendRetryCnt      int
 	maxSuccessiveSendErrCnt     int
 	successiveSendErrFreezeTime time.Duration
+	useBulkSend                 bool
 }
 
 type Message struct {
@@ -60,27 +62,36 @@ type Message struct {
 }
 
 func NewGraylogSender(
-		endpoint Endpoint,
-		logger *zap.Logger,
-		connPullSize int,
-		queueSize int,
-		maxMessageSendRetryCnt int,
-		maxSuccessiveSendErrCnt int,
-		successiveSendErrFreezeTime time.Duration,
-	) *GraylogSender {
+	endpoint Endpoint,
+	logger *zap.Logger,
+	connPoolSize int,
+	queueSize int,
+	maxMessageSendRetryCnt int,
+	maxSuccessiveSendErrCnt int,
+	successiveSendErrFreezeTime time.Duration,
+	useBulkSend ...bool,
+) *GraylogSender {
+	bulkSend := false
+	if len(useBulkSend) > 0 {
+		bulkSend = useBulkSend[0]
+	}
 	result := GraylogSender{
-		endpoint: endpoint,
-		logger: logger,
-		msgQueue: make(chan *Message, queueSize),
-		maxMessageSendRetryCnt: maxMessageSendRetryCnt,
-		maxSuccessiveSendErrCnt: maxSuccessiveSendErrCnt,
+		endpoint:                    endpoint,
+		logger:                      logger,
+		msgQueue:                    make(chan *Message, queueSize),
+		maxMessageSendRetryCnt:      maxMessageSendRetryCnt,
+		maxSuccessiveSendErrCnt:     maxSuccessiveSendErrCnt,
 		successiveSendErrFreezeTime: successiveSendErrFreezeTime,
-		ctx: context.Background(),
+		ctx:                         context.Background(),
+		useBulkSend:                 bulkSend,
 	}
 
-	for i := 0 ; i < connPullSize; i++ {
-		i := i
-		go result.tcpConnGoroutine(i)
+	if bulkSend {
+		result.startBatchWorker() // Start batch worker for bulk send
+	} else {
+		for i := 0; i < connPoolSize; i++ {
+			go result.tcpConnGoroutine(i) // Send messages individually
+		}
 	}
 
 	return &result
@@ -115,14 +126,14 @@ func (gs *GraylogSender) tcpConnGoroutine(connNumber int) {
 		for {
 			var data []byte
 			if messageRetryCnt > MAX_RETRY_CNT {
-				gs.logger.Sugar().Errorf("GraylogTcpConnection : Message %+v is skipped after %v retries in the goroutine #%v", retryData, messageRetryCnt - 1, connNumber)
+				gs.logger.Sugar().Errorf("GraylogTcpConnection : Message %+v is skipped after %v retries in the goroutine #%v", retryData, messageRetryCnt-1, connNumber)
 				retryData = nil
 			}
 			if retryData != nil {
 				data = *retryData
 				gs.logger.Sugar().Infof("GraylogTcpConnection : Retry %v sending message in the goroutine #%v", messageRetryCnt, connNumber)
 			} else {
-				msg, ok := <- gs.msgQueue
+				msg, ok := <-gs.msgQueue
 				if !ok {
 					gs.logger.Sugar().Errorf("GraylogTcpConnection : Message chan is closed, stopping the goroutine #%v", connNumber)
 					return
@@ -160,6 +171,75 @@ func (gs *GraylogSender) tcpConnGoroutine(connNumber int) {
 			}
 		}
 	}
+}
+
+func (gs *GraylogSender) startBatchWorker() {
+	go func() {
+		var buffer strings.Builder
+		for {
+			msg, ok := <-gs.msgQueue
+			if !ok {
+				gs.logger.Sugar().Error("GraylogTcpConnection : Message chan is closed, stopping the batch worker")
+				return
+			}
+			if msg == nil {
+				gs.logger.Sugar().Error("GraylogTcpConnection : Nil message received from chan in the batch worker")
+				continue
+			}
+
+			data, err := prepareMessage(msg)
+			if err != nil {
+				gs.logger.Sugar().Errorf("Error preparing message %v for bulk sending: %+v", msg, err)
+				continue
+			}
+			buffer.Write(data)
+			if buffer.Len() >= 1024 {
+				err := gs.sendBulkMessage(buffer.String())
+				if err != nil {
+					gs.logger.Sugar().Errorf("Error sending bulk message: %+v", err)
+				}
+				buffer.Reset()
+			}
+		}
+	}()
+}
+
+func (gs *GraylogSender) sendBulkMessage(data string) error {
+	tcpAddress := fmt.Sprintf("%s:%d", gs.endpoint.Address, gs.endpoint.Port)
+	tcpConn, err := net.Dial(string(gs.endpoint.Transport), tcpAddress)
+	if err != nil {
+		gs.logger.Sugar().Errorf("GraylogTcpConnection : Error sending bulk message: %+v", err)
+		return err
+	}
+	defer tcpConn.Close()
+
+	_, err = tcpConn.Write([]byte(data))
+	if err != nil {
+		gs.logger.Sugar().Errorf("Error writing bulk data to Graylog: %+v", err)
+		return err
+	}
+
+	gs.logger.Sugar().Debug("Bulk message sent successfully to Graylog")
+	return nil
+}
+
+func (gs *GraylogSender) SendRaw(data string) error {
+	tcpAddress := fmt.Sprintf("%s:%d", gs.endpoint.Address, gs.endpoint.Port)
+	tcpConn, err := net.Dial(string(gs.endpoint.Transport), tcpAddress)
+	if err != nil {
+		gs.logger.Sugar().Errorf("Error sending raw data to Graylog: %+v", err)
+		return err
+	}
+	defer tcpConn.Close()
+
+	_, err = tcpConn.Write([]byte(data))
+	if err != nil {
+		gs.logger.Sugar().Errorf("Error writing raw data to Graylog: %+v", err)
+		return err
+	}
+
+	gs.logger.Sugar().Debug("Raw data sent successfully to Graylog")
+	return nil
 }
 
 func (gs *GraylogSender) SendToQueue(m *Message) error {
