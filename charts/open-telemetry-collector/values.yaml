@@ -144,14 +144,14 @@ JAEGER_COLLECTOR_OTLP_PORT: "4317"
 # Mandatory: no
 # Default: https://graylog-logging.${CLOUD_PUBLIC_HOST}
 #
-GRAYLOG_COLLECTOR_HOST: "10.101.17.36"
+GRAYLOG_COLLECTOR_HOST: ""
 # GRAYLOG_COLLECTOR_HOST: "localhost"
 # GRAYLOG_COLLECTOR_PORT is the port for the Graylog service above
 # Type: string
 # Mandatory: no
 # Default: 12201
 #
-GRAYLOG_COLLECTOR_PORT: "12202"
+GRAYLOG_COLLECTOR_PORT: "12201"
 
 # CONFIG_MAP is the custom config-map for the open-telemetry-collector. If it is not set, the default one is used.
 # Type: Object
