@@ -16,6 +16,7 @@ COPY *.go ./
 COPY connector/ connector/
 COPY exporter/ exporter/
 COPY receiver/ receiver/
+COPY common/ common/
 COPY utils/ utils/
 
 RUN go mod download -x

@@ -24,7 +24,7 @@ import (
 	"sync"
 	"time"
 
-	"otec/exporter/graylog"
+	"otec/common/graylog"
 
 	"go.uber.org/zap"
 

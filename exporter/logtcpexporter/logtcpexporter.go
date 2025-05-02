@@ -24,8 +24,8 @@ import (
 
 	"go.uber.org/zap"
 
+	"otec/common/graylog"
 	"otec/exporter/logtcpexporter/atl/atlmarshaller"
-	"otec/exporter/graylog"
 	"otec/utils"
 
 	"go.opentelemetry.io/collector/component"
@@ -35,23 +35,23 @@ import (
 )
 
 type logTcpExporter struct {
-	url           string
-	graylogSender *graylog.GraylogSender
-	settings      exporter.Settings
-	logger        *zap.Logger
-	config        *Config
+	url                string
+	graylogSender      *graylog.GraylogSender
+	settings           exporter.Settings
+	logger             *zap.Logger
+	config             *Config
 	traceFilterEnabled bool
-	spanFilterEnabled bool
+	spanFilterEnabled  bool
 }
 
 func createLogTcpExporter(cfg *Config, settings exporter.Settings) *logTcpExporter {
 	return &logTcpExporter{
-		url:      strings.Trim(cfg.Endpoint, " /"),
-		settings: settings,
-		logger:   settings.Logger,
-		config:   cfg,
+		url:                strings.Trim(cfg.Endpoint, " /"),
+		settings:           settings,
+		logger:             settings.Logger,
+		config:             cfg,
 		traceFilterEnabled: len(cfg.ATLCfg.TraceFilters) > 0,
-		spanFilterEnabled: len(cfg.ATLCfg.SpanFilters) > 0,
+		spanFilterEnabled:  len(cfg.ATLCfg.SpanFilters) > 0,
 	}
 }
 
@@ -144,7 +144,7 @@ func (lte *logTcpExporter) sendArbitraryLoggingTrace(traces ptrace.Traces) error
 	extra := map[string]string{
 		"trace_id": traceId,
 	}
-	
+
 	timestamp, level := lte.getTimestampAndLevel(traces)
 
 	msg := graylog.Message{
@@ -458,7 +458,7 @@ func (lte *logTcpExporter) sendSentrySpan(span ptrace.Span) error {
 		messageStr = message.AsString()
 	}
 	if messageStr == "" {
-	    message, ok = span.Attributes().Get("context.error")
+		message, ok = span.Attributes().Get("context.error")
 		if ok {
 			messageStr = message.AsString()
 		}
@@ -532,21 +532,21 @@ func (lte *logTcpExporter) sendSentrySpan(span ptrace.Span) error {
 		Timestamp:    timestampUnix,
 		Level:        graylogLevel,
 		Extra: map[string]string{
-			"span_id": spanIdStr,
-			"trace_id": traceIdStr,
-			"component": "frontend",
-			"facility": "open-telemetry-collector",
-			"sdk": sdkStr,
-			"stacktrace": fullMessageStr,
-			"event_id": eventIdStr,
-			"name": nameStr,
-			"platform": platformStr,
-			"time": timestampParsed.Format(time.RFC3339),
-			"user_id": userIdStr,
+			"span_id":     spanIdStr,
+			"trace_id":    traceIdStr,
+			"component":   "frontend",
+			"facility":    "open-telemetry-collector",
+			"sdk":         sdkStr,
+			"stacktrace":  fullMessageStr,
+			"event_id":    eventIdStr,
+			"name":        nameStr,
+			"platform":    platformStr,
+			"time":        timestampParsed.Format(time.RFC3339),
+			"user_id":     userIdStr,
 			"transaction": transactionStr,
-			"category": categoryStr,
-			"url": urlStr,
-			"browser": browserStr,
+			"category":    categoryStr,
+			"url":         urlStr,
+			"browser":     browserStr,
 		},
 	}
 	err := lte.graylogSender.SendToQueue(&msg)
@@ -575,21 +575,21 @@ func (lte *logTcpExporter) sendSentrySpan(span ptrace.Span) error {
 			statusB, ok := breadcrumbMap["status"].(string)
 
 			extra := map[string]string{
-				"span_id": spanIdStr,
-				"trace_id": traceIdStr,
-				"component": "frontend",
-				"facility": "open-telemetry-collector",
-				"sdk": sdkStr,
-				"stacktrace": fullMessageStr,
-				"event_id": eventIdStr,
-				"name": nameStr,
-				"platform": platformStr,
-				"time": timestampParsed.Format(time.RFC3339),
-				"user_id": userIdStr,
+				"span_id":     spanIdStr,
+				"trace_id":    traceIdStr,
+				"component":   "frontend",
+				"facility":    "open-telemetry-collector",
+				"sdk":         sdkStr,
+				"stacktrace":  fullMessageStr,
+				"event_id":    eventIdStr,
+				"name":        nameStr,
+				"platform":    platformStr,
+				"time":        timestampParsed.Format(time.RFC3339),
+				"user_id":     userIdStr,
 				"transaction": transactionStr,
-				"category": getFirst(categoryB, categoryStr),
-				"url": urlStr,
-				"browser": browserStr,
+				"category":    getFirst(categoryB, categoryStr),
+				"url":         urlStr,
+				"browser":     browserStr,
 			}
 
 			if statusB != "" {
@@ -645,7 +645,7 @@ func (lte *logTcpExporter) getGraylogLevel(level string) uint {
 	case "log":
 		return 5
 	case "info":
-	    return 6
+		return 6
 	case "debug":
 		return 7
 	}
