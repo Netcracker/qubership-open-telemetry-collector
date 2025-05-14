@@ -41,12 +41,16 @@ data:
     {{- if .Values.OTEC_ENABLE_LOGGING | default false }}
       graylogexporter:
         endpoint: {{ .Values.GRAYLOG_COLLECTOR_HOST }}:{{ .Values.GRAYLOG_COLLECTOR_PORT }}
-        {{- toYaml (.Values.OTEC_LOGTCPEXPORTER_PARAMETERS) | nindent 8 }}
+        {{- toYaml (.Values.OTEC_GRAYLOGEXPORTER_PARAMETERS) | nindent 8 }}
         field_mapping:
         {{- toYaml .Values.OTEC_GELF_FIELD_MAPPING | nindent 10 }}
     {{- end }}
     processors:
       batch:
+        send_batch_max_size: 10000
+        timeout: 0s
+      {{- if .Values.OTEC_TAILBASED_GENERAL_PARAMETERS}} {{- toYaml (.Values.OTEC_TAILBASED_GENERAL_PARAMETERS) | nindent 6}}{{- end }}
+      {{- if .Values.OTEC_TAILBASED_POLICIES_PARAMETERS}} {{- toYaml (.Values.OTEC_TAILBASED_POLICIES_PARAMETERS) | nindent 8}}{{- end }}
     connectors:
       spanmetrics:
         histogram:
@@ -73,7 +77,11 @@ data:
       pipelines:
         traces:
           receivers: [jaeger, otlp]
+          {{- if .Values.OTEC_TAILBASED_GENERAL_PARAMETERS}}
+          processors: [batch, tail_sampling]
+          {{- else }}
           processors: [batch]
+          {{- end }}
           {{- if .Values.OTEC_ENABLE_ARBITRARY_TRACES_LOGGING | default false }}
           exporters: [otlp, spanmetrics, logtcpexporter]
           {{- else }}

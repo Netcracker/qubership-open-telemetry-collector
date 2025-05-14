@@ -1,4 +1,4 @@
-// Copyright 2024 Qubership
+// Copyright 2025 Qubership
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,9 +24,9 @@ import (
 
 	"go.uber.org/zap"
 
-	"otec/common/graylog"
-	"otec/exporter/logtcpexporter/atl/atlmarshaller"
-	"otec/utils"
+	"github.com/Netcracker/qubership-open-telemetry-collector/common/graylog"
+	"github.com/Netcracker/qubership-open-telemetry-collector/exporter/logtcpexporter/atl/atlmarshaller"
+	"github.com/Netcracker/qubership-open-telemetry-collector/utils"
 
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/exporter"

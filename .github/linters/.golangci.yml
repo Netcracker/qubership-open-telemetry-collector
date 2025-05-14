@@ -1,0 +1,5 @@
+linters:
+  disable:
+    - revive
+run:
+  timeout: 10m

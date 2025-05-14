@@ -2,7 +2,7 @@
 # Type: string
 # Default: open-telemetry-collector
 #
-SERVICE_NAME: open-telemetry-collector
+SERVICE_NAME: qubership-open-telemetry-collector
 
 # Allows creating a service monitor that sends SPM metrics to prometheus.
 # Type: boolean
@@ -51,12 +51,81 @@ OTEC_LOGTCPEXPORTER_PARAMETERS:
   max-successive-send-error-count: 5
   successive-send-error-freeze-time: 1m
 
-# OTEC_GRAYLOG_EXPORTER_PARAMETERS:
-#   connection-pool-size: 1
-#   queue-size: 1024
-#   max-message-send-retry-count: 1
-#   max-successive-send-error-count: 5
-#   successive-send-error-freeze-time: 1m
+# Allows to set up graylogexporter parameters
+# Type: object
+# Default: see below
+#
+OTEC_GRAYLOGEXPORTER_PARAMETERS:
+  connection-pool-size: 1
+  batch-size: 1000
+  max-message-send-retry-count: 1
+  max-successive-send-error-count: 5
+  successive-send-error-freeze-time: 1m
+
+# Allows to set up tailbased tracing general parameters
+# Type: object
+# Default: see below
+#
+OTEC_TAILBASED_GENERAL_PARAMETERS:
+      tail_sampling:
+        decision_wait: 31s
+        num_traces: 7500
+        expected_new_traces_per_sec: 200
+        decision_cache:
+          sampled_cache_size: 75000
+          non_sampled_cache_size: 22500
+# Allows to set up tailbased tracing policy parameters
+# Type: object
+# Default: see below
+#
+OTEC_TAILBASED_POLICIES_PARAMETERS:
+    policies: [
+      {
+        name: composite-policy,
+        type: composite,
+        composite: {
+          max_total_spans_per_second: 2000000,
+          policy_order: [string_attribute, probabilistic, status_code, always_sample],
+          composite_sub_policy: [
+            {
+              name: string_attribute,
+              type: string_attribute,
+              string_attribute: {
+                key: key, values: [testvalue*], enabled_regex_matching: true
+              }
+            },
+            {
+              name: probabilistic,
+              type: probabilistic,
+              probabilistic: {
+                sampling_percentage: 10
+              }
+            },
+            {
+              name: status_code,
+              type: status_code,
+              status_code: {
+                status_codes: [OK]
+              }
+            }
+          ],
+          rate_allocation: [
+            {
+              policy: string_attribute,
+              percent: 45
+            },
+            {
+              policy: probabilistic,
+              percent: 10
+            },
+            {
+              policy: status_code,
+              percent: 45
+            }
+          ]
+        }
+      }
+    ]
 
 
 # The resources describe to compute resource requests and limits for single Pods.
@@ -69,8 +138,8 @@ resources:
     cpu: 100m
     memory: 100Mi
   limits:
-    cpu: 200m
-    memory: 200Mi
+    cpu: 2000m
+    memory: 2000Mi
 
 # The name of type cloud environment
 # Type: String
@@ -79,9 +148,8 @@ resources:
 #
 PAAS_PLATFORM: KUBERNETES
 
-# imageRepository: ghcr.io/netcracker/qubership-open-telemetry-collector
-# imageTag: feature-alllogexporter
-
+imageRepository: docker.io/library/qubership-open-telemetry-collector
+imageTag: latest
 
 # Only pods which provide own keys can access the private registry.
 # Default: []
@@ -114,7 +182,7 @@ annotations: {}
 # Mandatory: no
 # Default: /otec
 #
-entrypoint: "/otec"
+entrypoint: "/app/qubership-open-telemetry-collector"
 
 # JAEGER_COLLECTOR_HOST is the Jaeger hostname or ip
 # Type: string

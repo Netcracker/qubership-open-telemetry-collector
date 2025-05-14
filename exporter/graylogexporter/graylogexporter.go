@@ -14,7 +14,6 @@
 
 package graylogexporter
 
-
 import (
 	"context"
 	"encoding/json"
@@ -24,7 +23,7 @@ import (
 	"sync"
 	"time"
 
-	"otec/common/graylog"
+	"github.com/Netcracker/qubership-open-telemetry-collector/common/graylog"
 
 	"go.uber.org/zap"
 
@@ -85,7 +84,7 @@ func (le *grayLogExporter) start(_ context.Context, host component.Host) (err er
 		},
 		le.logger,
 		le.config.ConnPoolSize,
-		le.config.QueueSize,
+		le.config.BatchSize,
 		le.config.MaxMessageSendRetryCnt,
 		le.config.MaxSuccessiveSendErrCnt,
 		freezeTime,
@@ -111,13 +110,15 @@ func (le *grayLogExporter) processLogRecords(scopeLogs plog.ScopeLogs) []string 
 
 func (le *grayLogExporter) formatLogRecordToGELF(logRecord plog.LogRecord) (string, error) {
 	timestamp, level := le.getTimestampAndLevel(logRecord)
-	// if le.config.GEL == nil {
-	// 	return "", errors.New("graylog field mapping is not set")
-	// }
+	fullMessage := logRecord.Body().AsString()
+	if fullMessage == "" {
+		fullMessage = "No message provided"
+	}
 	gelf := map[string]interface{}{
 		"version":       le.config.GELFMapping.Version,
 		"host":          le.config.GELFMapping.Host,
 		"short_message": le.config.GELFMapping.ShortMessage,
+		"full_message":  fullMessage,
 		"timestamp":     float64(timestamp.UnixNano()) / 1e9,
 		"level":         level,
 	}

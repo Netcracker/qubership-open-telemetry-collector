@@ -1,4 +1,4 @@
-// Copyright 2024 Qubership
+// Copyright 2025 Qubership
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,13 +20,13 @@ import (
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/consumer"
 
-	"otec/connector/sentrymetricsconnector/metrics"
-	"otec/receiver/sentryreceiver/models"
+	"github.com/Netcracker/qubership-open-telemetry-collector/connector/sentrymetricsconnector/metrics"
+	"github.com/Netcracker/qubership-open-telemetry-collector/receiver/sentryreceiver/models"
 
+	"go.opentelemetry.io/collector/connector"
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/pmetric"
 	"go.opentelemetry.io/collector/pdata/ptrace"
-	"go.opentelemetry.io/collector/connector"
 
 	"go.uber.org/zap"
 )
@@ -36,17 +36,17 @@ const scopeName = "otelcol/sentrymetricsconnector"
 // sentrymetrics can evaluate metrics based on sentry traces
 // and emit them to a metrics pipeline.
 type sentrymetrics struct {
-	config *Config
+	config          *Config
 	metricsConsumer consumer.Metrics
 	component.StartFunc
 	component.ShutdownFunc
-	logger *zap.Logger
-	counter int64
-	measurementsHist *metrics.CustomHistogram
-	measurementsBuckets map[string][]float64
+	logger                     *zap.Logger
+	counter                    int64
+	measurementsHist           *metrics.CustomHistogram
+	measurementsBuckets        map[string][]float64
 	defaultMeasurementsBuckets []float64
-	measurementsLabels map[string]map[string]string
-	defaultMeasurementsLabels map[string]string
+	measurementsLabels         map[string]map[string]string
+	defaultMeasurementsLabels  map[string]string
 }
 
 func CreateSentryMetricsConnector(config *Config, metricsConsumer consumer.Metrics, set connector.Settings) *sentrymetrics {
@@ -296,11 +296,11 @@ func normalizeUnit(val float64, unit string) float64 {
 	case "millisecond", "byte", "none", "ratio", "":
 		return val
 	case "percent":
-		return val/100
+		return val / 100
 	case "microsecond":
-		return val/1000
+		return val / 1000
 	case "nanosecond":
-		return val/1000_000
+		return val / 1000_000
 	case "second", "kilobyte":
 		return val * 1000
 	case "minute":

@@ -17,13 +17,14 @@ package sentryreceiver
 import (
 	"go.opentelemetry.io/collector/config/confighttp"
 )
+
 // Config represents the receiver config settings within the collector's config.yaml
 type Config struct {
-	confighttp.ServerConfig `mapstructure:",squash"` // squash ensures fields are correctly decoded in embedded struct
-	HttpQueryParamValuesToAttrs []string `mapstructure:"http-query-param-values-to-attrs"`
-	HttpQueryParamExistenceToAttrs []string `mapstructure:"http-query-param-existence-to-attrs"`
-	LevelEvaluationStrategy string `mapstructure:"level-evaluation-strategy"`
-	ContextSpanAttributesList []string `mapstructure:"context-span-attributes-list"`
+	confighttp.ServerConfig        `mapstructure:",squash"` // squash ensures fields are correctly decoded in embedded struct
+	HttpQueryParamValuesToAttrs    []string                 `mapstructure:"http-query-param-values-to-attrs"`
+	HttpQueryParamExistenceToAttrs []string                 `mapstructure:"http-query-param-existence-to-attrs"`
+	LevelEvaluationStrategy        string                   `mapstructure:"level-evaluation-strategy"`
+	ContextSpanAttributesList      []string                 `mapstructure:"context-span-attributes-list"`
 }
 
 func (cfg *Config) Validate() error {

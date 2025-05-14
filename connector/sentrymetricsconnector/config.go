@@ -1,4 +1,4 @@
-// Copyright 2024 Qubership
+// Copyright 2025 Qubership
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,18 +16,18 @@ package sentrymetricsconnector
 
 type Config struct {
 	SentryMeasurementsCfg SentryMeasurementsConfig `mapstructure:"sentry_measurements"`
-	SentryEventCountCfg SentryEventCountConfig `mapstructure:"sentry_events"`
+	SentryEventCountCfg   SentryEventCountConfig   `mapstructure:"sentry_events"`
 }
 
 type SentryMeasurementsConfig struct {
-	DefaultBuckets []float64 `mapstructure:"default_buckets"`
-	DefaultLabels map[string]string `mapstructure:"default_labels"`
-	Custom map[string]*CustomSentryMeasurementsConfig `mapstructure:"custom"`
+	DefaultBuckets []float64                                  `mapstructure:"default_buckets"`
+	DefaultLabels  map[string]string                          `mapstructure:"default_labels"`
+	Custom         map[string]*CustomSentryMeasurementsConfig `mapstructure:"custom"`
 }
 
 type CustomSentryMeasurementsConfig struct {
-	Buckets []float64 `mapstructure:"buckets"`
-	Labels *map[string]string `mapstructure:"labels"`
+	Buckets []float64          `mapstructure:"buckets"`
+	Labels  *map[string]string `mapstructure:"labels"`
 }
 
 type SentryEventCountConfig struct {

@@ -1,4 +1,4 @@
-// Copyright 2024 Qubership
+// Copyright 2025 Qubership
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,23 +19,23 @@ import (
 )
 
 const (
-	ENVELOP_TYPE_UNKNOWN = 0
+	ENVELOP_TYPE_UNKNOWN     = 0
 	ENVELOP_TYPE_TRANSACTION = 1
-	ENVELOP_TYPE_EVENT = 2
-	ENVELOP_TYPE_SESSION = 3
+	ENVELOP_TYPE_EVENT       = 2
+	ENVELOP_TYPE_SESSION     = 3
 )
 
 type SdkInfo struct {
-	Name         string   `json:"name,omitempty"`
-	Version      string   `json:"version,omitempty"`
+	Name    string `json:"name,omitempty"`
+	Version string `json:"version,omitempty"`
 }
 
 type EnvelopTypeHeader struct {
-	Type string `json:"type"`
-	Length int `json:"length,omitempty"`
+	Type   string `json:"type"`
+	Length int    `json:"length,omitempty"`
 }
 type EnvelopEventHeader struct {
-	SdkInfo                `json:"sdk,omitempty"`
+	SdkInfo `json:"sdk,omitempty"`
 	EventID string `json:"event_id,omitempty"`
 }
 
@@ -63,42 +63,42 @@ func (d *StrongString) UnmarshalJSON(data []byte) error {
 }
 
 type EventRequest struct {
-	URL         string            `json:"url,omitempty"`
-	Headers     map[string]string `json:"headers,omitempty"`
+	URL     string            `json:"url,omitempty"`
+	Headers map[string]string `json:"headers,omitempty"`
 }
 
 type Event struct {
-	Message        StrongString           `json:"message,omitempty"`
-	Level          string                 `json:"level,omitempty"`
-	EventId        string                 `json:"event_id,omitempty"`
-	Platform       string                 `json:"platform,omitempty"`
-	Dist           string                 `json:"dist,omitempty"`
-	Timestamp      float64                `json:"timestamp,omitempty"`
-	StartTimestamp float64                `json:"start_timestamp,omitempty"`
-	Environment    string                 `json:"environment,omitempty"`
-	Release        string                 `json:"release,omitempty"`
-	Transaction    string                 `json:"transaction,omitempty"`
+	Message        StrongString                `json:"message,omitempty"`
+	Level          string                      `json:"level,omitempty"`
+	EventId        string                      `json:"event_id,omitempty"`
+	Platform       string                      `json:"platform,omitempty"`
+	Dist           string                      `json:"dist,omitempty"`
+	Timestamp      float64                     `json:"timestamp,omitempty"`
+	StartTimestamp float64                     `json:"start_timestamp,omitempty"`
+	Environment    string                      `json:"environment,omitempty"`
+	Release        string                      `json:"release,omitempty"`
+	Transaction    string                      `json:"transaction,omitempty"`
 	Measurements   map[string]EventMeasurement `json:"measurements,omitempty"`
-	Breadcrumbs    []Breadcrumb           `json:"breadcrumbs,omitempty"`
-	User           EventUser              `json:"user,omitempty"`
-	Contexts       EventContexts          `json:"contexts,omitempty"`
-	Tags           map[string]interface{} `json:"tags,omitempty"`
-	Spans          []EventSpan            `json:"spans,omitempty"`
-	Request        EventRequest           `json:"request,omitempty"`
-	Sdk            SdkInfo                `json:"sdk,omitempty"`
-	Exception      EventException         `json:"exception,omitempty"`
-	Logger         string                 `json:"logger,omitempty"`
+	Breadcrumbs    []Breadcrumb                `json:"breadcrumbs,omitempty"`
+	User           EventUser                   `json:"user,omitempty"`
+	Contexts       EventContexts               `json:"contexts,omitempty"`
+	Tags           map[string]interface{}      `json:"tags,omitempty"`
+	Spans          []EventSpan                 `json:"spans,omitempty"`
+	Request        EventRequest                `json:"request,omitempty"`
+	Sdk            SdkInfo                     `json:"sdk,omitempty"`
+	Exception      EventException              `json:"exception,omitempty"`
+	Logger         string                      `json:"logger,omitempty"`
 }
 
 type SessionEvent struct {
-	Status         string                 `json:"status,omitempty"`
-	Sid            string                 `json:"sid,omitempty"`
-	Timestamp      string                 `json:"timestamp,omitempty"`
+	Status    string `json:"status,omitempty"`
+	Sid       string `json:"sid,omitempty"`
+	Timestamp string `json:"timestamp,omitempty"`
 }
 
 type EventException struct {
 	Values []struct {
-		Type       string `json:"type,omitempty"`
+		Type       string       `json:"type,omitempty"`
 		Value      StrongString `json:"value,omitempty"`
 		Stacktrace struct {
 			Frames []struct {
@@ -118,16 +118,16 @@ type EventException struct {
 }
 
 type EventUser struct {
-	Id       string `json:"id,omitempty"`
+	Id string `json:"id,omitempty"`
 }
 
 type EventContexts struct {
 	Trace struct {
-		Op     string `json:"op,omitempty"`
-		SpanID string `json:"span_id,omitempty"`
+		Op      string `json:"op,omitempty"`
+		SpanID  string `json:"span_id,omitempty"`
 		TraceID string `json:"trace_id,omitempty"`
 	} `json:"trace,omitempty"`
-	Error ContextError `json:"Error,omitempty"`
+	Error ContextError           `json:"Error,omitempty"`
 	AsMap map[string]interface{} `json:"-"`
 }
 
@@ -151,41 +151,41 @@ func (f *EventContexts) UnmarshalJSON(bs []byte) (err error) {
 }
 
 type ContextError struct {
-	Config ContextErrorConfig `json:"config,omitempty"`
-	Request ContextErrorRequest `json:"request,omitempty"`
-	Response ContextErrorResponse `json:"response,omitempty"`
-	IsAxiosError bool `json:"isAxiosError,omitempty"`
-	Message string `json:"message,omitempty"`
-	Name string    `json:"name,omitempty"`
-	Stack string   `json:"stack,omitempty"`
-	Status int     `json:"status,omitempty"`
+	Config       ContextErrorConfig   `json:"config,omitempty"`
+	Request      ContextErrorRequest  `json:"request,omitempty"`
+	Response     ContextErrorResponse `json:"response,omitempty"`
+	IsAxiosError bool                 `json:"isAxiosError,omitempty"`
+	Message      string               `json:"message,omitempty"`
+	Name         string               `json:"name,omitempty"`
+	Stack        string               `json:"stack,omitempty"`
+	Status       int                  `json:"status,omitempty"`
 }
 
 type ContextErrorConfig struct {
 	Headers map[string]string `json:"headers,omitempty"`
 	BaseUrl string            `json:"baseURL,omitempty"`
-	Method string             `json:"method,omitempty"`
-	Url string                `json:"url,omitempty"`
+	Method  string            `json:"method,omitempty"`
+	Url     string            `json:"url,omitempty"`
 }
 
 type ContextErrorRequest struct {
 	SentryXhrV3 struct {
-		Method string        `json:"method,omitempty"`
-		Url string           `json:"url,omitempty"`
+		Method         string       `json:"method,omitempty"`
+		Url            string       `json:"url,omitempty"`
 		RequestHeaders StrongString `json:"request_headers,omitempty"`
-		StatusCode int       `json:"status_code,omitempty"`
+		StatusCode     int          `json:"status_code,omitempty"`
 	} `json:"__sentry_xhr_v3__,omitempty"`
-	SetRequestHeader string  `json:"setRequestHeader,omitempty"`
-	SentryXhrSpanId string   `json:"__sentry_xhr_span_id__,omitempty"`
+	SetRequestHeader string `json:"setRequestHeader,omitempty"`
+	SentryXhrSpanId  string `json:"__sentry_xhr_span_id__,omitempty"`
 }
 
 type ContextErrorResponse struct {
-	Data StrongString              `json:"data,omitempty"`
-	Status int                     `json:"status,omitempty"`
-	StatusText string              `json:"statusText,omitempty"`
-	Headers map[string]string      `json:"headers,omitempty"`
-	Config map[string]interface{}  `json:"config,omitempty"`
-	Request map[string]interface{} `json:"request,omitempty"`
+	Data       StrongString           `json:"data,omitempty"`
+	Status     int                    `json:"status,omitempty"`
+	StatusText string                 `json:"statusText,omitempty"`
+	Headers    map[string]string      `json:"headers,omitempty"`
+	Config     map[string]interface{} `json:"config,omitempty"`
+	Request    map[string]interface{} `json:"request,omitempty"`
 }
 
 type EventSpan struct {
@@ -205,7 +205,7 @@ type EventSpan struct {
 type EnvelopEventParseResult struct {
 	EnvelopTypeHeader  `json:"type_header,omitempty"`
 	EnvelopEventHeader `json:"header,omitempty"`
-	Events             []Event `json:"events,omitempty"`
+	Events             []Event        `json:"events,omitempty"`
 	SessionEvents      []SessionEvent `json:"session-events,omitempty"`
-	EnvelopType        int `json:"envelop-type,omitempty"`
+	EnvelopType        int            `json:"envelop-type,omitempty"`
 }

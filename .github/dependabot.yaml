@@ -1,0 +1,31 @@
+version: 2
+updates:
+- package-ecosystem: "github-actions"
+  directory: "/"
+  schedule:
+    interval: "monthly"
+- package-ecosystem: "gomod"
+  directories:
+  - "/connector/*"
+  - "/exporter/*"
+  - "/receiver/*"
+  - "/utils"
+  schedule:
+    interval: "monthly"
+  groups:
+    k8s.io:
+      patterns:
+      - "k8s.io/*"
+    go.opentelemetry.io:
+      patterns:
+      - "go.opentelemetry.io/*"
+    google.golang.org:
+      patterns:
+      - "google.golang.org/*"
+  open-pull-requests-limit: 20
+- package-ecosystem: "docker"
+  directories:
+  - "/"
+  - "/docker-transfer"
+  schedule:
+    interval: "monthly"

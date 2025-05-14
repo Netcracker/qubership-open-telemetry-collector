@@ -1,4 +1,4 @@
-// Copyright 2024 Qubership
+// Copyright 2025 Qubership
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ import (
 )
 
 const (
-	typeStr = "sentryreceiver"
+	typeStr             = "sentryreceiver"
 	defaultBindEndpoint = "0.0.0.0:9777"
 )
 
@@ -49,5 +49,5 @@ func createTracesReceiver(_ context.Context, params receiver.Settings, baseCfg c
 	if consumer == nil {
 		return nil, errors.New("nil next Consumer")
 	}
-	return newReceiver(baseCfg.(*Config), consumer, params) 
+	return newReceiver(baseCfg.(*Config), consumer, params)
 }

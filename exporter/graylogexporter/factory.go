@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"time"
 
 	"github.com/mitchellh/mapstructure"
 	"go.opentelemetry.io/collector/component"
@@ -35,6 +36,10 @@ var (
 	fieldmapping *GELFFieldMapping
 	once         sync.Once
 )
+
+type TimeoutConfig struct {
+	Timeout time.Duration
+}
 
 func loadGELFFieldMapping(cfg *Config) error {
 	var err error
@@ -61,7 +66,7 @@ func createDefaultConfig() component.Config {
 			Endpoint: defaultBindEndpoint,
 		},
 		ConnPoolSize:                1,
-		QueueSize:                   1024,
+		BatchSize:                   1000,
 		MaxMessageSendRetryCnt:      1,
 		MaxSuccessiveSendErrCnt:     5,
 		SuccessiveSendErrFreezeTime: "1m",
@@ -104,13 +109,15 @@ func newgraylogExporter(
 	if err != nil {
 		return nil, errors.New("GELF field mapping is not parseable")
 	}
-
-	return exporterhelper.NewLogsExporter(
+	timeoutConfig := exporterhelper.TimeoutConfig{
+		Timeout: time.Duration(0), // Set your desired timeout value here
+	}
+	return exporterhelper.NewLogs(
 		ctx,
 		set,
 		cfg,
 		lte.pushLogs,
 		exporterhelper.WithStart(lte.start),
-		exporterhelper.WithTimeout(exporterhelper.TimeoutSettings{Timeout: 0}), // Pass the GELF field mapping to the exporter
+		exporterhelper.WithTimeout(timeoutConfig),
 	)
 }

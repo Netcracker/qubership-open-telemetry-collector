@@ -1,3 +1,6 @@
-/.idea/
-build/_output/*
+.idea/
+build/
 .vscode/
+**/ocb
+**/otelcol/qubership-open-telemetry-collector
+collector/qubership-otec

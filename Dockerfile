@@ -1,27 +1,50 @@
-# Note: this uses host platform for the build, and we ask go build to target the needed platform, so we do not spend time on qemu emulation when running "go build"
-FROM --platform=$BUILDPLATFORM golang:1.23.4-alpine3.21 AS builder
+# hadolint global ignore=DL3018
+# Stage 1: Build
+FROM --platform=$BUILDPLATFORM golang:1.24.2-alpine3.21 AS builder
+
 ARG BUILDPLATFORM
 ARG TARGETOS
 ARG TARGETARCH
-ARG GOPROXY=""
+
+ARG OTEL_VERSION=0.125.0
+
 ENV GOSUMDB=off \
     GO111MODULE=on
 
-WORKDIR /workspace
+WORKDIR /build
 
-COPY go.mod go.mod
-COPY go.sum go.sum
+# Copy the manifest file and other necessary files
+COPY builder-config.yaml builder-config.yaml
+COPY ./collector ./collector
+COPY ./connector ./connector
+COPY ./exporter ./exporter
+COPY ./receiver ./receiver
+COPY ./common ./common
+COPY ./utils ./utils
 
-COPY *.go ./
-COPY connector/ connector/
-COPY exporter/ exporter/
-COPY receiver/ receiver/
-COPY common/ common/
-COPY utils/ utils/
+# Install the builder tool and dependencies
+RUN apk add --no-cache git \
+    && go install go.opentelemetry.io/collector/cmd/builder@v${OTEL_VERSION} \
+    # Build the collector
+    && CGO_ENABLED=0 builder --config=builder-config.yaml
 
-RUN go mod download -x
+FROM alpine:3.21
 
-RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -a -o qubership-open-telemetry-collector .
+ENV USER_ID=65534
 
-FROM alpine:3.21.0
-COPY --from=builder --chown=10001:0 /workspace/qubership-open-telemetry-collector /otec
+WORKDIR /app
+
+# Copy the generated collector binary from the builder stage
+COPY --from=builder --chown=${USER_ID} /build/collector/qubership-otec /app/qubership-otec
+
+# Copy the configuration file
+#COPY config.yaml .
+
+# Expose necessary ports
+EXPOSE 4317/tcp 4318/tcp 13133/tcp
+
+USER ${USER_ID}
+
+# Set the default entrypoint and command
+ENTRYPOINT ["/app/qubership-otec"]
+CMD ["--config=config.yaml"]

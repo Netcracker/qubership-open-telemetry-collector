@@ -1,4 +1,4 @@
-// Copyright 2024 Qubership
+// Copyright 2025 Qubership
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -127,6 +127,7 @@ func (gs *GraylogSender) tcpConnGoroutine(connNumber int) {
 			var data []byte
 			if messageRetryCnt > MAX_RETRY_CNT {
 				gs.logger.Sugar().Errorf("GraylogTcpConnection : Message %+v is skipped after %v retries in the goroutine #%v", retryData, messageRetryCnt-1, connNumber)
+
 				retryData = nil
 			}
 			if retryData != nil {

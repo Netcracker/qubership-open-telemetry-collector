@@ -1,17 +1,16 @@
-// Copyright 2024 Qubership
+// Copyright 2025 Qubership
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//      http://www.apache.org/licenses/LICENSE-2.0
+//	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package sentryreceiver
 
 import (
@@ -26,13 +25,13 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"otec/receiver/sentryreceiver/models"
-	"otec/utils"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/Netcracker/qubership-open-telemetry-collector/receiver/sentryreceiver/models"
+	"github.com/Netcracker/qubership-open-telemetry-collector/utils"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/consumer"
 	"go.opentelemetry.io/collector/consumer/consumererror"
@@ -47,20 +46,20 @@ import (
 var errNextConsumerRespBody = []byte(`"Internal Server Error"`)
 var errBadRequestRespBody = []byte(`"Bad Request"`)
 
-var timestampSpanDataAttributes = map[string]bool {
-	"http.request.redirect_start": true,
-	"http.request.fetch_start": true,
-	"http.request.domain_lookup_start": true,
-	"http.request.domain_lookup_end": true,
-	"http.request.connect_start": true,
+var timestampSpanDataAttributes = map[string]bool{
+	"http.request.redirect_start":          true,
+	"http.request.fetch_start":             true,
+	"http.request.domain_lookup_start":     true,
+	"http.request.domain_lookup_end":       true,
+	"http.request.connect_start":           true,
 	"http.request.secure_connection_start": true,
-	"http.request.connection_end": true,
-	"http.request.request_start": true,
-	"http.request.response_start": true,
-	"http.request.response_end": true,
+	"http.request.connection_end":          true,
+	"http.request.request_start":           true,
+	"http.request.response_start":          true,
+	"http.request.response_end":            true,
 }
 
-type sentrytraceReceiver struct{
+type sentrytraceReceiver struct {
 	host         component.Host
 	cancel       context.CancelFunc
 	logger       *zap.Logger
@@ -70,7 +69,7 @@ type sentrytraceReceiver struct{
 	server     *http.Server
 	shutdownWG sync.WaitGroup
 
-	settings  receiver.Settings
+	settings receiver.Settings
 	obsrecvr *receiverhelper.ObsReport
 }
 
@@ -96,7 +95,7 @@ func newReceiver(config *Config, nextConsumer consumer.Traces, settings receiver
 
 func (sr *sentrytraceReceiver) Start(ctx context.Context, host component.Host) error {
 	sr.host = host
-    ctx = context.Background()
+	ctx = context.Background()
 	ctx, sr.cancel = context.WithCancel(ctx)
 
 	sr.logger.Info("SentryReceiver started")
@@ -127,7 +126,7 @@ func (sr *sentrytraceReceiver) Start(ctx context.Context, host component.Host) e
 	return nil
 }
 
-func (sr *sentrytraceReceiver) Shutdown(ctx context.Context) error {
+func (sr *sentrytraceReceiver) Shutdown(_ context.Context) error {
 	sr.logger.Info("SentryReceiver is shutdown")
 
 	return nil
@@ -250,7 +249,7 @@ func (sr *sentrytraceReceiver) appendScopeSpans(scopeSpans *ptrace.ScopeSpans, e
 			startTime = endTime
 			rootSpan.SetSpanID(sr.GenerateSpanId(event.EventId[0:16]))
 			rootSpan.SetParentSpanID(sr.GenerateSpanId(event.Contexts.Trace.SpanID))
-			rootSpan.SetName("Event")//+ event.EventId)
+			rootSpan.SetName("Event") //+ event.EventId)
 
 			level := sr.evaluateLevel(event)
 			if level != "" {
@@ -359,7 +358,7 @@ func (sr *sentrytraceReceiver) appendScopeSpans(scopeSpans *ptrace.ScopeSpans, e
 		rootSpan.SetKind(ptrace.SpanKindClient)
 
 		for k, v := range event.Tags {
-			rootSpan.Attributes().PutStr("tags." + k, fmt.Sprintf("%v", v))
+			rootSpan.Attributes().PutStr("tags."+k, fmt.Sprintf("%v", v))
 		}
 
 		requestUrlStr := event.Request.URL
@@ -370,7 +369,7 @@ func (sr *sentrytraceReceiver) appendScopeSpans(scopeSpans *ptrace.ScopeSpans, e
 			} else {
 				for _, qParam := range sr.config.HttpQueryParamValuesToAttrs {
 					qValue := urlParsed.Query().Get(qParam)
-					rootSpan.Attributes().PutStr("http.qparam." + qParam, qValue)
+					rootSpan.Attributes().PutStr("http.qparam."+qParam, qValue)
 					sr.logger.Sugar().Debugf("Value QParam %v with value %v is found", qParam, qValue)
 				}
 				for _, qParam := range sr.config.HttpQueryParamExistenceToAttrs {
@@ -381,7 +380,7 @@ func (sr *sentrytraceReceiver) appendScopeSpans(scopeSpans *ptrace.ScopeSpans, e
 						qValue = "false"
 					}
 					sr.logger.Sugar().Debugf("Existence QParam %v with value %v is found", qParam, qValue)
-					rootSpan.Attributes().PutStr("http.qparam." + qParam, qValue)
+					rootSpan.Attributes().PutStr("http.qparam."+qParam, qValue)
 				}
 				rootSpan.Attributes().PutStr("url_path", sr.removeIdFromURL(urlParsed.Path))
 			}
@@ -394,7 +393,7 @@ func (sr *sentrytraceReceiver) appendScopeSpans(scopeSpans *ptrace.ScopeSpans, e
 			}
 			switch valTyped := val.(type) {
 			case string:
-				rootSpan.Attributes().PutStr("contexts." + contextParam, valTyped)
+				rootSpan.Attributes().PutStr("contexts."+contextParam, valTyped)
 			case map[string]interface{}:
 				for k, v := range valTyped {
 					rootSpan.Attributes().PutStr(fmt.Sprintf("contexts.%v.%v", contextParam, k), fmt.Sprintf("%v", v))
@@ -488,7 +487,7 @@ func (sr *sentrytraceReceiver) appendScopeSpans(scopeSpans *ptrace.ScopeSpans, e
 					const epsilon = 1e-9
 					_, frac := math.Modf(valTyped)
 					frac = math.Abs(frac)
-					if frac < epsilon || frac > 1.0 - epsilon {
+					if frac < epsilon || frac > 1.0-epsilon {
 						span.Attributes().PutInt(k, int64(math.Round(valTyped)))
 					} else {
 						span.Attributes().PutDouble(k, valTyped)
@@ -501,7 +500,7 @@ func (sr *sentrytraceReceiver) appendScopeSpans(scopeSpans *ptrace.ScopeSpans, e
 			}
 
 			for k, v := range sentrySpan.Tags {
-				span.Attributes().PutStr("tags." + k, fmt.Sprintf("%v", v))
+				span.Attributes().PutStr("tags."+k, fmt.Sprintf("%v", v))
 			}
 
 			if sentrySpan.Origin != "" {
@@ -517,12 +516,12 @@ func (sr *sentrytraceReceiver) appendScopeSpans(scopeSpans *ptrace.ScopeSpans, e
 }
 
 var levelRating = map[string]int{
-	"fatal"   : 6,
-	"error"   : 5,
-	"warning" : 4,
-	"log"     : 3,
-	"info"    : 2,
-	"debug"   : 1,
+	"fatal":   6,
+	"error":   5,
+	"warning": 4,
+	"log":     3,
+	"info":    2,
+	"debug":   1,
 }
 
 var ratingLevel = map[int]string{
@@ -602,7 +601,7 @@ func (sr *sentrytraceReceiver) GenerateSpanId(str string) pcommon.SpanID {
 
 func GetUnixTimeFromFloat64(timeFloat64 float64) time.Time {
 	sec, dec := math.Modf(timeFloat64)
-    return time.Unix(int64(sec), int64(dec*(1e9)))
+	return time.Unix(int64(sec), int64(dec*(1e9)))
 }
 
 func (sr *sentrytraceReceiver) removeIdFromURL(urlStr string) string {
