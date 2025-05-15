@@ -1,6 +1,6 @@
 module github.com/Netcracker/qubership-open-telemetry-collector/common/graylog
 
-go 1.23.7
+go 1.24
 
 require (
 	github.com/Jeffail/gabs v1.4.0

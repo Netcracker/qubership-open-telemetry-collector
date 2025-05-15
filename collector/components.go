@@ -75,8 +75,8 @@ func components() (otelcol.Factories, error) {
 	factories.ExporterModules[debugexporter.NewFactory().Type()] = "go.opentelemetry.io/collector/exporter/debugexporter v0.106.1"
 	factories.ExporterModules[otlpexporter.NewFactory().Type()] = "go.opentelemetry.io/collector/exporter/otlpexporter v0.106.1"
 	factories.ExporterModules[prometheusexporter.NewFactory().Type()] = "go.opentelemetry.io/collector/exporter/prometheusexporter v0.106.1"
-	factories.ExporterModules[logtcpexporter.NewFactory().Type()] = "github.com/Netcracker/qubership-open-telemetry-collector/exporter/logtcpexporter main"
-	factories.ExporterModules[graylogexporter.NewFactory().Type()] = "github.com/Netcracker/qubership-open-telemetry-collector/exporter/graylogexporter"
+	factories.ExporterModules[logtcpexporter.NewFactory().Type()] = "github.com/Netcracker/qubership-open-telemetry-collector/exporter/logtcpexporter v0.0.0-20250514191859-030f08013ea1"
+	factories.ExporterModules[graylogexporter.NewFactory().Type()] = "github.com/Netcracker/qubership-open-telemetry-collector/exporter/graylogexporter v0.0.0-20250514191859-030f08013ea1"
 	factories.ExporterModules[otlphttpexporter.NewFactory().Type()] = "go.opentelemetry.io/collector/exporter/otlphttpexporter latest"
 
 	factories.Processors, err = otelcol.MakeFactoryMap[processor.Factory](

@@ -6,19 +6,19 @@ dist:
   output_path: ./collector
 
 common:
-  - gomod: github.com/Netcracker/qubership-open-telemetry-collector/common/graylog feature/alllogexporter
+  - gomod: github.com/Netcracker/qubership-open-telemetry-collector/common/graylog v0.0.0-20250514191859-030f08013ea1
 
 connectors:
   - gomod: github.com/Netcracker/qubership-open-telemetry-collector/connector/sentrymetricsconnector main
   - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/connector/spanmetricsconnector latest
 
 exporters:
-  - gomod: github.com/Netcracker/qubership-open-telemetry-collector/exporter/logtcpexporter main
+  - gomod: github.com/Netcracker/qubership-open-telemetry-collector/exporter/logtcpexporter v0.0.0-20250514191859-030f08013ea1
   - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/exporter/prometheusexporter latest
   - gomod: go.opentelemetry.io/collector/exporter/debugexporter latest
   - gomod: go.opentelemetry.io/collector/exporter/otlpexporter latest
   - gomod: go.opentelemetry.io/collector/exporter/otlphttpexporter latest
-  - gomod: github.com/Netcracker/qubership-open-telemetry-collector/exporter/graylogexporter feature/alllogexporter
+  - gomod: github.com/Netcracker/qubership-open-telemetry-collector/exporter/graylogexporter v0.0.0-20250514191859-030f08013ea1
 
 extensions:
   - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/extension/healthcheckextension latest

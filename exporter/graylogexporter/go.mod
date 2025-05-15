@@ -5,7 +5,7 @@ go 1.24.1
 toolchain go1.24.3
 
 require (
-	github.com/Netcracker/qubership-open-telemetry-collector/common/graylog v0.0.0-00010101000000-000000000000
+	github.com/Netcracker/qubership-open-telemetry-collector/common/graylog v0.0.0-20250514191859-030f08013ea1
 	github.com/mitchellh/mapstructure v1.5.0
 	go.opentelemetry.io/collector/component v1.32.0
 	go.opentelemetry.io/collector/config/confignet v1.32.0

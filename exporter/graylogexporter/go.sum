@@ -1,5 +1,7 @@
 github.com/Jeffail/gabs v1.4.0 h1://5fYRRTq1edjfIrQGvdkcd22pkYUrHZ5YC/H2GJVAo=
 github.com/Jeffail/gabs v1.4.0/go.mod h1:6xMvQMK4k33lb7GUUpaAPh6nKMmemQeg5d4gn7/bOXc=
+github.com/Netcracker/qubership-open-telemetry-collector/common/graylog v0.0.0-20250514191859-030f08013ea1 h1:8a/AD2gRxThwJ3bgcl70FzbZnJ2MzPhGASAXlaQ8ueI=
+github.com/Netcracker/qubership-open-telemetry-collector/common/graylog v0.0.0-20250514191859-030f08013ea1/go.mod h1:mYWqMrQ9jppIYHuZqDKvKZ/nDTZ7dnbwE2zJjSY+C/c=
 github.com/cenkalti/backoff/v5 v5.0.2 h1:rIfFVxEf1QsI7E1ZHfp/B4DF/6QBAUhmgkxc0H7Zss8=
 github.com/cenkalti/backoff/v5 v5.0.2/go.mod h1:rkhZdG3JZukswDf7f0cwqPNk4K0sa+F97BxZthm/crw=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
