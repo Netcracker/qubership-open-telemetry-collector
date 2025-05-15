@@ -1,8 +1,6 @@
 module github.com/Netcracker/qubership-open-telemetry-collector/exporter/graylogexporter
 
-go 1.24.1
-
-toolchain go1.24.3
+go 1.24.2
 
 require (
 	github.com/Netcracker/qubership-open-telemetry-collector/common/graylog v0.0.0-20250514191859-030f08013ea1

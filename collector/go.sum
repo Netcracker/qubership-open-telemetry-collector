@@ -28,6 +28,8 @@ github.com/Netcracker/qubership-open-telemetry-collector/connector/sentrymetrics
 github.com/Netcracker/qubership-open-telemetry-collector/connector/sentrymetricsconnector v0.0.0-20250502143338-730cf6843525/go.mod h1:JFSC9ODnXFBAEuxfcrCL9WJjIgP0NkIh1wLD9qVFkyk=
 github.com/Netcracker/qubership-open-telemetry-collector/exporter/graylogexporter v0.0.0-20250514191859-030f08013ea1 h1:WJIAMvyO+/6b/pwebU8InY5o46/olPuNjN6JDaSnLPY=
 github.com/Netcracker/qubership-open-telemetry-collector/exporter/graylogexporter v0.0.0-20250514191859-030f08013ea1/go.mod h1:nI1psX7kBvzTdjSsTbWhAYHvzbr1r7quaCC0yFqdjOE=
+github.com/Netcracker/qubership-open-telemetry-collector/exporter/logtcpexporter v0.0.0-20250502143338-730cf6843525 h1:mRUAOC/+tRab6ApkYCipsnQV9Y3KHsxfbYNA3M4/mXs=
+github.com/Netcracker/qubership-open-telemetry-collector/exporter/logtcpexporter v0.0.0-20250502143338-730cf6843525/go.mod h1:gw/+Ct38vfy5o+6Bc08x3ajNGmVkUUeFGviyhkC/9xI=
 github.com/Netcracker/qubership-open-telemetry-collector/exporter/logtcpexporter v0.0.0-20250514191859-030f08013ea1 h1:afqjDJNEWTbgCwSKKiEKifqlMfHgS/NldH4g/XVYHDw=
 github.com/Netcracker/qubership-open-telemetry-collector/exporter/logtcpexporter v0.0.0-20250514191859-030f08013ea1/go.mod h1:5YMcjPbjP2ewB7pzmGf0SJioT63yX0P8T9cPvp1MhHg=
 github.com/Netcracker/qubership-open-telemetry-collector/receiver/sentryreceiver v0.0.0-20250502143338-730cf6843525 h1:j5u8fxgH/CG7GkcjybMlKzWj8LRO23edOeZD5+zVDfs=

@@ -77,7 +77,7 @@ OTEC_TAILBASED_GENERAL_PARAMETERS:
 # Allows to set up tailbased tracing policy parameters
 # Type: object
 # Default: see below
-#
+# #
 OTEC_TAILBASED_POLICIES_PARAMETERS:
     policies: [
       {
@@ -182,7 +182,7 @@ annotations: {}
 # Mandatory: no
 # Default: /otec
 #
-entrypoint: "/app/qubership-open-telemetry-collector"
+entrypoint: "/app/qubership-otec"
 
 # JAEGER_COLLECTOR_HOST is the Jaeger hostname or ip
 # Type: string

@@ -1,8 +1,6 @@
 module github.com/Netcracker/qubership-open-telemetry-collector
 
-go 1.24.1
-
-toolchain go1.24.3
+go 1.24.2
 
 require (
 	github.com/Netcracker/qubership-open-telemetry-collector/connector/sentrymetricsconnector v0.0.0-20250502143338-730cf6843525
@@ -40,10 +38,9 @@ require (
 	golang.org/x/sys v0.33.0
 )
 
-require github.com/Netcracker/qubership-open-telemetry-collector/common/graylog v0.0.0-20250514191859-030f08013ea1 // indirect
-
 require (
-	github.com/Jeffail/gabs v1.4.0 // indirect; indirect// indirect
+	github.com/Jeffail/gabs v1.4.0 // indirect
+	github.com/Netcracker/qubership-open-telemetry-collector/common/graylog v0.0.0-20250514191859-030f08013ea1 // indirect
 	github.com/Netcracker/qubership-open-telemetry-collector/utils v0.0.0-20250327101059-36aa6948477d // indirect
 	github.com/alecthomas/participle/v2 v2.1.4 // indirect
 	github.com/antchfx/xmlquery v1.4.4 // indirect
