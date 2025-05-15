@@ -1,0 +1,381 @@
+name: Test-qubership-open-telemetry-collector
+
+on:
+  workflow_run:
+    workflows: ["Build Artifacts"]
+    types:
+      - completed
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - add-tailbased-tracing
+
+env:
+  kind_name: kind-cluster
+  kind_version: v0.27.0
+  cassandra_namespace: cassandra
+  jaeger_namespace: jaeger
+  collector_namespace: monitoring
+  max_attempts: 30
+  delay: 10
+
+jobs:
+  Run-Integration-Tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code otel-collecor
+        uses: actions/checkout@v4
+        with:
+         path: qubership-open-telemetry-collector
+
+      - name: Checkout jaeger
+        uses: actions/checkout@v4
+        with:
+          path: qubership-jaeger
+         
+      - name: Install telemetrygen
+        run: |
+           sudo add-apt-repository -y ppa:longsleep/golang-backports
+           sudo apt install -y golang-go
+           go version
+           export GOPATH=$HOME/go
+           export PATH=$PATH:$GOROOT/bin:$GOPATH/bin
+           echo "Start telemetrygen install"
+           go install github.com/open-telemetry/opentelemetry-collector-contrib/cmd/telemetrygen@latest
+
+      - name: Set up Kind
+        run: |
+          curl -sLo ./kind https://kind.sigs.k8s.io/dl/${{ env.kind_version }}/kind-linux-amd64
+          chmod +x ./kind
+          sudo mv ./kind /usr/local/bin/
+          kind delete cluster --name ${{ env.kind_name }}
+          cat <<EOF | kind create cluster --config=-
+          kind: Cluster
+          name:  ${{ env.kind_name }}
+          apiVersion: kind.x-k8s.io/v1alpha4
+          nodes:
+          - role: control-plane
+            extraPortMappings:
+            - containerPort: 80
+              hostPort: 80
+              protocol: TCP
+            - containerPort: 443
+              hostPort: 443
+              protocol: TCP
+          EOF
+      - name: Install Helm
+        run: |
+          curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+      
+      - name: Install kubectl
+        run: |
+          curl -LO https://dl.k8s.io/release/`curl -LS https://dl.k8s.io/release/stable.txt`/bin/linux/amd64/kubectl
+          chmod +x ./kubectl
+          sudo mv ./kubectl /usr/local/bin/kubectl
+          kubectl version --client
+
+      - name: Build and load qubership-open-telemetry-collector
+        run: |
+                docker build ./qubership-open-telemetry-collector/ -t qubership-open-telemetry-collector
+                kind --name ${{ env.kind_name }} load docker-image docker.io/library/qubership-open-telemetry-collector:latest
+
+      - name: Install cert-manager
+        run: |
+          helm repo add jetstack https://charts.jetstack.io --force-update 
+          helm upgrade --install cert-manager jetstack/cert-manager --namespace cert-manager \
+            --create-namespace --version v1.16.3 --set prometheus.enabled=true   --set crds.enabled=true
+
+      - name: Install k8ssandra operator
+        run: |
+          helm repo add k8ssandra https://helm.k8ssandra.io/stable --force-update
+          helm upgrade --install k8ssandra-operator k8ssandra/k8ssandra-operator -n ${{ env.cassandra_namespace }} --create-namespace
+          sleep 60
+
+      - name: Check k8ssandra-operator pod status
+        run: |    
+                  attempt=1
+                  max_attempts=${{ env.max_attempts }}
+                  while [[ $attempt -le $max_attempts ]]; do
+                    echo "Attempt $attempt/$max_attempts: Checking k8ssandra-operator pod status..."  
+                    phase=$(kubectl get pod -l app.kubernetes.io/name=k8ssandra-operator -n ${{ env.cassandra_namespace }} -o jsonpath='{.items[0].status.phase}' 2>/dev/null || echo "NotFound")
+                    if [[ "$phase" == "Running" ]]; then
+                      echo "k8ssandra-operator pod is ready."
+                      break
+                    elif [[ "$phase" != "Running" ]]; then
+                      echo "k8ssandra-operator pod status: $phase. Retrying in ${{ env.delay }} seconds..."
+                      kubectl get pods -n ${{ env.cassandra_namespace }}
+                      sleep ${{ env.delay }}
+                      ((attempt++))
+                    fi
+                  done
+                  if [["$phase" != "Running" ]]; then
+                    echo "ERROR: Maximum attempts reached. k8ssandra-operator pod is not healthy."
+                    kubectl get pods -n ${{ env.cassandra_namespace }}
+                    echo -e "\n======================================================================"
+                    kubectl get events -n ${{ env.cassandra_namespace }}
+                    exit 1
+                  fi
+          
+      - name: Deploy k8ssandra cluster
+        run: |
+              cat <<EOF | kubectl apply -n ${{ env.cassandra_namespace }} -f -
+              apiVersion: k8ssandra.io/v1alpha1
+              kind: K8ssandraCluster
+              metadata:
+                name: cassandra
+              spec:
+                cassandra:
+                  serverVersion: "4.0.1"
+                  datacenters:
+                    - metadata:
+                        name: dc1
+                      size: 1
+                      storageConfig:
+                        cassandraDataVolumeClaimSpec:
+                          storageClassName: standard
+                          accessModes:
+                            - ReadWriteOnce
+                          resources:
+                            requests:
+                              storage: 5Gi
+                      config:
+                        jvmOptions:
+                          heapSize: 512M
+              EOF
+              sleep 200
+
+      - name: Check k8ssandra cluster status
+        run: |
+              attempt=1
+              max_attempts=${{ env.max_attempts }}
+              while [[ $attempt -le $max_attempts ]]; do
+                echo "Attempt $attempt/$max_attempts: Checking k8ssandra cluster status..."
+                phase=$(kubectl get pod -l app.kubernetes.io/name=cassandra -n ${{ env.cassandra_namespace }} -o jsonpath='{.items[0].status.phase}' 2>/dev/null || echo "NotFound")
+                if [[ "$phase" == "Running" ]]; then
+                  echo "k8ssandra cluster is ready."
+                  kubectl get pods -n ${{ env.cassandra_namespace }}
+                  break
+                elif [[ "$phase" != "Running" ]]; then
+                  echo "k8ssandra cluster status: $phase. Retrying in ${{ env.delay }} seconds..."
+                  sleep ${{ env.delay }}
+                  ((attempt++))
+                fi
+              done
+              if [[ "$phase" != "Running" ]]; then
+                echo "ERROR: Maximum attempts reached. k8ssandra cluster is not ready."
+                kubectl get pods -n ${{ env.cassandra_namespace }}
+                echo -e "\n======================================================================"
+                kubectl get events -n ${{ env.cassandra_namespace }}
+                exit 1
+              fi
+    
+#      - name: Install required crds
+#        run: |
+#            kubectl apply -f https://raw.githubusercontent.com/Netcracker/qubership-monitoring-operator/refs/heads/main/charts/qubership-monitoring-operator/charts/grafana-operator/crds/integreatly.org_grafanadashboards.yaml
+#            kubectl apply -f https://raw.githubusercontent.com/Netcracker/qubership-monitoring-operator/refs/heads/main/charts/qubership-monitoring-operator/charts/victoriametrics-operator/crds/monitoring.coreos.com_prometheusrules.yaml
+#            kubectl apply -f https://raw.githubusercontent.com/Netcracker/qubership-monitoring-operator/refs/heads/main/charts/qubership-monitoring-operator/charts/victoriametrics-operator/crds/monitoring.coreos.com_servicemonitors.yaml
+#            kubectl apply -f https://raw.githubusercontent.com/Netcracker/qubership-monitoring-operator/refs/heads/main/charts/qubership-monitoring-operator/charts/victoriametrics-operator/crds/monitoring.coreos.com_podmonitors.yaml
+#
+
+#      - name: Install qubership-jaeger
+#        run: |
+#            TAG="${GITHUB_SHA:0:11}"
+#            CASSANDRA_USER=$(kubectl get secret -n ${{ env.cassandra_namespace }} cassandra-superuser -o json | jq -r '.data.username' | base64 -d)
+#            CASSANDRA_PASSWORD=$(kubectl get secret -n ${{ env.cassandra_namespace }} cassandra-superuser -o json | jq -r '.data.password' | base64 -d)
+#            CASSANDRA_SVC="cassandra-dc1-service.${{ env.cassandra_namespace }}"
+#            helm upgrade --install qubership-jaeger ./qubership-jaeger/charts/qubership-jaeger --namespace ${{ env.jaeger_namespace}} \
+#            --create-namespace --set jaeger.prometheusMonitoringDashboard=false --set jaeger.prometheusMonitoring=false \
+#            --set "cassandraSchemaJob.host=$CASSANDRA_SVC" --set "cassandraSchemaJob.username=$CASSANDRA_USER" \
+#            --set "cassandraSchemaJob.password=$CASSANDRA_PASSWORD" --set cassandraSchemaJob.datacenter=dc1 \
+#            --set "readinessProbe.image=ghcr.io/netcracker/jaeger-readiness-probe:$TAG"
+#            sleep 200
+
+      - name: Install jaeger 
+        run: |
+           CASSANDRA_USER=$(kubectl get secret -n ${{ env.cassandra_namespace }} cassandra-superuser -o json | jq -r '.data.username' | base64 -d)
+           CASSANDRA_PASSWORD=$(kubectl get secret -n ${{ env.cassandra_namespace }} cassandra-superuser -o json | jq -r '.data.password' | base64 -d)
+           CASSANDRA_SVC=cassandra-dc1-service.${{ env.cassandra_namespace }}.svc.cluster.local
+           helm repo add jaegertracing https://jaegertracing.github.io/helm-charts 
+           helm install jaeger jaegertracing/jaeger -n ${{ env.jaeger_namespace }} --create-namespace \
+           --set provisionDataStore.cassandra=false \
+           --set storage.cassandra.host=$CASSANDRA_SVC \
+           --set storage.cassandra.port=9042 \
+           --set storage.cassandra.user=$CASSANDRA_USER \
+           --set storage.cassandra.password=$CASSANDRA_PASSWORD \
+           --set receivers.otlp.protocols.grpc.endpoint=0.0.0.0:4317 \
+           --set receivers.otlp.protocols.http.endpoint=0.0.0.0:4318
+           sleep 200
+           kubectl patch service jaeger-collector -n ${{ env.jaeger_namespace }} --type merge -p '{"spec":{"ports": [{"port": 4317,"name":"otlpgrpc"}]}}'
+      
+      - name: Check jaeger collector status
+        run: |
+                      attempt=1
+                      max_attempts=${{ env.max_attempts }}
+                      while [[ $attempt -le $max_attempts ]]; do
+                        echo "Attempt $attempt/$max_attempts: Checking jaeger collector status..."
+                        phase=$(kubectl get pod -l app.kubernetes.io/component=collector -n ${{ env.jaeger_namespace }} -o jsonpath='{.items[0].status.phase}' 2>/dev/null || echo "NotFound")
+                        if [[ "$phase" == "Running" ]]; then
+                          echo "Jaeger collector is ready."
+                          break
+                        elif [[ "$phase" != "Running" ]]; then
+                          echo "Jaeger collector status: $phase. Retrying in ${{ env.delay }} seconds..."
+                          sleep ${{ env.delay }}
+                          ((attempt++))
+                        fi
+                      done
+                      if [["$phase" != "Running" ]]; then
+                        echo "ERROR: Maximum attempts reached. jaeger collector is not ready."
+                        kubectl get pods -n ${{  env.jaeger_namespace }}
+                        echo -e "\n======================================================================"
+                        kubectl get events -n ${{  env.jaeger_namespace }}
+                        exit 1
+                      fi              
+
+      - name: Check jaeger query status
+        run: |
+                      attempt=1
+                      max_attempts=${{ env.max_attempts }}
+                      while [[ $attempt -le $max_attempts ]]; do
+                        echo "Attempt $attempt/$max_attempts: Checking jaeger query status..."
+                        phase=$(kubectl get pod -l app.kubernetes.io/component=query -n ${{ env.jaeger_namespace }} -o jsonpath='{.items[0].status.phase}' 2>/dev/null || echo "NotFound")
+                        if [[ "$phase" == "Running" ]]; then
+                          echo "Jaeger query is ready."
+                          break
+                        elif [[ "$phase" != "Running" ]]; then
+                          echo "Jaeger query status: $phase. Retrying in ${{ env.delay }} seconds..."
+                          sleep ${{ env.delay }}
+                          ((attempt++))
+                        fi
+                      done
+                      if [["$phase" != "Running" ]]; then
+                        echo "ERROR: Maximum attempts reached. jaeger query is not ready."
+                        kubectl get pods -n ${{  env.jaeger_namespace }}
+                        echo -e "\n======================================================================"
+                        kubectl get events -n ${{  env.jaeger_namespace }}
+                        exit 1
+                      fi              
+
+      - name: Install qubership-open-telemetry-collector
+        run: |
+              helm upgrade --install -n ${{ env.collector_namespace }} --create-namespace qubership-open-telemetry-collector ./qubership-open-telemetry-collector/charts/open-telemetry-collector/
+
+
+      - name: Check collector status
+        run: |
+                             attempt=1
+                             max_attempts=${{ env.max_attempts }}
+                             while [[ $attempt -le $max_attempts ]]; do
+                               echo "Attempt $attempt/$max_attempts: Checking collector status..."
+                               phase=$(kubectl get pod -l app.kubernetes.io/name=qubership-open-telemetry-collector -n ${{ env.collector_namespace }} -o jsonpath='{.items[0].status.phase}' 2>/dev/null || echo "NotFound")
+                               if [[ "$phase" == "Running" ]]; then
+                                 echo "Collector is ready."
+                                 echo "Collector config"
+                                 kubectl get configmap qubership-open-telemetry-collector-config -n ${{ env.collector_namespace }} -o yaml
+                                 break
+                               elif [[ "$phase" != "Running" ]]; then
+                                 echo "Collector status: $phase. Retrying in ${{ env.delay }} seconds..."
+                                 sleep ${{ env.delay }}
+                                 ((attempt++))
+                               fi
+                             done
+                             if [[ "$phase" != "Running" ]]; then
+                               echo "ERROR: Maximum attempts reached. otel collector is not ready."
+                               kubectl get pods -n ${{ env.collector_namespace }}
+                               echo -e "\n======================================================================"
+                               kubectl get events -n ${{ env.collector_namespace }}
+                               kubectl logs deployment/qubership-open-telemetry-collector -n ${{ env.collector_namespace }}
+                               exit 1
+                             fi
+
+      - name: Run load
+        run: |
+             export OTEL_COLLECTOR_POD_NAME=$(kubectl get pods --namespace ${{ env.collector_namespace }} -l "app.kubernetes.io/name=qubership-open-telemetry-collector" -o jsonpath="{.items[0].metadata.name}")
+             echo "OTEL collector pod $OTEL_COLLECTOR_POD_NAME"
+             echo "Start port forwarding"
+             kubectl port-forward --namespace ${{ env.collector_namespace }} $OTEL_COLLECTOR_POD_NAME 4318:4318 &
+             sleep 20
+             export GOPATH=$HOME/go
+             export PATH=$PATH:$GOROOT/bin:$GOPATH/bin
+             echo "OTEL collector status"
+             kubectl get pods -n ${{ env.collector_namespace }}
+             echo "Jaeger collector status"
+             kubectl get pods -n ${{ env.jaeger_namespace }}             
+             telemetrygen traces --otlp-insecure --otlp-insecure-skip-verify --duration 10s --otlp-endpoint localhost:4318 --child-spans 10 --otlp-http --service testservice --workers 1 --rate 10
+
+#      - name: Check logs OTEL Collector
+#        run: |
+#                       echo "Get logs from OTEL collector"
+#                       export OTELCol_POD_NAME=$(kubectl get pod -l "app.kubernetes.io/name=qubership-open-telemetry-collector" -n ${{ env.collector_namespace }} -o jsonpath="{.items[0].metadata.name}")
+#                       echo "$OTELCol_POD_NAME"
+#                       echo "OTELCol pod logs"
+#                       kubectl logs $OTELCol_POD_NAME -n ${{ env.collector_namespace }}
+
+
+#      - name: Run telemetrygen load
+#        run: | 
+#                       kubectl create ns monitoring
+#                       cat <<EOF | kubectl apply -n ${{ env.collector_namespace }} -f -
+#                       apiVersion: batch/v1
+#                       kind: Job
+#                       metadata:
+#                         name: generate-traces
+#                       spec:
+#                         template:
+#                           spec:
+#                             containers:
+#                             - args:
+#                               - traces
+#                               - --otlp-insecure
+#                               - --otlp-insecure-skip-verify
+#                               - --batch
+#                               - --duration
+#                               - "10s"
+#                               - --otlp-endpoint
+#                               - "jaeger-collector.${{ env.jaeger_namespace }}.svc.cluster.local:4318"
+#                               - --child-spans
+#                               - "2"
+#                               - --otlp-http
+#                               - --service
+#                               - "testservice"
+#                               - --workers
+#                               - "1"
+#                               - --rate
+#                               - "100"
+#                               name: container-0
+#                               image: ghcr.io/open-telemetry/opentelemetry-collector-contrib/telemetrygen
+#                               imagePullPolicy: IfNotPresent
+#                             restartPolicy: OnFailure
+#                       EOF
+#                       sleep 120
+#                       kubectl logs job/generate-traces -n ${{ env.collector_namespace }}
+#                       
+
+
+      - name: Check traces comming
+        run: |
+              echo "Jaeger pods"
+              kubectl get pods -n ${{ env.jaeger_namespace }}
+              echo "Jaeger services"
+              kubectl get services -n ${{ env.jaeger_namespace }}
+              export POD_NAME=$(kubectl get pods --namespace ${{ env.jaeger_namespace }} -l "app.kubernetes.io/instance=jaeger,app.kubernetes.io/component=query" -o jsonpath="{.items[0].metadata.name}")
+              echo "$POD_NAME"
+              echo "Start port forwarding"
+              kubectl port-forward --namespace ${{ env.jaeger_namespace }} $POD_NAME 8090:16686 &
+              sleep 30
+              echo "Start curl queries"
+              curl http://localhost:8090/api/traces?service=testservice | jq '.' | grep testservice
+              echo "Traces count:"
+              tracecount=$(curl http://localhost:8090/api/traces?service=testservice | jq '.' | grep testservice | wc -l)
+              echo "$tracecount"
+              
+              if [[ "$tracecount" -gt 1 ]]; then
+              true
+              else
+              false
+              fi
+
+      - name: Cleanup
+        run: |
+              kind delete cluster --name ${{ env.kind_name }}
+    
