@@ -24,6 +24,8 @@ data:
         protocols:
           grpc:
             endpoint: ":4317"
+          http:
+            endpoint: ":4318"
     exporters:
       prometheus:
         endpoint: ":8889"

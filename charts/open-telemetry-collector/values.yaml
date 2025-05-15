@@ -169,7 +169,7 @@ annotations: {}
 # Mandatory: no
 # Default: /otec
 #
-entrypoint: "/app/qubership-open-telemetry-collector"
+entrypoint: "/app/qubership-otec"
 
 # JAEGER_COLLECTOR_HOST is the Jaeger hostname or ip
 # Type: string

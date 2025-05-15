@@ -258,8 +258,9 @@ jobs:
 
       - name: Install qubership-open-telemetry-collector
         run: |
-              helm upgrade --install -n ${{ env.collector_namespace }} --create-namespace qubership-open-telemetry-collector ./qubership-open-telemetry-collector/charts/open-telemetry-collector/
-
+              helm upgrade --install -n ${{ env.collector_namespace }} --create-namespace qubership-open-telemetry-collector ./qubership-open-telemetry-collector/charts/open-telemetry-collector/ \
+              --set JAEGER_COLLECTOR_HOST=jaeger-collector.${{ env.jaeger_namespace }}.svc.cluster.local \
+              --set JAEGER_COLLECTOR_OTLP_PORT:=4317
 
       - name: Check collector status
         run: |
@@ -271,7 +272,7 @@ jobs:
                                if [[ "$phase" == "Running" ]]; then
                                  echo "Collector is ready."
                                  echo "Collector config"
-                                 kubectl get configmap qubership-open-telemetry-collector-config -n ${{ env.collector_namespace }} -o yaml
+                                 kubectl get configmap opentelemetry-collector-config -n ${{ env.collector_namespace }} -o yaml
                                  break
                                elif [[ "$phase" != "Running" ]]; then
                                  echo "Collector status: $phase. Retrying in ${{ env.delay }} seconds..."
