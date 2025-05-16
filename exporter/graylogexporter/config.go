@@ -1,4 +1,4 @@
-// Copyright 2025 Qubership
+// Copyright 2024 Qubership
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package logtcpexporter
+package graylogexporter
 
 import (
 	"fmt"
@@ -22,14 +22,32 @@ import (
 	"go.opentelemetry.io/collector/config/confignet"
 )
 
+type GELFFieldMapping struct {
+	Version      string `mapstructure:"version"`
+	Host         string `mapstructure:"host"`
+	ShortMessage string `mapstructure:"short_message"`
+	FullMessage  string `mapstructure:"full_message"`
+	Level        string `mapstructure:"level"`
+}
+
 type Config struct {
 	confignet.TCPAddrConfig     `mapstructure:",squash"`
-	ATLCfg                      ATLConfig `mapstructure:"arbitrary-traces-logging"`
-	ConnPoolSize                int       `mapstructure:"connection-pool-size"`
-	QueueSize                   int       `mapstructure:"queue-size"`
-	MaxMessageSendRetryCnt      int       `mapstructure:"max-message-send-retry-count"`
-	MaxSuccessiveSendErrCnt     int       `mapstructure:"max-successive-send-error-count"`
-	SuccessiveSendErrFreezeTime string    `mapstructure:"successive-send-error-freeze-time"`
+	GELFMapping                 GELFFieldMapping `mapstructure:"field_mapping"`
+	ConnPoolSize                int              `mapstructure:"connection-pool-size"`
+	BatchSize                   int              `mapstructure:"batch-size"`
+	MaxMessageSendRetryCnt      int              `mapstructure:"max-message-send-retry-count"`
+	MaxSuccessiveSendErrCnt     int              `mapstructure:"max-successive-send-error-count"`
+	SuccessiveSendErrFreezeTime string           `mapstructure:"successive-send-error-freeze-time"`
+}
+
+func getDefaultGELFFields() *GELFFieldMapping {
+	return &GELFFieldMapping{
+		Version:      "1.1",
+		Host:         "open-telemetry-collector",
+		ShortMessage: "short_message",
+		FullMessage:  "full_message",
+		Level:        "info",
+	}
 }
 
 var _ component.Config = (*Config)(nil)
@@ -38,8 +56,8 @@ func (cfg *Config) Validate() error {
 	if cfg.ConnPoolSize < 1 {
 		return fmt.Errorf("connection-pool-size can not be less than 1 (actual value is %v)", cfg.ConnPoolSize)
 	}
-	if cfg.QueueSize < 1 {
-		return fmt.Errorf("queue-size can not be less than 1 (actual value is %v)", cfg.QueueSize)
+	if cfg.BatchSize < 1 {
+		return fmt.Errorf("batch-size can not be less than 1 (actual value is %v)", cfg.BatchSize)
 	}
 	if cfg.MaxMessageSendRetryCnt < 0 {
 		return fmt.Errorf("max-message-send-retry-count can not be negative (actual value is %v)", cfg.MaxMessageSendRetryCnt)
@@ -52,15 +70,4 @@ func (cfg *Config) Validate() error {
 		return fmt.Errorf("successive-send-error-freeze-time is not parseable : %+v", err)
 	}
 	return nil
-}
-
-type ATLConfig struct {
-	SpanFilters  []ATLFilter `mapstructure:"span-filters"`
-	TraceFilters []ATLFilter `mapstructure:"trace-filters"`
-}
-
-type ATLFilter struct { // ArbitraryTracesLoggingFilter
-	ServiceNames []string            `mapstructure:"service-names"`
-	Tags         map[string]string   `mapstructure:"tags"`
-	Mapping      map[string][]string `mapstructure:"mapping"`
 }

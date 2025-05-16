@@ -51,6 +51,17 @@ OTEC_LOGTCPEXPORTER_PARAMETERS:
   max-successive-send-error-count: 5
   successive-send-error-freeze-time: 1m
 
+# Allows to set up graylogexporter parameters
+# Type: object
+# Default: see below
+#
+OTEC_GRAYLOGEXPORTER_PARAMETERS:
+  connection-pool-size: 1
+  batch-size: 1000
+  max-message-send-retry-count: 1
+  max-successive-send-error-count: 5
+  successive-send-error-freeze-time: 1m
+
 # Allows to set up tailbased tracing general parameters
 # Type: object
 # Default: see below
@@ -66,7 +77,7 @@ OTEC_TAILBASED_GENERAL_PARAMETERS:
 # Allows to set up tailbased tracing policy parameters
 # Type: object
 # Default: see below
-#
+# #
 OTEC_TAILBASED_POLICIES_PARAMETERS:
     policies: [
       {
@@ -115,6 +126,8 @@ OTEC_TAILBASED_POLICIES_PARAMETERS:
         }
       }
     ]
+
+
 # The resources describe to compute resource requests and limits for single Pods.
 # Ref: https://kubernetes.io/docs/user-guide/compute-resources/
 # Type: object
@@ -169,7 +182,7 @@ annotations: {}
 # Mandatory: no
 # Default: /otec
 #
-entrypoint: "/app/qubership-open-telemetry-collector"
+entrypoint: "/app/qubership-otec"
 
 # JAEGER_COLLECTOR_HOST is the Jaeger hostname or ip
 # Type: string
@@ -192,13 +205,15 @@ JAEGER_COLLECTOR_PORT: "14250"
 #
 JAEGER_COLLECTOR_OTLP_PORT: "4317"
 
+# GRAYLOG_COLLECTOR_HOST : https://0.0.0.0
+# GRAYLOG_UI_URL : ""
 # GRAYLOG_COLLECTOR_HOST is the Graylog hostname or ip
 # Type: string
 # Mandatory: no
 # Default: https://graylog-logging.${CLOUD_PUBLIC_HOST}
 #
 GRAYLOG_COLLECTOR_HOST: ""
-
+# GRAYLOG_COLLECTOR_HOST: "localhost"
 # GRAYLOG_COLLECTOR_PORT is the port for the Graylog service above
 # Type: string
 # Mandatory: no
@@ -280,6 +295,11 @@ OTEC_LOG_FORMAT: 'json'
 # Default: 13133
 OTEC_HEALTH_CHECK_PORT: 13133
 
+# Allows to forward all logs to graylog
+# Default: false
+#
+OTEC_ENABLE_LOGGING: true
+
 # Allows to enable arbitrary traces logging
 # Type: boolean
 # Default: false
@@ -304,3 +324,10 @@ OTEC_ARBITRARY_TRACES_LOGGING_CONFIG: {}
 # Default: kubernetes.io/hostname
 #
 CLOUD_TOPOLOGY_KEY: kubernetes.io/hostname
+
+OTEC_GELF_FIELD_MAPPING:
+  version: "1.0"
+  host: "otec-collector-grayog-exporter-test"
+  short_message: "message"
+  full_message: "full_message"
+  level: "Info"
