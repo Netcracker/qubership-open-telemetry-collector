@@ -108,19 +108,63 @@ func (le *grayLogExporter) processLogRecords(scopeLogs plog.ScopeLogs) []string 
 	return messages
 }
 
+func extractAttributes(body pcommon.Value) (map[string]interface{}, string, error) {
+
+	attributes := make(map[string]interface{})
+	var message string
+
+	switch body.Type() {
+	case pcommon.ValueTypeStr:
+		message = body.AsString()
+		if message == "" {
+			message = "No message provided"
+		}
+		return nil, message, nil
+	case pcommon.ValueTypeMap:
+		message := ""
+		body.Map().Range(func(k string, v pcommon.Value) bool {
+			attributes[k] = v.AsString()
+			return true
+		})
+		if attributes["message"] != nil {
+			message = attributes["message"].(string)
+		}
+		return attributes, message, nil
+	case pcommon.ValueTypeSlice:
+		message = body.AsString()
+		return nil, message, nil
+	case pcommon.ValueTypeBytes:
+		attributes["bytes"] = body.Bytes()
+		return attributes, "", nil
+	case pcommon.ValueTypeEmpty:
+		return nil, "", fmt.Errorf("log body is empty")
+	default:
+		return nil, "", fmt.Errorf("unsupported body type: %v", body.Type())
+	}
+}
+
 func (le *grayLogExporter) formatLogRecordToGELF(logRecord plog.LogRecord) (string, error) {
 	timestamp, level := le.getTimestampAndLevel(logRecord)
-	fullMessage := logRecord.Body().AsString()
-	if fullMessage == "" {
-		fullMessage = "No message provided"
+	fullMessage := logRecord.Body()
+	attributes, message, err := extractAttributes(fullMessage)
+	if err != nil {
+		return "", err
 	}
 	gelf := map[string]interface{}{
 		"version":       le.config.GELFMapping.Version,
 		"host":          le.config.GELFMapping.Host,
 		"short_message": le.config.GELFMapping.ShortMessage,
-		"full_message":  fullMessage,
+		"full_message":  message,
 		"timestamp":     float64(timestamp.UnixNano()) / 1e9,
 		"level":         level,
+	}
+
+	for k, v := range attributes {
+		if k == "level" {
+			gelf["level"] = v
+		} else {
+			gelf["_"+k] = v
+		}
 	}
 
 	logRecord.Attributes().Range(func(k string, v pcommon.Value) bool {
