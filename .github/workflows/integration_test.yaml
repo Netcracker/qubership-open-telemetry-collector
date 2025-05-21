@@ -1,4 +1,4 @@
-name: Test-qubership-open-telemetry-collector
+name: Integration-test-qubership-open-telemetry-collector
 
 on:
   workflow_run:
@@ -35,7 +35,7 @@ jobs:
           repository: 'Netcracker/qubership-jaeger'
           ref: 'main'
           path: qubership-jaeger
-         
+ 
       - name: Install telemetrygen
         run: |
            sudo add-apt-repository -y ppa:longsleep/golang-backports
@@ -120,8 +120,9 @@ jobs:
                        jvmOptions:
                            heapSize: 512M
               EOF
-              sleep 200
-    
+              sleep 10
+              kubectl rollout status --watch --timeout=300s statefulset/cassandra-dc1-default-sts -n ${{ env.cassandra_namespace }}
+
       - name: Install required crds
         run: |
             kubectl apply -f https://raw.githubusercontent.com/Netcracker/qubership-monitoring-operator/refs/heads/main/charts/qubership-monitoring-operator/charts/grafana-operator/crds/integreatly.org_grafanadashboards.yaml
