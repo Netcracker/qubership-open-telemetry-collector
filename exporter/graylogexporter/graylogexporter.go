@@ -158,12 +158,11 @@ func (le *grayLogExporter) formatLogRecordToGELF(logRecord plog.LogRecord) (stri
 		"timestamp":     float64(timestamp.UnixNano()) / 1e9,
 		"level":         level,
 	}
-	le.logger.Debug("GELF message", zap.Any("gelf", gelf), zap.Any("attributes", attributes))
 	for k, v := range attributes {
-		gelf["_"+k] = v
+		gelf[k] = v
 	}
 	logRecord.Attributes().Range(func(k string, v pcommon.Value) bool {
-		gelf["_"+k] = v.AsString()
+		gelf[k] = v.AsString()
 		return true
 	})
 
@@ -210,19 +209,9 @@ func (le *grayLogExporter) sendBulkToGraylog(messages []string) error {
 
 func (le *grayLogExporter) getTimestampAndLevel(logRecord plog.LogRecord) (time.Time, uint) {
 	timestamp := logRecord.Timestamp().AsTime()
-	logRecordJSON, err := json.Marshal(logRecord)
-	if err != nil {
-		le.logger.Error("Error marshalling logRecord to JSON", zap.Error(err))
-		return timestamp, 6 // INFO
-	}
-	logRecordstring := string(logRecordJSON)
-	le.logger.Debug("log record", zap.String("logRecord", logRecordstring))
-
 	text := strings.ToLower(logRecord.SeverityText())
 	severity := logRecord.SeverityNumber()
-	debug_log := fmt.Sprintf("SeverityText: %s, SeverityNumber: %d\n", text, severity)
 
-	le.logger.Debug(debug_log)
 	switch text {
 	case "fatal":
 		return timestamp, 2
@@ -251,5 +240,5 @@ func (le *grayLogExporter) getTimestampAndLevel(logRecord plog.LogRecord) (time.
 		return timestamp, 7
 	}
 
-	return timestamp, 6 // INFO
+	return timestamp, 6
 }
