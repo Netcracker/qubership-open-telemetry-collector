@@ -146,10 +146,12 @@ func extractAttributes(body pcommon.Value) (map[string]interface{}, string, erro
 func (le *grayLogExporter) formatLogRecordToGELF(logRecord plog.LogRecord) (string, error) {
 	timestamp, level := le.getTimestampAndLevel(logRecord)
 	fullMessage := logRecord.Body()
+	le.logger.Debug("Processing log record", zap.String("fullMessage", fullMessage.AsString()))
 	attributes, message, err := extractAttributes(fullMessage)
 	if err != nil {
 		return "", err
 	}
+	le.logger.Debug("Extracted attributes", zap.Any("attributes", attributes), zap.String("message", message))
 	gelf := map[string]interface{}{
 		"version":       le.config.GELFMapping.Version,
 		"host":          le.config.GELFMapping.Host,
@@ -159,9 +161,11 @@ func (le *grayLogExporter) formatLogRecordToGELF(logRecord plog.LogRecord) (stri
 		"level":         level,
 	}
 	for k, v := range attributes {
+		le.logger.Debug("Adding attribute to GELF in attributes", zap.String("key", k), zap.Any("value", v))
 		gelf[k] = v
 	}
 	logRecord.Attributes().Range(func(k string, v pcommon.Value) bool {
+		le.logger.Debug("Adding attribute to GELF in LG records", zap.String("key", k), zap.Any("value", v))
 		gelf[k] = v.AsString()
 		return true
 	})
