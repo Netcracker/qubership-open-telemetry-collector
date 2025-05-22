@@ -160,13 +160,23 @@ func (le *grayLogExporter) formatLogRecordToGELF(logRecord plog.LogRecord) (stri
 		"timestamp":     float64(timestamp.UnixNano()) / 1e9,
 		"level":         level,
 	}
-	for k, v := range attributes {
-		le.logger.Debug("Adding attribute to GELF in attributes", zap.String("key", k), zap.Any("value", v))
-		gelf[k] = v
-	}
+
 	logRecord.Attributes().Range(func(k string, v pcommon.Value) bool {
 		le.logger.Debug("Adding attribute to GELF in LG records", zap.String("key", k), zap.Any("value", v))
-		gelf[k] = v.AsString()
+		if v.Type() == pcommon.ValueTypeStr {
+			gelf[k] = v.AsString()
+		} else if v.Type() == pcommon.ValueTypeBool {
+			gelf[k] = v.Bool()
+		} else if v.Type() == pcommon.ValueTypeInt {
+			gelf[k] = v.Int()
+		} else if v.Type() == pcommon.ValueTypeMap {
+			v.Map().Range(func(subKey string, subValue pcommon.Value) bool {
+				gelf[fmt.Sprintf("%s.%s", k, subKey)] = subValue.AsString()
+				return true
+			})
+		} else {
+			gelf[k] = fmt.Sprintf("%v", v)
+		}
 		return true
 	})
 

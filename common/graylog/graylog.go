@@ -195,7 +195,7 @@ func (gs *GraylogSender) startBatchWorker() {
 			}
 			buffer.Write(data)
 			if buffer.Len() >= 1024 {
-				err := gs.sendBulkMessage(buffer.String())
+				err := gs.SendRaw(buffer.String())
 				if err != nil {
 					gs.logger.Sugar().Errorf("Error sending bulk message: %+v", err)
 				}
@@ -205,24 +205,24 @@ func (gs *GraylogSender) startBatchWorker() {
 	}()
 }
 
-func (gs *GraylogSender) sendBulkMessage(data string) error {
-	tcpAddress := fmt.Sprintf("%s:%d", gs.endpoint.Address, gs.endpoint.Port)
-	tcpConn, err := net.Dial(string(gs.endpoint.Transport), tcpAddress)
-	if err != nil {
-		gs.logger.Sugar().Errorf("GraylogTcpConnection : Error sending bulk message: %+v", err)
-		return err
-	}
-	defer tcpConn.Close()
+// func (gs *GraylogSender) sendBulkMessage(data string) error {
+// 	tcpAddress := fmt.Sprintf("%s:%d", gs.endpoint.Address, gs.endpoint.Port)
+// 	tcpConn, err := net.Dial(string(gs.endpoint.Transport), tcpAddress)
+// 	if err != nil {
+// 		gs.logger.Sugar().Errorf("GraylogTcpConnection : Error sending bulk message: %+v", err)
+// 		return err
+// 	}
+// 	defer tcpConn.Close()
 
-	_, err = tcpConn.Write([]byte(data))
-	if err != nil {
-		gs.logger.Sugar().Errorf("Error writing bulk data to Graylog: %+v", err)
-		return err
-	}
+// 	_, err = tcpConn.Write([]byte(data))
+// 	if err != nil {
+// 		gs.logger.Sugar().Errorf("Error writing bulk data to Graylog: %+v", err)
+// 		return err
+// 	}
 
-	gs.logger.Sugar().Debug("Bulk message sent successfully to Graylog")
-	return nil
-}
+// 	gs.logger.Sugar().Debug("Bulk message sent successfully to Graylog")
+// 	return nil
+// }
 
 func (gs *GraylogSender) SendRaw(data string) error {
 	tcpAddress := fmt.Sprintf("%s:%d", gs.endpoint.Address, gs.endpoint.Port)
