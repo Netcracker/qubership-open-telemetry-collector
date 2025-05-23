@@ -1,8 +1,10 @@
 module github.com/Netcracker/qubership-open-telemetry-collector/connector/sentrymetricsconnector
 
-go 1.23.5
+go 1.24
 
 require (
+	github.com/Netcracker/qubership-open-telemetry-collector/receiver/sentryreceiver v0.0.0-20250502143338-730cf6843525
+	github.com/Netcracker/qubership-open-telemetry-collector/utils v0.0.0-20250502143338-730cf6843525
 	go.opentelemetry.io/collector/component v1.28.1
 	go.opentelemetry.io/collector/connector v0.122.1
 	go.opentelemetry.io/collector/consumer v1.28.1

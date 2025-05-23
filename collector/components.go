@@ -12,10 +12,9 @@ import (
 	"go.opentelemetry.io/collector/receiver"
 	sentrymetricsconnector "github.com/Netcracker/qubership-open-telemetry-collector/connector/sentrymetricsconnector"
 	spanmetricsconnector "github.com/open-telemetry/opentelemetry-collector-contrib/connector/spanmetricsconnector"
+	graylogexporter "github.com/Netcracker/qubership-open-telemetry-collector/exporter/graylogexporter"
 	logtcpexporter "github.com/Netcracker/qubership-open-telemetry-collector/exporter/logtcpexporter"
 	prometheusexporter "github.com/open-telemetry/opentelemetry-collector-contrib/exporter/prometheusexporter"
-	debugexporter "go.opentelemetry.io/collector/exporter/debugexporter"
-	otlpexporter "go.opentelemetry.io/collector/exporter/otlpexporter"
 	otlphttpexporter "go.opentelemetry.io/collector/exporter/otlphttpexporter"
 	healthcheckextension "github.com/open-telemetry/opentelemetry-collector-contrib/extension/healthcheckextension"
 	pprofextension "github.com/open-telemetry/opentelemetry-collector-contrib/extension/pprofextension"
@@ -23,10 +22,12 @@ import (
 	probabilisticsamplerprocessor "github.com/open-telemetry/opentelemetry-collector-contrib/processor/probabilisticsamplerprocessor"
 	tailsamplingprocessor "github.com/open-telemetry/opentelemetry-collector-contrib/processor/tailsamplingprocessor"
 	transformprocessor "github.com/open-telemetry/opentelemetry-collector-contrib/processor/transformprocessor"
-	batchprocessor "go.opentelemetry.io/collector/processor/batchprocessor"
-	sentryreceiver "github.com/Netcracker/qubership-open-telemetry-collector/receiver/sentryreceiver"
 	jaegerreceiver "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/jaegerreceiver"
 	zipkinreceiver "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/zipkinreceiver"
+	debugexporter "go.opentelemetry.io/collector/exporter/debugexporter"
+	otlpexporter "go.opentelemetry.io/collector/exporter/otlpexporter"
+	batchprocessor "go.opentelemetry.io/collector/processor/batchprocessor"
+	sentryreceiver "github.com/Netcracker/qubership-open-telemetry-collector/receiver/sentryreceiver"
 	otlpreceiver "go.opentelemetry.io/collector/receiver/otlpreceiver"
 )
 
@@ -65,16 +66,17 @@ func components() (otelcol.Factories, error) {
 		prometheusexporter.NewFactory(),
 		debugexporter.NewFactory(),
 		otlpexporter.NewFactory(),
-		otlphttpexporter.NewFactory(),
+		graylogexporter.NewFactory(),
 	)
 	if err != nil {
 		return otelcol.Factories{}, err
 	}
 	factories.ExporterModules = make(map[component.Type]string, len(factories.Exporters))
-	factories.ExporterModules[logtcpexporter.NewFactory().Type()] = "github.com/Netcracker/qubership-open-telemetry-collector/exporter/logtcpexporter main"
-	factories.ExporterModules[prometheusexporter.NewFactory().Type()] = "github.com/open-telemetry/opentelemetry-collector-contrib/exporter/prometheusexporter latest"
-	factories.ExporterModules[debugexporter.NewFactory().Type()] = "go.opentelemetry.io/collector/exporter/debugexporter latest"
-	factories.ExporterModules[otlpexporter.NewFactory().Type()] = "go.opentelemetry.io/collector/exporter/otlpexporter latest"
+	factories.ExporterModules[debugexporter.NewFactory().Type()] = "go.opentelemetry.io/collector/exporter/debugexporter v0.106.1"
+	factories.ExporterModules[otlpexporter.NewFactory().Type()] = "go.opentelemetry.io/collector/exporter/otlpexporter v0.106.1"
+	factories.ExporterModules[prometheusexporter.NewFactory().Type()] = "go.opentelemetry.io/collector/exporter/prometheusexporter v0.106.1"
+	factories.ExporterModules[logtcpexporter.NewFactory().Type()] = "github.com/Netcracker/qubership-open-telemetry-collector/exporter/logtcpexporter v0.0.0-20250514191859-030f08013ea1"
+	factories.ExporterModules[graylogexporter.NewFactory().Type()] = "github.com/Netcracker/qubership-open-telemetry-collector/exporter/graylogexporter v0.0.0-20250514191859-030f08013ea1"
 	factories.ExporterModules[otlphttpexporter.NewFactory().Type()] = "go.opentelemetry.io/collector/exporter/otlphttpexporter latest"
 
 	factories.Processors, err = otelcol.MakeFactoryMap[processor.Factory](

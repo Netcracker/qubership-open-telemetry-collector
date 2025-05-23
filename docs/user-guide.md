@@ -52,11 +52,11 @@ The following third-party modules are supported by this implementation of  open-
 
 Also there are custom implementations for
 
-* [sentryreceiver](receiver/sentryreceiver), see also the [document](docs/sentry-receiver.md#sentry-envelope-mapping-to-jaeger-traces)
-* [sentrymetricsconnector](connector/sentrymetricsconnector), see also the [document](docs/sentry-receiver.md#sentry-envelope-to-metrics)
-* [logtcpexporter](exporter/logtcpexporter), see also the [document](docs/sentry-receiver.md#sentry-envelope-to-logs-records-graylog-mapping)
+* [sentryreceiver](../receiver/sentryreceiver), see also the [document](sentry-receiver.md#sentry-envelope-mapping-to-jaeger-traces)
+* [sentrymetricsconnector](../connector/sentrymetricsconnector), see also the [document](sentry-receiver.md#sentry-envelope-to-metrics)
+* [logtcpexporter](../exporter/logtcpexporter), see also the [document](sentry-receiver.md#sentry-envelope-to-logs-records-graylog-mapping)
 
-All third-party and custom modules are listed in [builder-config.yaml](builder-config.yaml).
+All third-party and custom modules are listed in [builder-config.yaml](../builder-config.yaml).
 
 ## Use cases
 

@@ -24,8 +24,8 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/Netcracker/qubership-open-telemetry-collector/common/graylog"
 	"github.com/Netcracker/qubership-open-telemetry-collector/exporter/logtcpexporter/atl/atlmarshaller"
-	"github.com/Netcracker/qubership-open-telemetry-collector/exporter/logtcpexporter/graylog"
 	"github.com/Netcracker/qubership-open-telemetry-collector/utils"
 
 	"go.opentelemetry.io/collector/component"

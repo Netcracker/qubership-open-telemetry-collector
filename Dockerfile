@@ -19,6 +19,7 @@ COPY ./collector ./collector
 COPY ./connector ./connector
 COPY ./exporter ./exporter
 COPY ./receiver ./receiver
+COPY ./common ./common
 COPY ./utils ./utils
 
 # Install the builder tool and dependencies
