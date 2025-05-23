@@ -24,6 +24,8 @@ data:
         protocols:
           grpc:
             endpoint: ":4317"
+          http:
+            endpoint: ":4318"
     exporters:
       prometheus:
         endpoint: ":8889"
@@ -45,6 +47,10 @@ data:
         field_mapping:
         {{- toYaml .Values.OTEC_GELF_FIELD_MAPPING | nindent 10 }}
     {{- end }}
+      debug:
+        verbosity: detailed
+        sampling_initial: 10
+        sampling_thereafter: 200
     processors:
       batch:
         send_batch_max_size: 10000
@@ -90,6 +96,10 @@ data:
         metrics:
           receivers: [spanmetrics]
           exporters: [prometheus]
+        logs:
+          receivers: [otlp]
+          processors: [batch]
+          exporters: [debug, graylogexporter]
       telemetry:
         logs:
           level: "{{ .Values.LOG_LEVEL }}"
@@ -175,9 +185,6 @@ data:
           receivers: [sentryreceiver]
           processors: [filter/removesessiontraces]
           exporters: [otlp, logtcpexporter]
-        logs:
-          receivers: [otlp, jaeger, sentryreceiver]
-          exporters: [graylogexporter]
       telemetry:
         logs:
           level: "{{ .Values.LOG_LEVEL }}"

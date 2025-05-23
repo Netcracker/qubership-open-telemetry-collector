@@ -148,8 +148,8 @@ resources:
 #
 PAAS_PLATFORM: KUBERNETES
 
-imageRepository: docker.io/library/qubership-open-telemetry-collector
-imageTag: latest
+imageRepository: artifactorycn.netcracker.com:17114/netcracker/qubership-open-telemetry-collector
+imageTag: feature-alllogexporter
 
 # Only pods which provide own keys can access the private registry.
 # Default: []
@@ -183,6 +183,7 @@ annotations: {}
 # Default: /otec
 #
 entrypoint: "/app/qubership-otec"
+# entrypoint: /app/qubership-open-telemetry-collector
 
 # JAEGER_COLLECTOR_HOST is the Jaeger hostname or ip
 # Type: string
@@ -212,8 +213,7 @@ JAEGER_COLLECTOR_OTLP_PORT: "4317"
 # Mandatory: no
 # Default: https://graylog-logging.${CLOUD_PUBLIC_HOST}
 #
-GRAYLOG_COLLECTOR_HOST: ""
-# GRAYLOG_COLLECTOR_HOST: "localhost"
+GRAYLOG_COLLECTOR_HOST: "localhost"
 # GRAYLOG_COLLECTOR_PORT is the port for the Graylog service above
 # Type: string
 # Mandatory: no
@@ -326,8 +326,8 @@ OTEC_ARBITRARY_TRACES_LOGGING_CONFIG: {}
 CLOUD_TOPOLOGY_KEY: kubernetes.io/hostname
 
 OTEC_GELF_FIELD_MAPPING:
-  version: "1.0"
-  host: "otec-collector-grayog-exporter-test"
-  short_message: "message"
+  version: "1.1"
+  host: "otec-grayog-exporter"
+  short_message: "short_message"
   full_message: "full_message"
-  level: "Info"
+  level: "debug"
