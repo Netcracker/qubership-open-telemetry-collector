@@ -54,4 +54,5 @@ jobs:
         VALIDATE_JSCPD: ${{ inputs.jscpd_scan || false }}
         VALIDATE_BASH: ${{ inputs.bash_scan || false }}
         VALIDATE_MARKDOWN: ${{ inputs.md_scan || false }}
+        VALIDATE_KUBERNETES_KUBECONFORM: "false"
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
