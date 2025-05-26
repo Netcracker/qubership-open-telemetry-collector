@@ -12,6 +12,7 @@ connectors:
 exporters:
   - gomod: github.com/Netcracker/qubership-open-telemetry-collector/exporter/logtcpexporter main
   - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/exporter/prometheusexporter latest
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/exporter/prometheusremotewriteexporter latest
   - gomod: go.opentelemetry.io/collector/exporter/debugexporter latest
   - gomod: go.opentelemetry.io/collector/exporter/otlpexporter latest
   - gomod: go.opentelemetry.io/collector/exporter/otlphttpexporter latest
@@ -39,4 +40,4 @@ receivers:
   - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/jaegerreceiver latest
   - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/zipkinreceiver latest
   - gomod: go.opentelemetry.io/collector/receiver/otlpreceiver latest
-  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/prometheusremotewritereceiver main
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/prometheusremotewritereceiver latest
