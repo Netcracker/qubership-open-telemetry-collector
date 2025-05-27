@@ -37,8 +37,8 @@ WORKDIR /app
 # Copy the generated collector binary from the builder stage
 COPY --from=builder --chown=${USER_ID} /build/collector/qubership-otec /app/qubership-otec
 
-# Copy the configuration file
-#COPY config.yaml .
+#Copy the configuration file
+#COPY config.yaml ./conf/otel.yaml
 
 # Expose necessary ports
 EXPOSE 4317/tcp 4318/tcp 13133/tcp
@@ -47,4 +47,4 @@ USER ${USER_ID}
 
 # Set the default entrypoint and command
 ENTRYPOINT ["/app/qubership-otec"]
-CMD ["--config=config.yaml"]
+CMD ["--config=otel.yaml"]
