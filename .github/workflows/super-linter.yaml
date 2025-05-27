@@ -25,6 +25,7 @@ on:
         default: false
         required: false
         description: "Lint all codebase"
+
 permissions:
   contents: read
 
@@ -50,9 +51,4 @@ jobs:
       uses: super-linter/super-linter/slim@v7.3.0
       env:
         VALIDATE_ALL_CODEBASE: ${{ inputs.full_scan || false }}
-        VALIDATE_GO: ${{ inputs.go_scan || false }}
-        VALIDATE_JSCPD: ${{ inputs.jscpd_scan || false }}
-        VALIDATE_BASH: ${{ inputs.bash_scan || false }}
-        VALIDATE_MARKDOWN: ${{ inputs.md_scan || false }}
-        VALIDATE_KUBERNETES_KUBECONFORM: "false"
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
