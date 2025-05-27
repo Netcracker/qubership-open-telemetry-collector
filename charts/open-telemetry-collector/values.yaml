@@ -67,66 +67,47 @@ OTEC_GRAYLOGEXPORTER_PARAMETERS:
 # Default: see below
 #
 OTEC_TAILBASED_GENERAL_PARAMETERS:
-      tail_sampling:
-        decision_wait: 31s
-        num_traces: 7500
-        expected_new_traces_per_sec: 200
-        decision_cache:
-          sampled_cache_size: 75000
-          non_sampled_cache_size: 22500
+  tail_sampling:
+    decision_wait: 31s
+    num_traces: 7500
+    expected_new_traces_per_sec: 200
+    decision_cache:
+      sampled_cache_size: 75000
+      non_sampled_cache_size: 22500
+
 # Allows to set up tailbased tracing policy parameters
 # Type: object
 # Default: see below
 # #
 OTEC_TAILBASED_POLICIES_PARAMETERS:
-    policies: [
-      {
-        name: composite-policy,
-        type: composite,
-        composite: {
-          max_total_spans_per_second: 2000000,
-          policy_order: [string_attribute, probabilistic, status_code, always_sample],
-          composite_sub_policy: [
-            {
-              name: string_attribute,
-              type: string_attribute,
-              string_attribute: {
-                key: key, values: [testvalue*], enabled_regex_matching: true
-              }
-            },
-            {
-              name: probabilistic,
-              type: probabilistic,
-              probabilistic: {
-                sampling_percentage: 10
-              }
-            },
-            {
-              name: status_code,
-              type: status_code,
-              status_code: {
-                status_codes: [OK]
-              }
-            }
-          ],
-          rate_allocation: [
-            {
-              policy: string_attribute,
-              percent: 45
-            },
-            {
-              policy: probabilistic,
-              percent: 10
-            },
-            {
-              policy: status_code,
-              percent: 45
-            }
-          ]
-        }
-      }
-    ]
-
+  policies:
+    - name: composite-policy
+      type: composite
+      composite:
+        max_total_spans_per_second: 2000000
+        policy_order: [string_attribute, probabilistic, status_code, always_sample]
+        composite_sub_policy:
+          - name: string_attribute
+            type: string_attribute
+            string_attribute:
+              key: key
+              values: [testvalue*]
+              enabled_regex_matching: true
+          - name: probabilistic
+            type: probabilistic
+            probabilistic:
+              sampling_percentage: 10
+          - name: status_code
+            type: status_code
+            status_code:
+              status_codes: [OK]
+        rate_allocation:
+          - policy: string_attribute
+            percent: 45
+          - policy: probabilistic
+            percent: 10
+          - policy: status_code
+            percent: 45
 
 # The resources describe to compute resource requests and limits for single Pods.
 # Ref: https://kubernetes.io/docs/user-guide/compute-resources/
