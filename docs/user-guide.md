@@ -14,6 +14,7 @@
       * [Sentry Receiver](#sentry-receiver)
       * [Sentrymetrics Connector](#sentrymetrics-connector)
       * [Logtcp Exporter](#logtcp-exporter)
+      * [graylog Exporter](#graylog-exporter)
 
 ## Introduction
 
@@ -55,6 +56,7 @@ Also there are custom implementations for
 * [sentryreceiver](../receiver/sentryreceiver), see also the [document](sentry-receiver.md#sentry-envelope-mapping-to-jaeger-traces)
 * [sentrymetricsconnector](../connector/sentrymetricsconnector), see also the [document](sentry-receiver.md#sentry-envelope-to-metrics)
 * [logtcpexporter](../exporter/logtcpexporter), see also the [document](sentry-receiver.md#sentry-envelope-to-logs-records-graylog-mapping)
+* [logtcpexporter](../exporter/graylogexporter)
 
 All third-party and custom modules are listed in [builder-config.yaml](../builder-config.yaml).
 
@@ -171,3 +173,24 @@ contexts.<context_name>.<map_key> attribute.
 * `successive-send-error-freeze-time` (`optional`) - The time period for which open-telemetry-collector
   stops sending messages to the graylog after `max-successive-send-error-count` successive send errors to the graylog.
   The time period is set in golang duration format. Default value is "1m" - 1 minute.
+
+#### Graylog Exporter
+* Currently tcp is only supported to transfer logs to graylog.
+* `endpoint` (`required`) - Contains host and port for the Graylog TCP destination
+* `connection-pool-size` (`optional`) - Connection pool size for the graylog. Default value is 1.
+* `Batch-size` (`optional`) - Size of the batch of messages before sending them to the graylog. Default value is 1000.
+* `max-message-send-retry-count` (`optional`) - message is skipped after this number of retries to send it
+  to the graylog. Default value is 1.
+* `max-successive-send-error-count` (`optional`) - the number of successive send errors to the graylog after
+  which open-telemetry-collector stops sending messages to the graylog for a `successive-send-error-freeze-time`
+  time period. Default value is 5.
+* `successive-send-error-freeze-time` (`optional`) - The time period for which open-telemetry-collector
+  stops sending messages to the graylog after `max-successive-send-error-count` successive send errors to the graylog.
+  The time period is set in golang duration format. Default value is "1m" - 1 minute.
+* 
+  * `version` - GELF spec version. Default is 1.1.
+  * `host`  -  Name of the host, source or application that sent this message. Default is open-telemetry-collector.
+  * `short_message` - Short, descriptive message.
+  * `full_message`- Contains the actual log message. calculated dynamically from logs
+  * `level`  - Currenlty fetching it from log records.
+
