@@ -16,11 +16,9 @@ package graylogexporter
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/Netcracker/qubership-open-telemetry-collector/common/graylog"
@@ -39,7 +37,6 @@ type grayLogExporter struct {
 	settings      exporter.Settings
 	logger        *zap.Logger
 	config        *Config
-	// fieldmapping  *GELFFieldMapping
 }
 
 func createLogExporter(cfg *Config, settings exporter.Settings) *grayLogExporter {
@@ -51,19 +48,21 @@ func createLogExporter(cfg *Config, settings exporter.Settings) *grayLogExporter
 	}
 }
 
-func (le *grayLogExporter) start(_ context.Context, host component.Host) (err error) {
+func (le *grayLogExporter) start(_ context.Context, _ component.Host) error {
 	var address string
 	var port uint64
 	useBulk := true
+
 	endpointSplitted := strings.Split(le.url, ":")
 	if len(endpointSplitted) == 1 {
 		address = endpointSplitted[0]
 		port = 12201
-	} else if len(endpointSplitted) > 1 {
+	} else {
 		address = endpointSplitted[0]
+		var err error
 		port, err = strconv.ParseUint(endpointSplitted[1], 10, 64)
 		if err != nil {
-			errMsg := fmt.Sprintf("Error parsing %v port number to uint64 : %+v\n", endpointSplitted[1], err)
+			errMsg := fmt.Sprintf("Error parsing port '%v': %v", endpointSplitted[1], err)
 			le.logger.Error(errMsg)
 			return fmt.Errorf(errMsg)
 		}
@@ -71,7 +70,7 @@ func (le *grayLogExporter) start(_ context.Context, host component.Host) (err er
 
 	freezeTime, err := time.ParseDuration(le.config.SuccessiveSendErrFreezeTime)
 	if err != nil {
-		errMsg := fmt.Sprintf("le.config.successiveSendErrFreezeTime is not parseable : %+v", err)
+		errMsg := fmt.Sprintf("Invalid SuccessiveSendErrFreezeTime '%s': %v", le.config.SuccessiveSendErrFreezeTime, err)
 		le.logger.Error(errMsg)
 		return fmt.Errorf(errMsg)
 	}
@@ -94,22 +93,7 @@ func (le *grayLogExporter) start(_ context.Context, host component.Host) (err er
 	return nil
 }
 
-func (le *grayLogExporter) processLogRecords(scopeLogs plog.ScopeLogs) []string {
-	var messages []string
-	for i := 0; i < scopeLogs.LogRecords().Len(); i++ {
-		logRecord := scopeLogs.LogRecords().At(i)
-		msgStr, err := le.formatLogRecordToGELF(logRecord)
-		if err == nil {
-			messages = append(messages, msgStr)
-		} else {
-			le.logger.Sugar().Errorf("Error formatting log: %v", err)
-		}
-	}
-	return messages
-}
-
 func extractAttributes(body pcommon.Value) (map[string]interface{}, string, error) {
-
 	attributes := make(map[string]interface{})
 	var message string
 
@@ -120,105 +104,99 @@ func extractAttributes(body pcommon.Value) (map[string]interface{}, string, erro
 			message = "No message provided"
 		}
 		return nil, message, nil
+
 	case pcommon.ValueTypeMap:
-		message := ""
 		body.Map().Range(func(k string, v pcommon.Value) bool {
 			attributes[k] = v.AsString()
 			return true
 		})
-		if attributes["message"] != nil {
-			message = attributes["message"].(string)
+		if val, ok := attributes["message"]; ok {
+			message, _ = val.(string)
 		}
 		return attributes, message, nil
+
 	case pcommon.ValueTypeSlice:
 		message = body.AsString()
 		return nil, message, nil
+
 	case pcommon.ValueTypeBytes:
 		attributes["bytes"] = body.Bytes()
 		return attributes, "", nil
+
 	case pcommon.ValueTypeEmpty:
 		return nil, "", fmt.Errorf("log body is empty")
+
 	default:
 		return nil, "", fmt.Errorf("unsupported body type: %v", body.Type())
 	}
 }
 
-func (le *grayLogExporter) formatLogRecordToGELF(logRecord plog.LogRecord) (string, error) {
+func (le *grayLogExporter) logRecordToMessage(logRecord plog.LogRecord) (*graylog.Message, error) {
 	timestamp, level := le.getTimestampAndLevel(logRecord)
-	fullMessage := logRecord.Body()
-	le.logger.Debug("Processing log record", zap.String("fullMessage", fullMessage.AsString()))
-	attributes, message, err := extractAttributes(fullMessage)
+	attributes, message, err := extractAttributes(logRecord.Body())
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	le.logger.Debug("Extracted attributes", zap.Any("attributes", attributes), zap.String("message", message))
-	gelf := map[string]interface{}{
-		"version":       le.config.GELFMapping.Version,
-		"host":          le.config.GELFMapping.Host,
-		"short_message": le.config.GELFMapping.ShortMessage,
-		"full_message":  message,
-		"timestamp":     float64(timestamp.UnixNano()) / 1e9,
-		"level":         level,
+
+	extra := make(map[string]string)
+
+	for k, v := range attributes {
+		extra[k] = fmt.Sprintf("%v", v)
 	}
 
 	logRecord.Attributes().Range(func(k string, v pcommon.Value) bool {
-		le.logger.Debug("Adding attribute to GELF in LG records", zap.String("key", k), zap.Any("value", v))
-		if v.Type() == pcommon.ValueTypeStr {
-			gelf[k] = v.AsString()
-		} else if v.Type() == pcommon.ValueTypeBool {
-			gelf[k] = v.Bool()
-		} else if v.Type() == pcommon.ValueTypeInt {
-			gelf[k] = v.Int()
-		} else if v.Type() == pcommon.ValueTypeMap {
+		switch v.Type() {
+		case pcommon.ValueTypeStr:
+			extra[k] = v.AsString()
+		case pcommon.ValueTypeBool:
+			extra[k] = strconv.FormatBool(v.Bool())
+		case pcommon.ValueTypeInt:
+			extra[k] = strconv.FormatInt(v.Int(), 10)
+		case pcommon.ValueTypeDouble:
+			extra[k] = fmt.Sprintf("%f", v.Double())
+		case pcommon.ValueTypeMap:
 			v.Map().Range(func(subKey string, subValue pcommon.Value) bool {
-				gelf[fmt.Sprintf("%s.%s", k, subKey)] = subValue.AsString()
+				extra[fmt.Sprintf("%s.%s", k, subKey)] = subValue.AsString()
 				return true
 			})
-		} else {
-			gelf[k] = fmt.Sprintf("%v", v)
+		default:
+			extra[k] = fmt.Sprintf("%v", v)
 		}
 		return true
 	})
 
-	msgBytes, err := json.Marshal(gelf)
-	if err != nil {
-		return "", err
+	msg := &graylog.Message{
+		Version:      le.config.GELFMapping.Version,
+		Host:         le.config.GELFMapping.Host,
+		ShortMessage: le.config.GELFMapping.ShortMessage,
+		FullMessage:  message,
+		Timestamp:    timestamp.Unix(),
+		Level:        level,
+		Extra:        extra,
 	}
-	return string(msgBytes), nil
+
+	return msg, nil
 }
 
 func (le *grayLogExporter) pushLogs(ctx context.Context, logs plog.Logs) error {
-	var wg sync.WaitGroup
-	var mu sync.Mutex
-	var allMessages []string
-
 	for i := 0; i < logs.ResourceLogs().Len(); i++ {
 		resourceLog := logs.ResourceLogs().At(i)
 		for j := 0; j < resourceLog.ScopeLogs().Len(); j++ {
 			scopeLog := resourceLog.ScopeLogs().At(j)
-
-			wg.Add(1)
-			go func(scopeLog plog.ScopeLogs) {
-				defer wg.Done()
-				messages := le.processLogRecords(scopeLog)
-				mu.Lock()
-				allMessages = append(allMessages, messages...)
-				mu.Unlock()
-			}(scopeLog)
+			for k := 0; k < scopeLog.LogRecords().Len(); k++ {
+				logRecord := scopeLog.LogRecords().At(k)
+				msg, err := le.logRecordToMessage(logRecord)
+				if err != nil {
+					le.logger.Sugar().Errorf("Error converting log record to Graylog message: %v", err)
+					continue
+				}
+				if err := le.graylogSender.SendToQueue(msg); err != nil {
+					le.logger.Sugar().Warnf("Failed to enqueue Graylog message: %v", err)
+				}
+			}
 		}
 	}
-
-	wg.Wait()
-	return le.sendBulkToGraylog(allMessages)
-}
-
-func (le *grayLogExporter) sendBulkToGraylog(messages []string) error {
-	var buffer strings.Builder
-	for _, msg := range messages {
-		buffer.WriteString(msg)
-		buffer.WriteByte(0)
-	}
-	return le.graylogSender.SendRaw(buffer.String())
+	return nil
 }
 
 func (le *grayLogExporter) getTimestampAndLevel(logRecord plog.LogRecord) (time.Time, uint) {

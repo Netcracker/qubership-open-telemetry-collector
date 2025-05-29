@@ -187,7 +187,7 @@ contexts.<context_name>.<map_key> attribute.
 * `successive-send-error-freeze-time` (`optional`) - The time period for which open-telemetry-collector
   stops sending messages to the graylog after `max-successive-send-error-count` successive send errors to the graylog.
   The time period is set in golang duration format. Default value is "1m" - 1 minute.
-* 
+* GELF Payload Specification
   * `version` - GELF spec version. Default is 1.1.
   * `host`  -  Name of the host, source or application that sent this message. Default is open-telemetry-collector.
   * `short_message` - Short, descriptive message.

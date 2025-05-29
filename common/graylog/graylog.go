@@ -42,6 +42,7 @@ type Endpoint struct {
 
 type GraylogSender struct {
 	ctx                         context.Context
+	cancel                      context.CancelFunc
 	endpoint                    Endpoint
 	msgQueue                    chan *Message
 	logger                      *zap.Logger
@@ -71,104 +72,141 @@ func NewGraylogSender(
 	successiveSendErrFreezeTime time.Duration,
 	useBulkSend ...bool,
 ) *GraylogSender {
+
 	bulkSend := false
 	if len(useBulkSend) > 0 {
 		bulkSend = useBulkSend[0]
 	}
-	result := GraylogSender{
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	gs := &GraylogSender{
+		ctx:                         ctx,
+		cancel:                      cancel,
 		endpoint:                    endpoint,
 		logger:                      logger,
 		msgQueue:                    make(chan *Message, queueSize),
 		maxMessageSendRetryCnt:      maxMessageSendRetryCnt,
 		maxSuccessiveSendErrCnt:     maxSuccessiveSendErrCnt,
 		successiveSendErrFreezeTime: successiveSendErrFreezeTime,
-		ctx:                         context.Background(),
 		useBulkSend:                 bulkSend,
 	}
 
 	if bulkSend {
-		result.startBatchWorker() // Start batch worker for bulk send
+		gs.logger.Info("GraylogSender starting in bulk send mode")
+		gs.startBatchWorker()
 	} else {
+		gs.logger.Info("GraylogSender starting in individual send mode")
 		for i := 0; i < connPoolSize; i++ {
-			go result.tcpConnGoroutine(i) // Send messages individually
+			go gs.tcpConnGoroutine(i)
 		}
 	}
 
-	return &result
+	return gs
+}
+
+func (gs *GraylogSender) Stop() {
+	gs.logger.Info("GraylogSender stopping...")
+	gs.cancel()
+	close(gs.msgQueue)
 }
 
 func (gs *GraylogSender) tcpConnGoroutine(connNumber int) {
-	defer gs.logger.Sugar().Infof("GraylogTcpConnection : Goroutine #%v is finished", connNumber)
+	defer gs.logger.Sugar().Infof("GraylogTcpConnection : Goroutine #%d finished", connNumber)
+
 	defer func() {
 		if rec := recover(); rec != nil {
-			gs.logger.Sugar().Errorf("GraylogTcpConnection : Panic in goroutine #%v : %+v ; Stacktrace of the panic : %v", connNumber, rec, string(debug.Stack()))
-			time.Sleep(time.Second * 5)
-			gs.logger.Sugar().Infof("GraylogTcpConnection : Starting gouroutine #%v again ...", connNumber)
+			gs.logger.Sugar().Errorf("GraylogTcpConnection : Panic in goroutine #%d : %+v ; Stacktrace : %s", connNumber, rec, string(debug.Stack()))
+			time.Sleep(5 * time.Second)
+			gs.logger.Sugar().Infof("GraylogTcpConnection : Restarting goroutine #%d ...", connNumber)
 			go gs.tcpConnGoroutine(connNumber)
 		}
 	}()
+
 	tcpAddress := fmt.Sprintf("%s:%d", gs.endpoint.Address, gs.endpoint.Port)
-	gs.logger.Sugar().Infof("GraylogTcpConnection : Goroutine #%v for %v started", connNumber, tcpAddress)
-	successiveGraylogErrCnt := 0
-	MAX_SUCCESSIVE_SEND_ERR_CNT := gs.maxSuccessiveSendErrCnt
-	messageRetryCnt := 0
-	MAX_RETRY_CNT := gs.maxMessageSendRetryCnt
-	FREEZE_TIME := gs.successiveSendErrFreezeTime
-	var retryData *[]byte
+	gs.logger.Sugar().Infof("GraylogTcpConnection : Goroutine #%d for %s started", connNumber, tcpAddress)
+
+	var (
+		successiveGraylogErrCnt = 0
+		messageRetryCnt         = 0
+		retryData               *[]byte
+	)
+
 	for {
-		gs.logger.Sugar().Infof("GraylogTcpConnection : Creating tcp connection #%v to the graylog", connNumber)
+		select {
+		case <-gs.ctx.Done():
+			gs.logger.Sugar().Infof("GraylogTcpConnection : Context canceled, stopping goroutine #%d", connNumber)
+			return
+		default:
+		}
+
+		gs.logger.Sugar().Infof("GraylogTcpConnection : Creating TCP connection #%d to Graylog", connNumber)
 		tcpConn, err := net.Dial(string(gs.endpoint.Transport), tcpAddress)
 		if err != nil {
-			gs.logger.Sugar().Errorf("GraylogTcpConnection : Error creating tcp connection #%v to the graylog : %+v", connNumber, err)
-			time.Sleep(time.Second * 5)
+			gs.logger.Sugar().Errorf("GraylogTcpConnection : Error creating TCP connection #%d to Graylog: %+v", connNumber, err)
+			time.Sleep(5 * time.Second)
 			continue
 		}
-		for {
-			var data []byte
-			if messageRetryCnt > MAX_RETRY_CNT {
-				gs.logger.Sugar().Errorf("GraylogTcpConnection : Message %+v is skipped after %v retries in the goroutine #%v", retryData, messageRetryCnt-1, connNumber)
 
-				retryData = nil
+		for {
+			select {
+			case <-gs.ctx.Done():
+				gs.logger.Sugar().Infof("GraylogTcpConnection : Context canceled, stopping goroutine #%d", connNumber)
+				_ = tcpConn.Close()
+				return
+			default:
 			}
+
+			if messageRetryCnt > gs.maxMessageSendRetryCnt {
+				gs.logger.Sugar().Errorf("GraylogTcpConnection : Message %+v skipped after %d retries in goroutine #%d", retryData, messageRetryCnt-1, connNumber)
+				retryData = nil
+				messageRetryCnt = 0
+			}
+
+			var data []byte
+
 			if retryData != nil {
 				data = *retryData
-				gs.logger.Sugar().Infof("GraylogTcpConnection : Retry %v sending message in the goroutine #%v", messageRetryCnt, connNumber)
+				gs.logger.Sugar().Infof("GraylogTcpConnection : Retrying message send #%d in goroutine #%d", messageRetryCnt, connNumber)
 			} else {
 				msg, ok := <-gs.msgQueue
 				if !ok {
-					gs.logger.Sugar().Errorf("GraylogTcpConnection : Message chan is closed, stopping the goroutine #%v", connNumber)
+					gs.logger.Sugar().Infof("GraylogTcpConnection : msgQueue closed, stopping goroutine #%d", connNumber)
+					_ = tcpConn.Close()
 					return
 				}
 				if msg == nil {
-					gs.logger.Sugar().Errorf("GraylogTcpConnection : Nil message received from chan in the goroutine #%v", connNumber)
+					gs.logger.Sugar().Warnf("GraylogTcpConnection : nil message received in goroutine #%d, skipping", connNumber)
 					continue
 				}
+
 				data, err = prepareMessage(msg)
 				if err != nil {
-					gs.logger.Sugar().Errorf("GraylogTcpConnection : Message %+v is skipped in the goroutine #%v, because error has happened during message preparation : %+v", msg, connNumber, err)
+					gs.logger.Sugar().Errorf("GraylogTcpConnection : Error preparing message %+v in goroutine #%d: %+v", msg, connNumber, err)
 					continue
 				}
 			}
+
 			_, err = tcpConn.Write(data)
 			if err != nil {
-				gs.logger.Sugar().Errorf("GraylogTcpConnection : Message %v has not been sent to the graylog, connection #%v to the graylog will be recreated : %+v\n", string(data), connNumber, err)
-				err2 := tcpConn.Close()
-				if err2 != nil {
-					gs.logger.Sugar().Errorf("GraylogTcpConnection : Error closing tcp connection #%v to the graylog : %+v", connNumber, err2)
+				gs.logger.Sugar().Errorf("GraylogTcpConnection : Failed to send message in goroutine #%d: %v. Closing connection and retrying...", connNumber, err)
+				if errClose := tcpConn.Close(); errClose != nil {
+					gs.logger.Sugar().Errorf("GraylogTcpConnection : Error closing TCP connection #%d: %+v", connNumber, errClose)
 				}
 				retryData = &data
 				messageRetryCnt++
 				successiveGraylogErrCnt++
-				if successiveGraylogErrCnt > MAX_SUCCESSIVE_SEND_ERR_CNT {
-					gs.logger.Sugar().Errorf("GraylogTcpConnection : %v successive errors recieved from the graylog. Connection #%v is freezed for %s", successiveGraylogErrCnt, connNumber, FREEZE_TIME)
-					time.Sleep(FREEZE_TIME)
+				if successiveGraylogErrCnt > gs.maxSuccessiveSendErrCnt {
+					gs.logger.Sugar().Errorf("GraylogTcpConnection : %d successive errors in goroutine #%d, freezing for %s", successiveGraylogErrCnt, connNumber, gs.successiveSendErrFreezeTime)
+					time.Sleep(gs.successiveSendErrFreezeTime)
+					successiveGraylogErrCnt = 0
 				}
 				break
 			} else {
 				messageRetryCnt = 0
 				successiveGraylogErrCnt = 0
 				retryData = nil
-				gs.logger.Sugar().Debugf("GraylogTcpConnection : Message %+v has been sent successfully to the graylog in the goroutine #%v\n", string(data), connNumber)
+				gs.logger.Sugar().Debugf("GraylogTcpConnection : Message sent successfully in goroutine #%d", connNumber)
 			}
 		}
 	}
@@ -177,29 +215,47 @@ func (gs *GraylogSender) tcpConnGoroutine(connNumber int) {
 func (gs *GraylogSender) startBatchWorker() {
 	go func() {
 		var buffer strings.Builder
-		for {
-			msg, ok := <-gs.msgQueue
-			if !ok {
-				gs.logger.Sugar().Error("GraylogTcpConnection : Message chan is closed, stopping the batch worker")
-				return
-			}
-			if msg == nil {
-				gs.logger.Sugar().Error("GraylogTcpConnection : Nil message received from chan in the batch worker")
-				continue
-			}
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
 
-			data, err := prepareMessage(msg)
-			if err != nil {
-				gs.logger.Sugar().Errorf("Error preparing message %v for bulk sending: %+v", msg, err)
-				continue
-			}
-			buffer.Write(data)
-			if buffer.Len() >= 1024 {
-				err := gs.SendRaw(buffer.String())
-				if err != nil {
-					gs.logger.Sugar().Errorf("Error sending bulk message: %+v", err)
+		for {
+			select {
+			case <-gs.ctx.Done():
+				gs.logger.Info("Graylog batch worker: context canceled, stopping worker")
+				return
+
+			case msg, ok := <-gs.msgQueue:
+				if !ok {
+					gs.logger.Info("Graylog batch worker: msgQueue closed, stopping worker")
+					return
 				}
-				buffer.Reset()
+				if msg == nil {
+					gs.logger.Warn("Graylog batch worker: nil message received, skipping")
+					continue
+				}
+
+				data, err := prepareMessage(msg)
+				if err != nil {
+					gs.logger.Sugar().Errorf("Graylog batch worker: error preparing message for bulk send: %+v", err)
+					continue
+				}
+
+				buffer.Write(data)
+
+				if buffer.Len() >= 1024 {
+					if err := gs.SendRaw(buffer.String()); err != nil {
+						gs.logger.Sugar().Errorf("Graylog batch worker: error sending bulk message: %+v", err)
+					}
+					buffer.Reset()
+				}
+
+			case <-ticker.C:
+				if buffer.Len() > 0 {
+					if err := gs.SendRaw(buffer.String()); err != nil {
+						gs.logger.Sugar().Errorf("Graylog batch worker: error sending bulk message (timer flush): %+v", err)
+					}
+					buffer.Reset()
+				}
 			}
 		}
 	}()
@@ -209,7 +265,7 @@ func (gs *GraylogSender) SendRaw(data string) error {
 	tcpAddress := fmt.Sprintf("%s:%d", gs.endpoint.Address, gs.endpoint.Port)
 	tcpConn, err := net.Dial(string(gs.endpoint.Transport), tcpAddress)
 	if err != nil {
-		gs.logger.Sugar().Errorf("Error sending raw data to Graylog: %+v", err)
+		gs.logger.Sugar().Errorf("Error dialing Graylog TCP at %s: %+v", tcpAddress, err)
 		return err
 	}
 	defer tcpConn.Close()
@@ -228,31 +284,31 @@ func (gs *GraylogSender) SendToQueue(m *Message) error {
 	select {
 	case gs.msgQueue <- m:
 		return nil
+	case <-gs.ctx.Done():
+		return fmt.Errorf("sender stopped")
 	default:
-		err := fmt.Errorf("Chan is full")
-		return err
+		return fmt.Errorf("message queue is full")
 	}
 }
 
 func prepareMessage(m *Message) ([]byte, error) {
 	jsonMessage, err := json.Marshal(m)
 	if err != nil {
-		return []byte{}, err
+		return nil, err
 	}
 
 	c, err := gabs.ParseJSON(jsonMessage)
 	if err != nil {
-		return []byte{}, err
+		return nil, err
 	}
 
 	for key, value := range m.Extra {
 		_, err = c.Set(value, fmt.Sprintf("_%s", key))
 		if err != nil {
-			return []byte{}, err
+			return nil, err
 		}
 	}
 
 	data := append(c.Bytes(), '\n', byte(0))
-
 	return data, nil
 }
