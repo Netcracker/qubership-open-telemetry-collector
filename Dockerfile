@@ -27,7 +27,7 @@ RUN apk add --no-cache git \
     # Build the collector
     && CGO_ENABLED=0 builder --config=builder-config.yaml
 
-FROM alpine:3.21
+FROM alpine:3.22
 
 ENV USER_ID=65534
 
