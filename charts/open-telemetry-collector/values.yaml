@@ -306,6 +306,19 @@ OTEC_ARBITRARY_TRACES_LOGGING_CONFIG: {}
 #
 CLOUD_TOPOLOGY_KEY: kubernetes.io/hostname
 
+# Defines fields and condtions for log deduplication processor.
+OTEC_LOGDEDUP_PROCESSOR_PARAMETERS:
+  include_fields:
+    - attributes.hostname
+    - attributes.objectRef.namespace
+    - attributes.cluster
+    - attributes.level
+  conditions:
+    - attributes["stage"] == "ResponseComplete"
+    - attributes["cluster"] == "pass-miniha"
+  interval: 60s
+  log_count_attribute: dedup_count
+
 OTEC_GELF_FIELD_MAPPING:
   version: "1.1"
   host: "otec-grayog-exporter"
