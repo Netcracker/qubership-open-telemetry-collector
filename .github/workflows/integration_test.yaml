@@ -97,14 +97,14 @@ jobs:
 
       - name: Check OTEL telemetry come through remote write
         run: |
-              export VM_POD_NAME=$(kubectl get pods --namespace ${{ env.vm_namespace }} -l "app.kubernetes.io/name=victoria-metrics-single" -o jsonpath="{.items[0].metadata.name}")
+              VM_POD_NAME=$(kubectl get pods --namespace ${{ env.vm_namespace }} -l "app.kubernetes.io/name=victoria-metrics-single" -o jsonpath="{.items[0].metadata.name}")
               echo "VM server pod $VM_POD_NAME"
               echo "Start port forwarding"
               kubectl port-forward --namespace ${{ env.vm_namespace }} $VM_POD_NAME 8428:8428 &
               sleep 60
               echo "Start curl queries"
               curl http://localhost:8428/api/v1/query -d 'query={__name__!=""}' | jq '.' | grep otelcol
-              count=$(curl http://localhost:8428/api/v1/query -d 'query={__name__!=""}' | jq '.' | grep otelcol | wc -l)
+              count=$(curl http://localhost:8428/api/v1/query -d 'query={__name__!=""}' | jq '.' | grep -c)
               echo "$count"
               
               if [[ "$count" -gt 1 ]]; then
