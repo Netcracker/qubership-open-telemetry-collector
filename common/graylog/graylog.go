@@ -49,14 +49,15 @@ type GraylogSender struct {
 	maxMessageSendRetryCnt      int
 	maxSuccessiveSendErrCnt     int
 	successiveSendErrFreezeTime time.Duration
+	batchWorkerFlushInterval    time.Duration
 	useBulkSend                 bool
 }
 
 type Message struct {
 	Version      string            `json:"version"`
 	Host         string            `json:"host"`
-	ShortMessage string            `json:"short_message"`
-	FullMessage  string            `json:"full_message,omitempty"`
+	ShortMessage string            `json:"short-message"`
+	FullMessage  string            `json:"full-message,omitempty"`
 	Timestamp    int64             `json:"timestamp,omitempty"`
 	Level        uint              `json:"level,omitempty"`
 	Extra        map[string]string `json:"-"`
@@ -70,6 +71,7 @@ func NewGraylogSender(
 	maxMessageSendRetryCnt int,
 	maxSuccessiveSendErrCnt int,
 	successiveSendErrFreezeTime time.Duration,
+	batchWorkerFlushInterval time.Duration,
 	useBulkSend ...bool,
 ) *GraylogSender {
 
@@ -89,6 +91,7 @@ func NewGraylogSender(
 		maxMessageSendRetryCnt:      maxMessageSendRetryCnt,
 		maxSuccessiveSendErrCnt:     maxSuccessiveSendErrCnt,
 		successiveSendErrFreezeTime: successiveSendErrFreezeTime,
+		batchWorkerFlushInterval:    batchWorkerFlushInterval,
 		useBulkSend:                 bulkSend,
 	}
 
@@ -117,7 +120,7 @@ func (gs *GraylogSender) tcpConnGoroutine(connNumber int) {
 	defer func() {
 		if rec := recover(); rec != nil {
 			gs.logger.Sugar().Errorf("GraylogTcpConnection : Panic in goroutine #%d : %+v ; Stacktrace : %s", connNumber, rec, string(debug.Stack()))
-			time.Sleep(5 * time.Second)
+			time.Sleep(gs.successiveSendErrFreezeTime)
 			gs.logger.Sugar().Infof("GraylogTcpConnection : Restarting goroutine #%d ...", connNumber)
 			go gs.tcpConnGoroutine(connNumber)
 		}
@@ -144,7 +147,7 @@ func (gs *GraylogSender) tcpConnGoroutine(connNumber int) {
 		tcpConn, err := net.Dial(string(gs.endpoint.Transport), tcpAddress)
 		if err != nil {
 			gs.logger.Sugar().Errorf("GraylogTcpConnection : Error creating TCP connection #%d to Graylog: %+v", connNumber, err)
-			time.Sleep(5 * time.Second)
+			time.Sleep(gs.successiveSendErrFreezeTime)
 			continue
 		}
 
@@ -206,7 +209,7 @@ func (gs *GraylogSender) tcpConnGoroutine(connNumber int) {
 				messageRetryCnt = 0
 				successiveGraylogErrCnt = 0
 				retryData = nil
-				gs.logger.Sugar().Debugf("GraylogTcpConnection : Message sent successfully in goroutine #%d", connNumber)
+				gs.logger.Sugar().Debugf("Graylog Tcp Connection : Message sent successfully in goroutine #%d", connNumber)
 			}
 		}
 	}
@@ -215,28 +218,28 @@ func (gs *GraylogSender) tcpConnGoroutine(connNumber int) {
 func (gs *GraylogSender) startBatchWorker() {
 	go func() {
 		var buffer strings.Builder
-		ticker := time.NewTicker(5 * time.Second)
+		ticker := time.NewTicker(gs.batchWorkerFlushInterval)
 		defer ticker.Stop()
 
 		for {
 			select {
 			case <-gs.ctx.Done():
-				gs.logger.Info("Graylog batch worker: context canceled, stopping worker")
+				gs.logger.Info("GraylogBatchWorker : context canceled, stopping worker")
 				return
 
 			case msg, ok := <-gs.msgQueue:
 				if !ok {
-					gs.logger.Info("Graylog batch worker: msgQueue closed, stopping worker")
+					gs.logger.Info("GraylogBatchWorker : msgQueue closed, stopping worker")
 					return
 				}
 				if msg == nil {
-					gs.logger.Warn("Graylog batch worker: nil message received, skipping")
+					gs.logger.Warn("GraylogBatchWorker : nil message received, skipping")
 					continue
 				}
 
 				data, err := prepareMessage(msg)
 				if err != nil {
-					gs.logger.Sugar().Errorf("Graylog batch worker: error preparing message for bulk send: %+v", err)
+					gs.logger.Sugar().Errorf("GraylogBatchWorker : error preparing message for bulk send: %+v", err)
 					continue
 				}
 
@@ -244,7 +247,7 @@ func (gs *GraylogSender) startBatchWorker() {
 
 				if buffer.Len() >= 1024 {
 					if err := gs.SendRaw(buffer.String()); err != nil {
-						gs.logger.Sugar().Errorf("Graylog batch worker: error sending bulk message: %+v", err)
+						gs.logger.Sugar().Errorf("GraylogBatchWorker : error sending bulk message: %+v", err)
 					}
 					buffer.Reset()
 				}
@@ -252,7 +255,7 @@ func (gs *GraylogSender) startBatchWorker() {
 			case <-ticker.C:
 				if buffer.Len() > 0 {
 					if err := gs.SendRaw(buffer.String()); err != nil {
-						gs.logger.Sugar().Errorf("Graylog batch worker: error sending bulk message (timer flush): %+v", err)
+						gs.logger.Sugar().Errorf("GraylogBatchWorker : error sending bulk message (timer flush): %+v", err)
 					}
 					buffer.Reset()
 				}

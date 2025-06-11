@@ -193,4 +193,3 @@ contexts.<context_name>.<map_key> attribute.
   * `short_message` - Short, descriptive message.
   * `full_message`- Contains the actual log message. calculated dynamically from logs
   * `level`  - Currenlty fetching it from log records.
-

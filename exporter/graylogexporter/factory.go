@@ -70,6 +70,7 @@ func createDefaultConfig() component.Config {
 		MaxMessageSendRetryCnt:      1,
 		MaxSuccessiveSendErrCnt:     5,
 		SuccessiveSendErrFreezeTime: "1m",
+		BatchWorkerFlushInterval:    "5s",
 		GELFMapping:                 *getDefaultGELFFields(),
 	}
 }
@@ -81,9 +82,9 @@ func parseGELFFieldMapping(cfg *Config) (*GELFFieldMapping, error) {
 		return nil, errors.New("failed to decode config to map")
 	}
 
-	if fmRaw, ok := raw["field_mapping"]; ok {
+	if fmRaw, ok := raw["field-mapping"]; ok {
 		if err := mapstructure.Decode(fmRaw, &fieldMapping); err != nil {
-			return nil, errors.New("failed to decode field_mapping")
+			return nil, errors.New("failed to decode field-mapping")
 		}
 	}
 	return &fieldMapping, nil

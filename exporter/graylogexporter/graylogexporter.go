@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"github.com/Netcracker/qubership-open-telemetry-collector/common/graylog"
-
 	"go.uber.org/zap"
 
 	"go.opentelemetry.io/collector/component"
@@ -104,7 +103,6 @@ func extractAttributes(body pcommon.Value) (map[string]interface{}, string, erro
 			message = "No message provided"
 		}
 		return nil, message, nil
-
 	case pcommon.ValueTypeMap:
 		body.Map().Range(func(k string, v pcommon.Value) bool {
 			attributes[k] = v.AsString()
@@ -114,21 +112,82 @@ func extractAttributes(body pcommon.Value) (map[string]interface{}, string, erro
 			message, _ = val.(string)
 		}
 		return attributes, message, nil
-
 	case pcommon.ValueTypeSlice:
 		message = body.AsString()
 		return nil, message, nil
-
 	case pcommon.ValueTypeBytes:
 		attributes["bytes"] = body.Bytes()
 		return attributes, "", nil
-
 	case pcommon.ValueTypeEmpty:
 		return nil, "", fmt.Errorf("log body is empty")
-
 	default:
 		return nil, "", fmt.Errorf("unsupported body type: %v", body.Type())
 	}
+}
+
+func (le *grayLogExporter) getMappedValue(key string, attributes map[string]interface{}, logAttrs pcommon.Map) string {
+	if key == "" {
+		return ""
+	}
+	if !strings.Contains(key, ".") {
+		if val, ok := attributes[key]; ok {
+			return fmt.Sprintf("%v", val)
+		}
+		if val, ok := getStringFromPcommonMap(logAttrs, key); ok {
+			return val
+		}
+		return ""
+	}
+	parts := strings.Split(key, ".")
+	return getNestedPcommonMapValue(logAttrs, parts)
+}
+
+func getStringFromPcommonMap(m pcommon.Map, key string) (string, bool) {
+	val, ok := m.Get(key)
+	if !ok {
+		return "", false
+	}
+	switch val.Type() {
+	case pcommon.ValueTypeStr:
+		return val.AsString(), true
+	case pcommon.ValueTypeBool:
+		return strconv.FormatBool(val.Bool()), true
+	case pcommon.ValueTypeInt:
+		return strconv.FormatInt(val.Int(), 10), true
+	case pcommon.ValueTypeDouble:
+		return fmt.Sprintf("%f", val.Double()), true
+	default:
+		return "", false
+	}
+}
+
+func getNestedPcommonMapValue(m pcommon.Map, keys []string) string {
+	if len(keys) == 0 {
+		return ""
+	}
+	val, ok := m.Get(keys[0])
+	if !ok {
+		return ""
+	}
+	if len(keys) == 1 {
+		switch val.Type() {
+		case pcommon.ValueTypeStr:
+			return val.AsString()
+		case pcommon.ValueTypeBool:
+			return strconv.FormatBool(val.Bool())
+		case pcommon.ValueTypeInt:
+			return strconv.FormatInt(val.Int(), 10)
+		case pcommon.ValueTypeDouble:
+			return fmt.Sprintf("%f", val.Double())
+		default:
+			return ""
+		}
+	}
+
+	if val.Type() != pcommon.ValueTypeMap {
+		return ""
+	}
+	return getNestedPcommonMapValue(val.Map(), keys[1:])
 }
 
 func (le *grayLogExporter) logRecordToMessage(logRecord plog.LogRecord) (*graylog.Message, error) {
@@ -139,7 +198,6 @@ func (le *grayLogExporter) logRecordToMessage(logRecord plog.LogRecord) (*graylo
 	}
 
 	extra := make(map[string]string)
-
 	for k, v := range attributes {
 		extra[k] = fmt.Sprintf("%v", v)
 	}
@@ -156,7 +214,7 @@ func (le *grayLogExporter) logRecordToMessage(logRecord plog.LogRecord) (*graylo
 			extra[k] = fmt.Sprintf("%f", v.Double())
 		case pcommon.ValueTypeMap:
 			v.Map().Range(func(subKey string, subValue pcommon.Value) bool {
-				extra[fmt.Sprintf("%s.%s", k, subKey)] = subValue.AsString()
+				extra[k+"."+subKey] = subValue.AsString()
 				return true
 			})
 		default:
@@ -167,8 +225,8 @@ func (le *grayLogExporter) logRecordToMessage(logRecord plog.LogRecord) (*graylo
 
 	msg := &graylog.Message{
 		Version:      le.config.GELFMapping.Version,
-		Host:         le.config.GELFMapping.Host,
-		ShortMessage: le.config.GELFMapping.ShortMessage,
+		Host:         le.getMappedValue(le.config.GELFMapping.Host, attributes, logRecord.Attributes()),
+		ShortMessage: le.getMappedValue(le.config.GELFMapping.ShortMessage, attributes, logRecord.Attributes()),
 		FullMessage:  message,
 		Timestamp:    timestamp.Unix(),
 		Level:        level,
@@ -205,12 +263,18 @@ func (le *grayLogExporter) getTimestampAndLevel(logRecord plog.LogRecord) (time.
 	severity := logRecord.SeverityNumber()
 
 	switch text {
-	case "fatal":
+	case "emergency", "panic":
+		return timestamp, 0
+	case "alert":
+		return timestamp, 1
+	case "critical", "crit":
 		return timestamp, 2
-	case "error":
+	case "error", "err":
 		return timestamp, 3
-	case "warn", "warning":
+	case "warning", "warn":
 		return timestamp, 4
+	case "notice":
+		return timestamp, 5
 	case "info":
 		return timestamp, 6
 	case "debug", "trace":
@@ -227,8 +291,6 @@ func (le *grayLogExporter) getTimestampAndLevel(logRecord plog.LogRecord) (time.
 	case severity >= plog.SeverityNumberInfo && severity <= plog.SeverityNumberInfo4:
 		return timestamp, 6
 	case severity >= plog.SeverityNumberDebug && severity <= plog.SeverityNumberDebug4:
-		return timestamp, 7
-	case severity >= plog.SeverityNumberTrace && severity <= plog.SeverityNumberTrace4:
 		return timestamp, 7
 	}
 
