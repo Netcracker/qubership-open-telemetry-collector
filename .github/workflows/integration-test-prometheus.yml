@@ -51,7 +51,7 @@ jobs:
       - name: Install Helm
         run: |
           curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
-      
+
       - name: Install kubectl
         run: |
           curl -LO "https://dl.k8s.io/release/$(curl -LS https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
@@ -77,9 +77,8 @@ jobs:
               kubectl wait --for=condition=Ready pod --all -n ${{ env.collector_namespace }} --timeout=60s
 
       - name: Configure prometheus remote write exporter for qubership
-        run: |                  
+        run: |
               kubectl get configmap opentelemetry-collector-config -n ${{ env.collector_namespace }} -o 'go-template={{index .data "otel.yaml"}}' >> otel.yaml
-
               yq e '.receivers.prometheus_simple.endpoint = "qubership-open-telemetry-collector.${{ env.collector_namespace }}.svc.cluster.local:8888"' -i otel.yaml
               yq e '.receivers.prometheus_simple.collection_interval = "10s"' -i otel.yaml
               yq e '.service.pipelines.metrics.receivers +=["prometheus_simple"]' -i otel.yaml
@@ -94,7 +93,6 @@ jobs:
 
               kubectl delete pods -n ${{ env.collector_namespace }} --all 
               kubectl wait --for=condition=Ready pod --all -n ${{ env.collector_namespace }} --timeout=60s
-
       - name: Check OTEL telemetry come through remote write
         run: |
               VM_POD_NAME=$(kubectl get pods --namespace ${{ env.vm_namespace }} -l "app.kubernetes.io/name=victoria-metrics-single" -o jsonpath="{.items[0].metadata.name}")
@@ -106,7 +104,6 @@ jobs:
               curl http://localhost:8428/api/v1/query -d 'query={__name__!=""}' | jq '.' | grep otelcol
               count=$(curl http://localhost:8428/api/v1/query -d 'query={__name__!=""}' | jq '.' | grep -c)
               echo "$count"
-              
               if [[ "$count" -gt 1 ]]; then
               true
               else
@@ -116,4 +113,3 @@ jobs:
       - name: Cleanup
         run: |
               kind delete cluster --name ${{ env.kind_name }}
-    
