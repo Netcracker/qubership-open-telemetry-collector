@@ -3,7 +3,7 @@ module github.com/Netcracker/qubership-open-telemetry-collector/exporter/graylog
 go 1.24.2
 
 require (
-	github.com/Netcracker/qubership-open-telemetry-collector/common/graylog v0.0.0-20250514191859-030f08013ea1
+	github.com/Netcracker/qubership-open-telemetry-collector/common/graylog v0.0.0-20250612062646-e52914ae59bb
 	github.com/mitchellh/mapstructure v1.5.0
 	go.opentelemetry.io/collector/component v1.32.0
 	go.opentelemetry.io/collector/config/confignet v1.32.0

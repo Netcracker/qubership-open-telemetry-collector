@@ -94,7 +94,7 @@ func NewGraylogSender(
 		batchWorkerFlushInterval:    batchWorkerFlushInterval,
 		useBulkSend:                 bulkSend,
 	}
-
+	gs.logger.Info("GraylogSender initialized")
 	if bulkSend {
 		gs.logger.Info("GraylogSender starting in bulk send mode")
 		gs.startBatchWorker()
@@ -209,7 +209,7 @@ func (gs *GraylogSender) tcpConnGoroutine(connNumber int) {
 				messageRetryCnt = 0
 				successiveGraylogErrCnt = 0
 				retryData = nil
-				gs.logger.Sugar().Debugf("Graylog Tcp Connection : Message sent successfully in goroutine #%d", connNumber)
+				gs.logger.Sugar().Debugf("GraylogTcpConnection : Message sent successfully in goroutine #%d", connNumber)
 			}
 		}
 	}

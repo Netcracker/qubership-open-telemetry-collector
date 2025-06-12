@@ -310,6 +310,6 @@ CLOUD_TOPOLOGY_KEY: kubernetes.io/hostname
 OTEC_GELF_FIELD_MAPPING:
   version: "1.1"
   host: "hostname"
-  short-message: "log"
+  short-message: "cluster"
   full-message: "log"
   level: "level"

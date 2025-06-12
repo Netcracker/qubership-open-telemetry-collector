@@ -193,6 +193,6 @@ data:
         logs:
           level: "{{ .Values.LOG_LEVEL }}"
         metrics:
-          address: ":8888"
+          level: detailed
     {{- end }}
   {{- end }}
