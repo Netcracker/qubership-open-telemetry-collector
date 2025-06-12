@@ -129,17 +129,17 @@ func (le *grayLogExporter) getMappedValue(key string, attributes map[string]inte
 	if key == "" {
 		return ""
 	}
-	if !strings.Contains(key, ".") {
-		if val, ok := attributes[key]; ok {
-			return fmt.Sprintf("%v", val)
-		}
-		if val, ok := getStringFromPcommonMap(logAttrs, key); ok {
-			return val
-		}
-		return ""
+	if val, ok := attributes[key]; ok {
+		le.logger.Info("Using attribute", zap.String("key", key), zap.Any("value", val))
+		return fmt.Sprintf("%v", val)
 	}
-	parts := strings.Split(key, ".")
-	return getNestedPcommonMapValue(logAttrs, parts)
+	if val, ok := getStringFromPcommonMap(logAttrs, key); ok {
+		le.logger.Info("Using log attribute", zap.String("key", key), zap.Any("value", val))
+		return val
+	}
+
+	return ""
+
 }
 
 func getStringFromPcommonMap(m pcommon.Map, key string) (string, bool) {
@@ -159,35 +159,6 @@ func getStringFromPcommonMap(m pcommon.Map, key string) (string, bool) {
 	default:
 		return "", false
 	}
-}
-
-func getNestedPcommonMapValue(m pcommon.Map, keys []string) string {
-	if len(keys) == 0 {
-		return ""
-	}
-	val, ok := m.Get(keys[0])
-	if !ok {
-		return ""
-	}
-	if len(keys) == 1 {
-		switch val.Type() {
-		case pcommon.ValueTypeStr:
-			return val.AsString()
-		case pcommon.ValueTypeBool:
-			return strconv.FormatBool(val.Bool())
-		case pcommon.ValueTypeInt:
-			return strconv.FormatInt(val.Int(), 10)
-		case pcommon.ValueTypeDouble:
-			return fmt.Sprintf("%f", val.Double())
-		default:
-			return ""
-		}
-	}
-
-	if val.Type() != pcommon.ValueTypeMap {
-		return ""
-	}
-	return getNestedPcommonMapValue(val.Map(), keys[1:])
 }
 
 func (le *grayLogExporter) logRecordToMessage(logRecord plog.LogRecord) (*graylog.Message, error) {
@@ -222,7 +193,10 @@ func (le *grayLogExporter) logRecordToMessage(logRecord plog.LogRecord) (*graylo
 		}
 		return true
 	})
-
+	_msg := le.getMappedValue(le.config.GELFMapping.FullMessage, attributes, logRecord.Attributes())
+	if _msg != "" {
+		message = _msg
+	}
 	msg := &graylog.Message{
 		Version:      le.config.GELFMapping.Version,
 		Host:         le.getMappedValue(le.config.GELFMapping.Host, attributes, logRecord.Attributes()),
