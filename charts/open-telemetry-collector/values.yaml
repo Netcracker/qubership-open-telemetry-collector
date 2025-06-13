@@ -61,7 +61,6 @@ OTEC_GRAYLOGEXPORTER_PARAMETERS:
   max-message-send-retry-count: 1
   max-successive-send-error-count: 5
   successive-send-error-freeze-time: 1m
-  batch-worker-flush-interval: 5s
 
 # Allows to set up tailbased tracing general parameters
 # Type: object
@@ -310,6 +309,6 @@ CLOUD_TOPOLOGY_KEY: kubernetes.io/hostname
 OTEC_GELF_FIELD_MAPPING:
   version: "1.1"
   host: "hostname"
-  short-message: "cluster"
+  short-message: "log"
   full-message: "log"
   level: "level"
