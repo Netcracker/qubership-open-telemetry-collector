@@ -30,8 +30,9 @@ import (
 type Transport string
 
 const (
-	UDP Transport = "udp"
-	TCP Transport = "tcp"
+	UDP                      Transport = "udp"
+	TCP                      Transport = "tcp"
+	batchWorkerFlushInterval           = 5 * time.Second
 )
 
 type Endpoint struct {
@@ -49,7 +50,6 @@ type GraylogSender struct {
 	maxMessageSendRetryCnt      int
 	maxSuccessiveSendErrCnt     int
 	successiveSendErrFreezeTime time.Duration
-	batchWorkerFlushInterval    time.Duration
 	useBulkSend                 bool
 }
 
@@ -71,7 +71,6 @@ func NewGraylogSender(
 	maxMessageSendRetryCnt int,
 	maxSuccessiveSendErrCnt int,
 	successiveSendErrFreezeTime time.Duration,
-	batchWorkerFlushInterval time.Duration,
 	useBulkSend ...bool,
 ) *GraylogSender {
 
@@ -91,7 +90,6 @@ func NewGraylogSender(
 		maxMessageSendRetryCnt:      maxMessageSendRetryCnt,
 		maxSuccessiveSendErrCnt:     maxSuccessiveSendErrCnt,
 		successiveSendErrFreezeTime: successiveSendErrFreezeTime,
-		batchWorkerFlushInterval:    batchWorkerFlushInterval,
 		useBulkSend:                 bulkSend,
 	}
 	gs.logger.Info("GraylogSender initialized")
@@ -218,7 +216,7 @@ func (gs *GraylogSender) tcpConnGoroutine(connNumber int) {
 func (gs *GraylogSender) startBatchWorker() {
 	go func() {
 		var buffer strings.Builder
-		ticker := time.NewTicker(gs.batchWorkerFlushInterval)
+		ticker := time.NewTicker(batchWorkerFlushInterval)
 		defer ticker.Stop()
 
 		for {

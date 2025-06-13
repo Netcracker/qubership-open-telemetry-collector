@@ -38,7 +38,6 @@ type Config struct {
 	MaxMessageSendRetryCnt      int              `mapstructure:"max-message-send-retry-count"`
 	MaxSuccessiveSendErrCnt     int              `mapstructure:"max-successive-send-error-count"`
 	SuccessiveSendErrFreezeTime string           `mapstructure:"successive-send-error-freeze-time"`
-	BatchWorkerFlushInterval    string           `mapstructure:"batch-worker-flush-interval"`
 }
 
 func getDefaultGELFFields() *GELFFieldMapping {
@@ -69,10 +68,6 @@ func (cfg *Config) Validate() error {
 	_, err := time.ParseDuration(cfg.SuccessiveSendErrFreezeTime)
 	if err != nil {
 		return fmt.Errorf("successive-send-error-freeze-time is not parseable : %+v", err)
-	}
-	_, err = time.ParseDuration(cfg.BatchWorkerFlushInterval)
-	if err != nil {
-		return fmt.Errorf("batch-worker-flush-interval is not parseable : %+v", err)
 	}
 	return nil
 }

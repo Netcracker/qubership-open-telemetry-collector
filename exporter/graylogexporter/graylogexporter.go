@@ -73,12 +73,6 @@ func (le *grayLogExporter) start(_ context.Context, _ component.Host) error {
 		le.logger.Error(errMsg)
 		return fmt.Errorf(errMsg)
 	}
-	batchFlushInterval, err := time.ParseDuration(le.config.BatchWorkerFlushInterval)
-	if err != nil {
-		errMsg := fmt.Sprintf("Invalid BatchWorkerFlushInterval '%s': %v", le.config.BatchWorkerFlushInterval, err)
-		le.logger.Error(errMsg)
-		return fmt.Errorf(errMsg)
-	}
 
 	le.graylogSender = graylog.NewGraylogSender(
 		graylog.Endpoint{
@@ -92,7 +86,6 @@ func (le *grayLogExporter) start(_ context.Context, _ component.Host) error {
 		le.config.MaxMessageSendRetryCnt,
 		le.config.MaxSuccessiveSendErrCnt,
 		freezeTime,
-		batchFlushInterval,
 		useBulk,
 	)
 

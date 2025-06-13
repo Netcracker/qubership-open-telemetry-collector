@@ -70,7 +70,6 @@ func createDefaultConfig() component.Config {
 		MaxMessageSendRetryCnt:      1,
 		MaxSuccessiveSendErrCnt:     5,
 		SuccessiveSendErrFreezeTime: "1m",
-		BatchWorkerFlushInterval:    "5s",
 		GELFMapping:                 *getDefaultGELFFields(),
 	}
 }
