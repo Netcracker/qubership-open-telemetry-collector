@@ -134,18 +134,18 @@ func extractAttributes(body pcommon.Value) (map[string]interface{}, string, erro
 
 func (le *grayLogExporter) getMappedValue(key string, attributes map[string]interface{}, logAttrs pcommon.Map) string {
 	if key == "" {
-		return ""
+		return fmt.Sprintf("empty key: %v", key)
 	}
 	if val, ok := attributes[key]; ok {
-		le.logger.Info("Using attribute", zap.String("key", key), zap.Any("value", val))
+		le.logger.Debug("Using attribute", zap.String("key", key), zap.Any("value", val))
 		return fmt.Sprintf("%v", val)
 	}
 	if val, ok := getStringFromPcommonMap(logAttrs, key); ok {
-		le.logger.Info("Using log attribute", zap.String("key", key), zap.Any("value", val))
+		le.logger.Debug("Using log attribute", zap.String("key", key), zap.Any("value", val))
 		return val
 	}
 
-	return ""
+	return fmt.Sprintf("%v not found", key)
 
 }
 
@@ -200,14 +200,21 @@ func (le *grayLogExporter) logRecordToMessage(logRecord plog.LogRecord) (*graylo
 		}
 		return true
 	})
-	_msg := le.getMappedValue(le.config.GELFMapping.FullMessage, attributes, logRecord.Attributes())
-	if _msg != "" {
-		message = _msg
+	fullmsg := le.getMappedValue(le.config.GELFMapping.FullMessage, attributes, logRecord.Attributes())
+	if fullmsg != "" {
+		message = fullmsg
 	}
+	shortmsg := "No short message provided"
+	if le.config.GELFMapping.ShortMessage == "log" || le.config.GELFMapping.ShortMessage == "message" {
+		shortmsg = message
+	} else {
+		shortmsg = le.getMappedValue(le.config.GELFMapping.ShortMessage, attributes, logRecord.Attributes())
+	}
+	hostname := le.getMappedValue(le.config.GELFMapping.Host, attributes, logRecord.Attributes())
 	msg := &graylog.Message{
 		Version:      le.config.GELFMapping.Version,
-		Host:         le.getMappedValue(le.config.GELFMapping.Host, attributes, logRecord.Attributes()),
-		ShortMessage: le.getMappedValue(le.config.GELFMapping.ShortMessage, attributes, logRecord.Attributes()),
+		Host:         hostname,
+		ShortMessage: shortmsg,
 		FullMessage:  message,
 		Timestamp:    timestamp.Unix(),
 		Level:        level,
