@@ -10,13 +10,13 @@ connectors:
   - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/connector/spanmetricsconnector latest
 
 exporters:
-  - gomod: github.com/Netcracker/qubership-open-telemetry-collector/exporter/logtcpexporter 4e233cc389723fa5d538d41f04b771f9ffd1c1cf
+  - gomod: github.com/Netcracker/qubership-open-telemetry-collector/exporter/logtcpexporter bac7bcbdf46e8d8672b95d638e68bef806cc296d
   - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/exporter/prometheusexporter latest
   - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/exporter/prometheusremotewriteexporter latest
   - gomod: go.opentelemetry.io/collector/exporter/debugexporter latest
   - gomod: go.opentelemetry.io/collector/exporter/otlpexporter latest
   - gomod: go.opentelemetry.io/collector/exporter/otlphttpexporter latest
-  - gomod: github.com/Netcracker/qubership-open-telemetry-collector/exporter/graylogexporter 4e233cc389723fa5d538d41f04b771f9ffd1c1cf
+  - gomod: github.com/Netcracker/qubership-open-telemetry-collector/exporter/graylogexporter bac7bcbdf46e8d8672b95d638e68bef806cc296d
 
 extensions:
   - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/extension/healthcheckextension latest
