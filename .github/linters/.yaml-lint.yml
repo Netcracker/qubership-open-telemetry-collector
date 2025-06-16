@@ -5,7 +5,7 @@
 # Exclude not required files
 ignore:
   - .github/workflows/*
-  - .charts/*
+  - ./charts/*
 
 rules:
   braces:
@@ -63,4 +63,3 @@ rules:
     forbid-explicit-octal: false
   trailing-spaces: enable
   truthy: disable
-  
