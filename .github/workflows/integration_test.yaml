@@ -34,7 +34,7 @@ jobs:
           repository: 'Netcracker/qubership-jaeger'
           ref: 'main'
           path: qubership-jaeger
- 
+
       - name: Install telemetrygen
         run: |
            sudo add-apt-repository -y ppa:longsleep/golang-backports
@@ -68,10 +68,10 @@ jobs:
       - name: Install Helm
         run: |
           curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
-      
+
       - name: Install kubectl
         run: |
-          curl -LO https://dl.k8s.io/release/`curl -LS https://dl.k8s.io/release/stable.txt`/bin/linux/amd64/kubectl
+          curl -LO https://dl.k8s.io/release/$(curl -LS https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl
           chmod +x ./kubectl
           sudo mv ./kubectl /usr/local/bin/kubectl
           kubectl version --client
@@ -83,7 +83,7 @@ jobs:
 
       - name: Install cert-manager
         run: |
-          helm repo add jetstack https://charts.jetstack.io --force-update 
+          helm repo add jetstack https://charts.jetstack.io --force-update
           helm upgrade --install cert-manager jetstack/cert-manager --namespace cert-manager \
             --create-namespace --version v1.16.3 --set prometheus.enabled=true   --set crds.enabled=true
 
@@ -92,7 +92,7 @@ jobs:
           helm repo add k8ssandra https://helm.k8ssandra.io/stable --force-update
           helm upgrade --install k8ssandra-operator k8ssandra/k8ssandra-operator -n ${{ env.cassandra_namespace }} --create-namespace
           kubectl wait --for=condition=Ready pod --all -n ${{ env.cassandra_namespace }} --timeout=60s
-          
+
       - name: Deploy k8ssandra cluster
         run: |
               cat <<EOF | kubectl apply -n ${{ env.cassandra_namespace }} -f -
@@ -139,7 +139,7 @@ jobs:
             --create-namespace --set jaeger.prometheusMonitoringDashboard=false --set jaeger.prometheusMonitoring=false \
             --set "cassandraSchemaJob.host=$CASSANDRA_SVC" --set "cassandraSchemaJob.username=$CASSANDRA_USER" \
             --set "cassandraSchemaJob.password=$CASSANDRA_PASSWORD" --set cassandraSchemaJob.datacenter=dc1
-            kubectl wait --for=condition=Ready pod --all -n ${{ env.jaeger_namespace }} --timeout=300s      
+            kubectl wait --for=condition=Ready pod --all -n ${{ env.jaeger_namespace }} --timeout=300s
 
       - name: Install qubership-open-telemetry-collector
         run: |
@@ -150,7 +150,7 @@ jobs:
 
       - name: Run load
         run: |
-             export OTEL_COLLECTOR_POD_NAME=$(kubectl get pods --namespace ${{ env.collector_namespace }} -l "app.kubernetes.io/name=qubership-open-telemetry-collector" -o jsonpath="{.items[0].metadata.name}")
+             OTEL_COLLECTOR_POD_NAME=$(kubectl get pods --namespace ${{ env.collector_namespace }} -l "app.kubernetes.io/name=qubership-open-telemetry-collector" -o jsonpath="{.items[0].metadata.name}")
              echo "OTEL collector pod $OTEL_COLLECTOR_POD_NAME"
              echo "Start port forwarding"
              kubectl port-forward --namespace ${{ env.collector_namespace }} $OTEL_COLLECTOR_POD_NAME 4318:4318 &
@@ -160,7 +160,7 @@ jobs:
              echo "OTEL collector status"
              kubectl get pods -n ${{ env.collector_namespace }}
              echo "Jaeger collector status"
-             kubectl get pods -n ${{ env.jaeger_namespace }}             
+             kubectl get pods -n ${{ env.jaeger_namespace }}
              telemetrygen traces --otlp-insecure --otlp-insecure-skip-verify --duration 10s --otlp-endpoint localhost:4318 --child-spans 10 --otlp-http --service testservice --workers 1 --rate 100
 
       - name: Check traces comming
@@ -169,7 +169,7 @@ jobs:
               kubectl get pods -n ${{ env.jaeger_namespace }}
               echo "Jaeger services"
               kubectl get services -n ${{ env.jaeger_namespace }}
-              export POD_NAME=$(kubectl get pods --namespace ${{ env.jaeger_namespace }} -l "app.kubernetes.io/name=jaeger-query" -o jsonpath="{.items[0].metadata.name}")
+              POD_NAME=$(kubectl get pods --namespace ${{ env.jaeger_namespace }} -l "app.kubernetes.io/name=jaeger-query" -o jsonpath="{.items[0].metadata.name}")
               echo "$POD_NAME"
               echo "Start port forwarding"
               kubectl port-forward --namespace ${{ env.jaeger_namespace }} $POD_NAME 8090:16686 &
@@ -179,7 +179,7 @@ jobs:
               echo "Traces count:"
               tracecount=$(curl http://localhost:8090/api/traces?service=testservice | jq '.' | grep testservice | wc -l)
               echo "$tracecount"
-              
+
               if [[ "$tracecount" -ge 1 ]]; then
               true
               else
@@ -189,4 +189,3 @@ jobs:
       - name: Cleanup
         run: |
               kind delete cluster --name ${{ env.kind_name }}
-    

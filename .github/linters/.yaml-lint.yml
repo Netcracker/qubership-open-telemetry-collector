@@ -4,8 +4,8 @@
 
 # Exclude not required files
 ignore:
-  - .github/workflows/*
-  - ./charts/open-telemetry-collector/templates/*
+  - github/workflows/*
+  - charts/*
 
 rules:
   braces:
