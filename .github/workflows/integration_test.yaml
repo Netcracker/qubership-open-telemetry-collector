@@ -90,7 +90,7 @@ jobs:
         run: |
           helm repo add k8ssandra https://helm.k8ssandra.io/stable --force-update
           helm upgrade --install k8ssandra-operator k8ssandra/k8ssandra-operator -n ${{ env.cassandra_namespace }} --create-namespace
-          kubectl wait --for=condition=Ready pod --all -n ${{ env.cassandra_namespace }} --timeout=60s
+          kubectl wait --for=condition=Ready pod --all -n ${{ env.cassandra_namespace }} --timeout=120s
 
       - name: Deploy k8ssandra cluster
         run: |
@@ -119,7 +119,7 @@ jobs:
                            heapSize: 512M
               EOF
               sleep 10
-              kubectl rollout status --watch --timeout=300s statefulset/cassandra-dc1-default-sts -n ${{ env.cassandra_namespace }}
+              kubectl rollout status --watch --timeout=600s statefulset/cassandra-dc1-default-sts -n ${{ env.cassandra_namespace }}
 
       - name: Install required crds
         run: |
