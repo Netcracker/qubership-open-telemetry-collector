@@ -150,7 +150,7 @@ jobs:
               kubectl describe configmap opentelemetry-collector-config -n ${{ env.collector_namespace }}
               POD_NAME=$(kubectl get pods --namespace ${{ env.collector_namespace }} -l "app.kubernetes.io/name=qubership-open-telemetry-collector" -o jsonpath="{.items[0].metadata.name}")
               kubectl logs $POD_NAME -n ${{ env.collector_namespace }}
-              kubectl wait --for=condition=Ready pod --all -n ${{ env.collector_namespace }} --timeout=60s
+              kubectl wait --for=condition=Ready pod --all -n ${{ env.collector_namespace }} --timeout=120s
 
       - name: Run load
         run: |
