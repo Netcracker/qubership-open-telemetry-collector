@@ -10,7 +10,7 @@ metadata:
 data:
   otel.yaml: |
   {{- if .Values.CONFIG_MAP }}
-    "{{- toYaml (.Values.CONFIG_MAP) | nindent 4 }}"
+    {{- toYaml (.Values.CONFIG_MAP) | nindent 4 }}
   {{- else }}
     {{- if eq .Values.OTEC_INSTALLATION_MODE "SPAN_METRICS_PROCESSOR" }}
     receivers:
@@ -89,7 +89,12 @@ data:
         logs:
           level: "{{ .Values.LOG_LEVEL }}"
         metrics:
-          address: ":8888"
+          readers:
+          - pull:
+              exporter:
+                 prometheus:
+                   host: '0.0.0.0'
+                   port: 8888
     {{- else if eq .Values.OTEC_INSTALLATION_MODE "SENTRY_ENVELOPES_PROCESSING" }}
     receivers:
       sentryreceiver:
@@ -168,8 +173,8 @@ data:
       telemetry:
         logs:
           level: "{{ .Values.LOG_LEVEL }}"
-      metrics:
-        readers:
+        metrics:
+          readers:
           - pull:
               exporter:
                  prometheus:
