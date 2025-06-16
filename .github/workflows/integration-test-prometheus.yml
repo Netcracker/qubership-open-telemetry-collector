@@ -91,7 +91,7 @@ jobs:
 
               kubectl describe configmap opentelemetry-collector-config -n ${{ env.collector_namespace }}
 
-              kubectl delete pods -n ${{ env.collector_namespace }} --all 
+              kubectl delete pods -n ${{ env.collector_namespace }} --all
               kubectl wait --for=condition=Ready pod --all -n ${{ env.collector_namespace }} --timeout=60s
       - name: Check OTEL telemetry come through remote write
         run: |
