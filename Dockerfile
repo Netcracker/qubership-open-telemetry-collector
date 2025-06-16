@@ -1,6 +1,6 @@
 # hadolint global ignore=DL3018
 # Stage 1: Build
-FROM --platform=$BUILDPLATFORM golang:1.24.2-alpine3.21 AS builder
+FROM --platform=$BUILDPLATFORM golang:1.24.3-alpine3.21 AS builder
 
 ARG BUILDPLATFORM
 ARG TARGETOS
@@ -28,7 +28,7 @@ RUN apk add --no-cache git \
     # Build the collector
     && CGO_ENABLED=0 builder --config=builder-config.yaml
 
-FROM alpine:3.21
+FROM alpine:3.22
 
 ENV USER_ID=65534
 
