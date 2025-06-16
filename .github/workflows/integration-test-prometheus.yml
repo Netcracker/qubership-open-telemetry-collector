@@ -91,6 +91,10 @@ jobs:
               kubectl describe configmap opentelemetry-collector-config -n ${{ env.collector_namespace }}
 
               kubectl delete pods -n ${{ env.collector_namespace }} --all
+              sleep 20
+              kubectl get pods -n ${{ env.collector_namespace }}
+              POD_NAME=$(kubectl get pods --namespace ${{ env.collector_namespace }} -l "app.kubernetes.io/name=qubership-open-telemetry-collector" -o jsonpath="{.items[0].metadata.name}")
+              kubectl logs $POD_NAME -n ${{ env.collector_namespace }}
               kubectl wait --for=condition=Ready pod --all -n ${{ env.collector_namespace }} --timeout=60s
       - name: Check OTEL telemetry come through remote write
         run: |
@@ -101,7 +105,7 @@ jobs:
               sleep 60
               echo "Start curl queries"
               curl http://localhost:8428/api/v1/query -d 'query={__name__!=""}' | jq '.' | grep otelcol
-              count=$(curl http://localhost:8428/api/v1/query -d 'query={__name__!=""}' | jq '.' | grep -c)
+              count=$(curl http://localhost:8428/api/v1/query -d 'query={__name__!=""}' | jq '.' | grep -c otelcol)
               echo "$count"
               if [[ "$count" -gt 1 ]]; then
               true
