@@ -1,5 +1,4 @@
 name: Integration-test-qubership-open-telemetry-collector
-
 on:
   workflow_run:
     workflows: ["Build Artifacts"]
@@ -26,7 +25,7 @@ jobs:
       - name: Checkout code otel-collecor
         uses: actions/checkout@v4
         with:
-         path: qubership-open-telemetry-collector
+          path: qubership-open-telemetry-collector
 
       - name: Checkout jaeger
         uses: actions/checkout@v4
@@ -71,7 +70,7 @@ jobs:
 
       - name: Install kubectl
         run: |
-          curl -LO https://dl.k8s.io/release/$(curl -LS https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl
+          curl -LO "https://dl.k8s.io/release/$(curl -LS https://dl.k8s.io/release/stable.txt)" /bin/linux/amd64/kubectl
           chmod +x ./kubectl
           sudo mv ./kubectl /usr/local/bin/kubectl
           kubectl version --client
@@ -177,7 +176,7 @@ jobs:
               echo "Start curl queries"
               curl http://localhost:8090/api/traces?service=testservice | jq '.' | grep testservice
               echo "Traces count:"
-              tracecount=$(curl http://localhost:8090/api/traces?service=testservice | jq '.' | grep testservice | wc -l)
+              tracecount=$(curl http://localhost:8090/api/traces?service=testservice | jq '.' | grep -c testservice)
               echo "$tracecount"
 
               if [[ "$tracecount" -ge 1 ]]; then
