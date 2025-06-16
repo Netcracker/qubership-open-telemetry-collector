@@ -28,6 +28,7 @@ processors:
   - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/tailsamplingprocessor latest
   - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/transformprocessor latest
   - gomod: go.opentelemetry.io/collector/processor/batchprocessor latest
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/logdedupprocessor latest
 
 providers:
   - gomod: go.opentelemetry.io/collector/confmap/provider/envprovider latest
