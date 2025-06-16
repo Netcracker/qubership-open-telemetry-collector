@@ -27,6 +27,7 @@ import (
 	debugexporter "go.opentelemetry.io/collector/exporter/debugexporter"
 	otlpexporter "go.opentelemetry.io/collector/exporter/otlpexporter"
 	batchprocessor "go.opentelemetry.io/collector/processor/batchprocessor"
+	logdedupprocessor "github.com/open-telemetry/opentelemetry-collector-contrib/processor/logdedupprocessor"
 	sentryreceiver "github.com/Netcracker/qubership-open-telemetry-collector/receiver/sentryreceiver"
 	otlpreceiver "go.opentelemetry.io/collector/receiver/otlpreceiver"
 )
@@ -85,6 +86,7 @@ func components() (otelcol.Factories, error) {
 		tailsamplingprocessor.NewFactory(),
 		transformprocessor.NewFactory(),
 		batchprocessor.NewFactory(),
+		logdedupprocessor.NewFactory(),
 	)
 	if err != nil {
 		return otelcol.Factories{}, err
@@ -95,7 +97,8 @@ func components() (otelcol.Factories, error) {
 	factories.ProcessorModules[tailsamplingprocessor.NewFactory().Type()] = "github.com/open-telemetry/opentelemetry-collector-contrib/processor/tailsamplingprocessor latest"
 	factories.ProcessorModules[transformprocessor.NewFactory().Type()] = "github.com/open-telemetry/opentelemetry-collector-contrib/processor/transformprocessor latest"
 	factories.ProcessorModules[batchprocessor.NewFactory().Type()] = "go.opentelemetry.io/collector/processor/batchprocessor latest"
-
+	factories.ProcessorModules[logdedupprocessor.NewFactory().Type()] = "github.com/open-telemetry/opentelemetry-collector-contrib/processor/logdedupprocessor latest"
+	
 	factories.Connectors, err = otelcol.MakeFactoryMap[connector.Factory](
 		sentrymetricsconnector.NewFactory(),
 		spanmetricsconnector.NewFactory(),

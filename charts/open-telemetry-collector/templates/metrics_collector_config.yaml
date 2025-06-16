@@ -52,6 +52,10 @@ data:
         sampling_initial: 10
         sampling_thereafter: 200
     processors:
+      logdedup:
+        {{- if .Values.OTEC_LOGDEDUP_PROCESSOR_PARAMETERS }}
+          {{- toYaml .Values.OTEC_LOGDEDUP_PROCESSOR_PARAMETERS | nindent 8 }}
+        {{- end }}
       batch:
         send_batch_max_size: 10000
         timeout: 0s
@@ -102,7 +106,7 @@ data:
           exporters: [prometheus]
         logs:
           receivers: [otlp]
-          processors: [batch]
+          processors: [logdedup]
           exporters: [debug, graylogexporter]
       telemetry:
         logs:

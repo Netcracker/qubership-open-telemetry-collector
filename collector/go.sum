@@ -28,8 +28,6 @@ github.com/Netcracker/qubership-open-telemetry-collector/connector/sentrymetrics
 github.com/Netcracker/qubership-open-telemetry-collector/connector/sentrymetricsconnector v0.0.0-20250502143338-730cf6843525/go.mod h1:JFSC9ODnXFBAEuxfcrCL9WJjIgP0NkIh1wLD9qVFkyk=
 github.com/Netcracker/qubership-open-telemetry-collector/exporter/graylogexporter v0.0.0-20250514191859-030f08013ea1 h1:WJIAMvyO+/6b/pwebU8InY5o46/olPuNjN6JDaSnLPY=
 github.com/Netcracker/qubership-open-telemetry-collector/exporter/graylogexporter v0.0.0-20250514191859-030f08013ea1/go.mod h1:nI1psX7kBvzTdjSsTbWhAYHvzbr1r7quaCC0yFqdjOE=
-github.com/Netcracker/qubership-open-telemetry-collector/exporter/logtcpexporter v0.0.0-20250502143338-730cf6843525 h1:mRUAOC/+tRab6ApkYCipsnQV9Y3KHsxfbYNA3M4/mXs=
-github.com/Netcracker/qubership-open-telemetry-collector/exporter/logtcpexporter v0.0.0-20250502143338-730cf6843525/go.mod h1:gw/+Ct38vfy5o+6Bc08x3ajNGmVkUUeFGviyhkC/9xI=
 github.com/Netcracker/qubership-open-telemetry-collector/exporter/logtcpexporter v0.0.0-20250514191859-030f08013ea1 h1:afqjDJNEWTbgCwSKKiEKifqlMfHgS/NldH4g/XVYHDw=
 github.com/Netcracker/qubership-open-telemetry-collector/exporter/logtcpexporter v0.0.0-20250514191859-030f08013ea1/go.mod h1:5YMcjPbjP2ewB7pzmGf0SJioT63yX0P8T9cPvp1MhHg=
 github.com/Netcracker/qubership-open-telemetry-collector/receiver/sentryreceiver v0.0.0-20250502143338-730cf6843525 h1:j5u8fxgH/CG7GkcjybMlKzWj8LRO23edOeZD5+zVDfs=
@@ -358,6 +356,8 @@ github.com/open-telemetry/opentelemetry-collector-contrib/pkg/translator/zipkin 
 github.com/open-telemetry/opentelemetry-collector-contrib/pkg/translator/zipkin v0.126.0/go.mod h1:+QOR4ohhVLcp0KJukmoU8PHpP35MARvX051u8goeZEc=
 github.com/open-telemetry/opentelemetry-collector-contrib/processor/filterprocessor v0.126.0 h1:+7OFOEhSExnzgQv0idSSq/gCCm3RZ7H2ky/bAtrrrFM=
 github.com/open-telemetry/opentelemetry-collector-contrib/processor/filterprocessor v0.126.0/go.mod h1:1hCzWgLQTZnv62vRwea/ayxnGB87YwiDEebTWW5rtec=
+github.com/open-telemetry/opentelemetry-collector-contrib/processor/logdedupprocessor v0.126.0 h1:3XbsKHzLDVEGIMwgQVlziu2l0Bwoy1sjXBRCrYG5PDM=
+github.com/open-telemetry/opentelemetry-collector-contrib/processor/logdedupprocessor v0.126.0/go.mod h1:Yir/6PJGLFUVWUOudsuzb31hw9IVf0OxyqsCAwmbiUo=
 github.com/open-telemetry/opentelemetry-collector-contrib/processor/probabilisticsamplerprocessor v0.126.0 h1:xkR51jOAOZy5Ess55jFYv8iFrychiEqWnYnpocUpGdQ=
 github.com/open-telemetry/opentelemetry-collector-contrib/processor/probabilisticsamplerprocessor v0.126.0/go.mod h1:7nnt7xbbSLiaO6lfGal26JVuGVy7DweJqzvBZmmHgqY=
 github.com/open-telemetry/opentelemetry-collector-contrib/processor/tailsamplingprocessor v0.126.0 h1:LynG0LtPN6E9Ml+1liyLM3wALlmVrs//MVkR2lnPkbw=

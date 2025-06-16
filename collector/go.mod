@@ -12,6 +12,7 @@ require (
 	github.com/open-telemetry/opentelemetry-collector-contrib/extension/healthcheckextension v0.126.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/extension/pprofextension v0.126.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/processor/filterprocessor v0.126.0
+	github.com/open-telemetry/opentelemetry-collector-contrib/processor/logdedupprocessor v0.126.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/processor/probabilisticsamplerprocessor v0.126.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/processor/tailsamplingprocessor v0.126.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/processor/transformprocessor v0.126.0
