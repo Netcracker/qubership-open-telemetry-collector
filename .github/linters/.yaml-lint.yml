@@ -4,12 +4,8 @@
 
 # Exclude not required files
 ignore:
-  - ./charts/*
-
-ignore-from-file:
-- .gitignore
-- .yamlignore
-
+- .github/workflows/*
+- ./charts/*
 rules:
   braces:
     min-spaces-inside: 1
