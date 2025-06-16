@@ -5,7 +5,7 @@
 # Exclude not required files
 ignore:
   - .github/workflows/*
-  - .charts/*
+  - charts/*
 
 rules:
   braces:
