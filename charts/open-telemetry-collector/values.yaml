@@ -206,6 +206,13 @@ GRAYLOG_COLLECTOR_HOST: ""
 #
 GRAYLOG_COLLECTOR_PORT: "12201"
 
+# ZIPKIN_RECEIVER_PORT is the Zipkin receiver port on collector
+# Type: string
+# Mandatory: no
+# Default: 9411
+#
+ZIPKIN_RECEIVER_PORT: "9411"
+
 # CONFIG_MAP is the custom config-map for the open-telemetry-collector. If it is not set, the default one is used.
 # Type: Object
 # Mandatory: no
