@@ -194,8 +194,8 @@ func (le *grayLogExporter) logRecordToMessage(logRecord plog.LogRecord) (*graylo
 		return true
 	})
 	fullmsg := le.getMappedValue(le.config.GELFMapping.FullMessage, attributes, logRecord.Attributes())
-	if fullmsg != "" {
-		message = fullmsg
+	if fullmsg == "" || strings.Contains(strings.ToLower(fullmsg), "not found") {
+		fullmsg = message
 	}
 	shortmsg := "No short message provided"
 	if le.config.GELFMapping.ShortMessage == "log" || le.config.GELFMapping.ShortMessage == "message" {
@@ -208,12 +208,12 @@ func (le *grayLogExporter) logRecordToMessage(logRecord plog.LogRecord) (*graylo
 		Version:      le.config.GELFMapping.Version,
 		Host:         hostname,
 		ShortMessage: shortmsg,
-		FullMessage:  message,
+		FullMessage:  fullmsg,
 		Timestamp:    timestamp.Unix(),
 		Level:        level,
 		Extra:        extra,
 	}
-
+	le.logger.Sugar().Debugf("Converted log record to Graylog message: %v", msg)
 	return msg, nil
 }
 
@@ -233,6 +233,7 @@ func (le *grayLogExporter) pushLogs(ctx context.Context, logs plog.Logs) error {
 				if err := le.graylogSender.SendToQueue(msg); err != nil {
 					le.logger.Sugar().Warnf("Failed to enqueue Graylog message: %v", err)
 				}
+				le.logger.Sugar().Debugf("Graylog message added to queue successfully")
 			}
 		}
 	}
