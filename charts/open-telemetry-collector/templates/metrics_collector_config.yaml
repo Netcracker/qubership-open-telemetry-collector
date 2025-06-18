@@ -10,7 +10,7 @@ metadata:
 data:
   otel.yaml: |
   {{- if .Values.CONFIG_MAP }}
-    "{{- toYaml (.Values.CONFIG_MAP) | nindent 4 }}"
+    {{- toYaml (.Values.CONFIG_MAP) | nindent 4 }}
   {{- else }}
     {{- if eq .Values.OTEC_INSTALLATION_MODE "SPAN_METRICS_PROCESSOR" }}
     receivers:
@@ -29,7 +29,7 @@ data:
       {{- if .Values.ZIPKIN_RECEIVER_PORT }}
       zipkin:
         endpoint: ":{{.Values.ZIPKIN_RECEIVER_PORT }}"
-      {{- end }}  
+      {{- end }}
     exporters:
       prometheus:
         endpoint: ":8889"
