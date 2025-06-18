@@ -25,6 +25,7 @@ on:
         default: false
         required: false
         description: "Lint all codebase"
+
 permissions:
   contents: read
 
