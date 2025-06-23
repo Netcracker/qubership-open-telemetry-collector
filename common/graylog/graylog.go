@@ -95,7 +95,7 @@ func NewGraylogSender(
 	gs.logger.Info("GraylogSender initialized")
 	if bulkSend {
 		gs.logger.Info("GraylogSender starting in bulk send mode")
-		gs.startBatchWorker()
+		gs.startBatchWorker(queueSize)
 	} else {
 		gs.logger.Info("GraylogSender starting in individual send mode")
 		for i := 0; i < connPoolSize; i++ {
@@ -213,7 +213,7 @@ func (gs *GraylogSender) tcpConnGoroutine(connNumber int) {
 	}
 }
 
-func (gs *GraylogSender) startBatchWorker() {
+func (gs *GraylogSender) startBatchWorker(batch int) {
 	go func() {
 		var buffer strings.Builder
 		ticker := time.NewTicker(batchWorkerFlushInterval)
@@ -242,8 +242,9 @@ func (gs *GraylogSender) startBatchWorker() {
 				}
 
 				buffer.Write(data)
+				buffer.WriteByte(0x00)
 
-				if buffer.Len() >= 1024 {
+				if buffer.Len() >= batch {
 					if err := gs.SendRaw(buffer.String()); err != nil {
 						gs.logger.Sugar().Errorf("GraylogBatchWorker : error sending bulk message: %+v", err)
 					}
