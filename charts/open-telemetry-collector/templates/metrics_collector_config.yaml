@@ -10,7 +10,7 @@ metadata:
 data:
   otel.yaml: |
   {{- if .Values.CONFIG_MAP }}
-    {{- toYaml (.Values.CONFIG_MAP) | nindent 4 }}
+    "{{- toYaml (.Values.CONFIG_MAP) | nindent 4 }}"
   {{- else }}
     {{- if eq .Values.OTEC_INSTALLATION_MODE "SPAN_METRICS_PROCESSOR" }}
     receivers:
@@ -26,6 +26,10 @@ data:
             endpoint: ":4317"
           http:
             endpoint: ":4318"
+      {{- if .Values.ZIPKIN_RECEIVER_PORT }}
+      zipkin:
+        endpoint: ":{{.Values.ZIPKIN_RECEIVER_PORT }}"
+      {{- end }}
     exporters:
       prometheus:
         endpoint: ":8889"
@@ -90,6 +94,9 @@ data:
       extensions: [health_check, pprof]
       pipelines:
         traces:
+          {{- if .Values.ZIPKIN_RECEIVER_PORT}}
+          receivers: [jaeger, otlp, zipkin]
+          {{- else }}
           receivers: [jaeger, otlp]
           {{- if .Values.OTEC_TAILBASED_GENERAL_PARAMETERS }}
           processors: [batch, tail_sampling]
@@ -112,7 +119,12 @@ data:
         logs:
           level: "{{ .Values.LOG_LEVEL }}"
         metrics:
-          address: ":8888"
+          readers:
+          - pull:
+              exporter:
+                 prometheus:
+                   host: '0.0.0.0'
+                   port: 8888
     {{- else if eq .Values.OTEC_INSTALLATION_MODE "SENTRY_ENVELOPES_PROCESSING" }}
     receivers:
       sentryreceiver:
@@ -197,6 +209,11 @@ data:
         logs:
           level: "{{ .Values.LOG_LEVEL }}"
         metrics:
-          level: detailed
+          readers:
+          - pull:
+              exporter:
+                 prometheus:
+                   host: '0.0.0.0'
+                   port: 8888
     {{- end }}
   {{- end }}
