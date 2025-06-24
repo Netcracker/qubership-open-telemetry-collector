@@ -241,7 +241,7 @@ func (gs *GraylogSender) startBatchWorker(batch int) {
 					gs.logger.Sugar().Errorf("GraylogBatchWorker : error preparing message for bulk send: %+v", err)
 					continue
 				}
-
+				gs.logger.Sugar().Debugf("GraylogBatchWorker : prepared message for bulk send: %+v", data)
 				buffer.Write(data)
 
 				if buffer.Len() >= batch {
@@ -271,6 +271,8 @@ func (gs *GraylogSender) SendRaw(data []byte) error {
 		return err
 	}
 	defer tcpConn.Close()
+
+	gs.logger.Sugar().Debugf("Sending raw data  %s", string(data))
 
 	_, err = tcpConn.Write(data)
 	if err != nil {
@@ -311,6 +313,11 @@ func prepareMessage(m *Message) ([]byte, error) {
 		}
 	}
 
-	data := append(c.Bytes(), 0)
+	data := c.Bytes()
+
+	if !json.Valid(data) {
+		return nil, fmt.Errorf("invalid JSON: %s", data)
+	}
+	data = append(data, '\x00')
 	return data, nil
 }
