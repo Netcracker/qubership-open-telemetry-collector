@@ -1,7 +1,7 @@
 github.com/Jeffail/gabs v1.4.0 h1://5fYRRTq1edjfIrQGvdkcd22pkYUrHZ5YC/H2GJVAo=
 github.com/Jeffail/gabs v1.4.0/go.mod h1:6xMvQMK4k33lb7GUUpaAPh6nKMmemQeg5d4gn7/bOXc=
-github.com/Netcracker/qubership-open-telemetry-collector/common/graylog v0.0.0-20250623102200-2afeeef4c95c h1:82W9hK3kIuUbGmQUWZ5KyIxOsY1KWTnAHA/02raR/v8=
-github.com/Netcracker/qubership-open-telemetry-collector/common/graylog v0.0.0-20250623102200-2afeeef4c95c/go.mod h1:M5a59GqLwpm7NqJcQ24YO+ArNFfyKjSMye4m8E7CoRA=
+github.com/Netcracker/qubership-open-telemetry-collector/common/graylog v0.0.0-20250624055803-4711098d83da h1:sB0xcGv1BEPfyDl9wHhLywXrVjteX0/ukUpSabaO2kg=
+github.com/Netcracker/qubership-open-telemetry-collector/common/graylog v0.0.0-20250624055803-4711098d83da/go.mod h1:M5a59GqLwpm7NqJcQ24YO+ArNFfyKjSMye4m8E7CoRA=
 github.com/Netcracker/qubership-open-telemetry-collector/utils v0.0.0-20250502143338-730cf6843525 h1:SOBerWdPk2j5CvEWVtlRq28YkkMtDdshiMg9Delfpds=
 github.com/Netcracker/qubership-open-telemetry-collector/utils v0.0.0-20250502143338-730cf6843525/go.mod h1:V0goKjIuCDquZ7siDdY/Fy4Hb7LosE29R/apzjHyaPk=
 github.com/cenkalti/backoff/v5 v5.0.2 h1:rIfFVxEf1QsI7E1ZHfp/B4DF/6QBAUhmgkxc0H7Zss8=
