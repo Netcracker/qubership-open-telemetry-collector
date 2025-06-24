@@ -241,9 +241,16 @@ func (le *grayLogExporter) pushLogs(ctx context.Context, logs plog.Logs) error {
 }
 
 func (le *grayLogExporter) getTimestampAndLevel(logRecord plog.LogRecord) (time.Time, uint) {
-	timestamp := logRecord.Timestamp().AsTime()
+	timestampval := logRecord.Timestamp()
 	text := strings.ToLower(logRecord.SeverityText())
 	severity := logRecord.SeverityNumber()
+	var timestamp time.Time
+	if timestampval == 0 {
+		le.logger.Warn("Missing timestamp in log record, using current time as fallback")
+		timestamp = time.Now()
+	} else {
+		timestamp = timestampval.AsTime()
+	}
 
 	switch text {
 	case "emergency", "panic":
