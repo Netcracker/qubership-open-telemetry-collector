@@ -15,12 +15,12 @@
 package graylog
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"net"
 	"runtime/debug"
-	"strings"
 	"time"
 
 	"github.com/Jeffail/gabs"
@@ -215,7 +215,8 @@ func (gs *GraylogSender) tcpConnGoroutine(connNumber int) {
 
 func (gs *GraylogSender) startBatchWorker(batch int) {
 	go func() {
-		var buffer strings.Builder
+		// var buffer strings.Builder
+		var buffer bytes.Buffer
 		ticker := time.NewTicker(batchWorkerFlushInterval)
 		defer ticker.Stop()
 
@@ -244,7 +245,7 @@ func (gs *GraylogSender) startBatchWorker(batch int) {
 				buffer.Write(data)
 
 				if buffer.Len() >= batch {
-					if err := gs.SendRaw(buffer.String()); err != nil {
+					if err := gs.SendRaw(buffer.Bytes()); err != nil {
 						gs.logger.Sugar().Errorf("GraylogBatchWorker : error sending bulk message: %+v", err)
 					}
 					buffer.Reset()
@@ -252,7 +253,7 @@ func (gs *GraylogSender) startBatchWorker(batch int) {
 
 			case <-ticker.C:
 				if buffer.Len() > 0 {
-					if err := gs.SendRaw(buffer.String()); err != nil {
+					if err := gs.SendRaw(buffer.Bytes()); err != nil {
 						gs.logger.Sugar().Errorf("GraylogBatchWorker : error sending bulk message (timer flush): %+v", err)
 					}
 					buffer.Reset()
@@ -262,7 +263,7 @@ func (gs *GraylogSender) startBatchWorker(batch int) {
 	}()
 }
 
-func (gs *GraylogSender) SendRaw(data string) error {
+func (gs *GraylogSender) SendRaw(data []byte) error {
 	tcpAddress := fmt.Sprintf("%s:%d", gs.endpoint.Address, gs.endpoint.Port)
 	tcpConn, err := net.Dial(string(gs.endpoint.Transport), tcpAddress)
 	if err != nil {
@@ -271,7 +272,7 @@ func (gs *GraylogSender) SendRaw(data string) error {
 	}
 	defer tcpConn.Close()
 
-	_, err = tcpConn.Write([]byte(data))
+	_, err = tcpConn.Write(data)
 	if err != nil {
 		gs.logger.Sugar().Errorf("Error writing raw data to Graylog: %+v", err)
 		return err
