@@ -242,7 +242,6 @@ func (gs *GraylogSender) startBatchWorker(batch int) {
 				}
 
 				buffer.Write(data)
-				buffer.WriteByte(0x00)
 
 				if buffer.Len() >= batch {
 					if err := gs.SendRaw(buffer.String()); err != nil {
@@ -311,6 +310,6 @@ func prepareMessage(m *Message) ([]byte, error) {
 		}
 	}
 
-	data := append(c.Bytes(), '\n', byte(0))
+	data := append(c.Bytes(), 0)
 	return data, nil
 }
