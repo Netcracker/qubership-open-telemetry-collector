@@ -16,7 +16,9 @@ package graylogexporter
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"strconv"
 	"strings"
 	"time"
@@ -92,6 +94,23 @@ func (le *grayLogExporter) start(_ context.Context, _ component.Host) error {
 	return nil
 }
 
+func decodeConcatenatedJSON(logbody string) (map[string]interface{}, error) {
+	decoder := json.NewDecoder(strings.NewReader(logbody))
+	result := make(map[string]interface{})
+	for {
+		var obj map[string]interface{}
+		if err := decoder.Decode(&obj); err == io.EOF {
+			break
+		} else if err != nil {
+			return nil, fmt.Errorf("JSON decode error: %w", err)
+		}
+		for k, v := range obj {
+			result[k] = v
+		}
+	}
+	return result, nil
+}
+
 func extractAttributes(body pcommon.Value) (map[string]interface{}, string, error) {
 	attributes := make(map[string]interface{})
 	var message string
@@ -101,6 +120,14 @@ func extractAttributes(body pcommon.Value) (map[string]interface{}, string, erro
 		message = body.AsString()
 		if message == "" {
 			message = "No message provided"
+		}
+		decoded, err := decodeConcatenatedJSON(message)
+		if err == nil {
+			attributes = decoded
+			if val, ok := attributes["message"]; ok {
+				message, _ = val.(string)
+			}
+			return attributes, message, nil
 		}
 		return nil, message, nil
 	case pcommon.ValueTypeMap:

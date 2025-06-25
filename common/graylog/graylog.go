@@ -241,6 +241,11 @@ func (gs *GraylogSender) startBatchWorker(batch int) {
 					gs.logger.Sugar().Errorf("GraylogBatchWorker : error preparing message for bulk send: %+v", err)
 					continue
 				}
+
+				if len(data) == 0 || data[len(data)-1] != 0 {
+					data = append(data, 0)
+					gs.logger.Sugar().Debugf("GraylogBatchWorker : added null byte at the end of message data")
+				}
 				gs.logger.Sugar().Debugf("GraylogBatchWorker : prepared message for bulk send: %+v", data)
 				buffer.Write(data)
 
