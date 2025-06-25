@@ -23,7 +23,6 @@ import (
 	"runtime/debug"
 	"time"
 
-	"github.com/Jeffail/gabs"
 	"go.uber.org/zap"
 )
 
@@ -284,7 +283,6 @@ func (gs *GraylogSender) SendRaw(data []byte) error {
 		gs.logger.Sugar().Errorf("Error writing raw data to Graylog: %+v", err)
 		return err
 	}
-
 	gs.logger.Sugar().Debug("Raw data sent successfully to Graylog")
 	return nil
 }
@@ -301,28 +299,21 @@ func (gs *GraylogSender) SendToQueue(m *Message) error {
 }
 
 func prepareMessage(m *Message) ([]byte, error) {
-	jsonMessage, err := json.Marshal(m)
+	obj := map[string]interface{}{
+		"Version":      m.Version,
+		"Host":         m.Host,
+		"ShortMessage": m.ShortMessage,
+		"FullMessage":  m.FullMessage,
+		"Timestamp":    m.Timestamp,
+		"Level":        m.Level,
+	}
+	for k, v := range m.Extra {
+		obj["_"+k] = v
+	}
+	data, err := json.Marshal(obj)
 	if err != nil {
 		return nil, err
 	}
-
-	c, err := gabs.ParseJSON(jsonMessage)
-	if err != nil {
-		return nil, err
-	}
-
-	for key, value := range m.Extra {
-		_, err = c.Set(value, fmt.Sprintf("_%s", key))
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	data := c.Bytes()
-
-	if !json.Valid(data) {
-		return nil, fmt.Errorf("invalid JSON: %s", data)
-	}
-	data = append(data, '\x00')
+	data = append(data, 0)
 	return data, nil
 }
