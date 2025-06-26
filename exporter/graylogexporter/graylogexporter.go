@@ -188,8 +188,8 @@ func getStringFromPcommonMap(m pcommon.Map, key string) (string, bool) {
 	}
 }
 
-func (le *grayLogExporter) logRecordToMessage(logRecord plog.LogRecord) (*graylog.Message, error) {
-	le.logger.Sugar().Debugf("msg receiveid and ready to parse: %v", &logRecord)
+func (le *grayLogExporter) logRecordToMessage(logRecord plog.LogRecord, resourceAttrs pcommon.Map) (*graylog.Message, error) {
+	le.logger.Sugar().Debugf("msg receiveid and ready to parse: %v", logRecord)
 	timestamp, level := le.getTimestampAndLevel(logRecord)
 	attributes, message, err := extractAttributes(logRecord.Body())
 	if err != nil {
@@ -203,6 +203,10 @@ func (le *grayLogExporter) logRecordToMessage(logRecord plog.LogRecord) (*graylo
 
 	logRecord.Attributes().Range(func(k string, v pcommon.Value) bool {
 		extra[k] = stringifyOtelValue(v)
+		return true
+	})
+	resourceAttrs.Range(func(k string, v pcommon.Value) bool {
+		extra["resource."+k] = stringifyOtelValue(v)
 		return true
 	})
 
@@ -233,11 +237,12 @@ func (le *grayLogExporter) logRecordToMessage(logRecord plog.LogRecord) (*graylo
 func (le *grayLogExporter) pushLogs(ctx context.Context, logs plog.Logs) error {
 	for i := 0; i < logs.ResourceLogs().Len(); i++ {
 		resourceLog := logs.ResourceLogs().At(i)
+		resource := resourceLog.Resource()
 		for j := 0; j < resourceLog.ScopeLogs().Len(); j++ {
 			scopeLog := resourceLog.ScopeLogs().At(j)
 			for k := 0; k < scopeLog.LogRecords().Len(); k++ {
 				logRecord := scopeLog.LogRecords().At(k)
-				msg, err := le.logRecordToMessage(logRecord)
+				msg, err := le.logRecordToMessage(logRecord, resource.Attributes())
 				if err != nil {
 					le.logger.Sugar().Errorf("Error converting log record to Graylog message: %v", err)
 					continue
