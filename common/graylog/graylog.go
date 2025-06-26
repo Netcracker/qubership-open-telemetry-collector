@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	"reflect"
 	"runtime/debug"
 	"strings"
 	"time"
@@ -237,7 +236,7 @@ func (gs *GraylogSender) startBatchWorker(batch int) {
 					gs.logger.Warn("GraylogBatchWorker : nil message received, skipping")
 					continue
 				}
-
+				gs.logger.Sugar().Debugf("GraylogBatchWorker : before preparing message : %+v", msg)
 				data, err := prepareMessage(msg)
 				if err != nil {
 					gs.logger.Sugar().Errorf("GraylogBatchWorker : error preparing message for bulk send: %+v", err)
@@ -305,52 +304,45 @@ func prepareMessage(m *Message) ([]byte, error) {
 	if m == nil {
 		return nil, fmt.Errorf("message cannot be nil")
 	}
-	cleanMsg := *m
-	v := reflect.ValueOf(&cleanMsg).Elem()
-	t := v.Type()
 
-	for i := 0; i < v.NumField(); i++ {
-		field := v.Field(i)
-		fieldType := t.Field(i)
-		if fieldType.Name == "Extra" {
-			continue
-		}
-		if field.Kind() == reflect.String && field.CanSet() {
-			original := field.String()
-			cleaned := cleanString(original)
-			field.SetString(cleaned)
-		}
-	}
+	cleanMsg := *m
+	cleanMsg.Version = cleanString(cleanMsg.Version)
+	cleanMsg.Host = cleanString(cleanMsg.Host)
+	cleanMsg.ShortMessage = cleanString(cleanMsg.ShortMessage)
+	cleanMsg.FullMessage = cleanString(cleanMsg.FullMessage)
+
 	cleanExtra := make(map[string]string, len(cleanMsg.Extra))
 	for k, v := range cleanMsg.Extra {
-		cleanKey := cleanString(k)
-		cleanVal := cleanString(v)
-
-		if cleanKey != "" && cleanVal != "" {
-			cleanExtra[cleanKey] = cleanVal
+		ck := cleanString(k)
+		cv := cleanString(v)
+		if ck != "" && cv != "" {
+			cleanExtra[ck] = cv
 		}
 	}
 	cleanMsg.Extra = cleanExtra
+
 	jsonMessage, err := json.Marshal(cleanMsg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal message to JSON: %w", err)
 	}
-
 	if !utf8.Valid(jsonMessage) {
 		return nil, fmt.Errorf("JSON contains invalid UTF-8 characters")
 	}
-
 	c, err := gabs.ParseJSON(jsonMessage)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse JSON with gabs: %w", err)
 	}
+
 	for key, value := range cleanMsg.Extra {
-		_, err = c.Set(value, "_"+key)
-		if err != nil {
+		if _, err := c.Set(value, "_"+key); err != nil {
 			return nil, fmt.Errorf("failed to set extra field %s: %w", key, err)
 		}
 	}
-	data := append(c.Bytes(), 0)
+
+	data := c.Bytes()
+	if len(data) == 0 || data[len(data)-1] != 0 {
+		data = append(data, 0)
+	}
 	if !utf8.Valid(data) {
 		return nil, fmt.Errorf("final message contains invalid UTF-8 characters")
 	}
@@ -361,27 +353,13 @@ func cleanString(s string) string {
 	if s == "" {
 		return ""
 	}
-	runes := []rune(s)
-	var cleanRunes []rune
-	for _, r := range runes {
-		if r == 0xFFFD || r < 0x20 {
-			cleanRunes = append(cleanRunes, ' ')
+	var b strings.Builder
+	for _, r := range s {
+		if r == 0xFFFD || (r < 0x20 && r != '\n' && r != '\r' && r != '\t') {
+			b.WriteRune(' ')
 		} else {
-			cleanRunes = append(cleanRunes, r)
+			b.WriteRune(r)
 		}
 	}
-
-	result := strings.TrimSpace(string(cleanRunes))
-	result = strings.Map(func(r rune) rune {
-		if r < 0x20 && r != '\n' && r != '\r' && r != '\t' {
-			return -1
-		}
-		return r
-	}, result)
-
-	return result
-}
-
-func isValidUTF8(data []byte) bool {
-	return utf8.Valid(data)
+	return strings.TrimSpace(b.String())
 }
