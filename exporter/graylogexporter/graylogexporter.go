@@ -189,7 +189,7 @@ func getStringFromPcommonMap(m pcommon.Map, key string) (string, bool) {
 }
 
 func (le *grayLogExporter) logRecordToMessage(logRecord plog.LogRecord) (*graylog.Message, error) {
-	le.logger.Sugar().Debugf("msg receiveid and ready to parse: %v", logRecord)
+	le.logger.Sugar().Debugf("msg receiveid and ready to parse: %v", &logRecord)
 	timestamp, level := le.getTimestampAndLevel(logRecord)
 	attributes, message, err := extractAttributes(logRecord.Body())
 	if err != nil {
@@ -198,29 +198,14 @@ func (le *grayLogExporter) logRecordToMessage(logRecord plog.LogRecord) (*graylo
 
 	extra := make(map[string]string)
 	for k, v := range attributes {
-		extra[k] = fmt.Sprintf("%v", v)
+		extra[k] = stringifyAny(v)
 	}
 
 	logRecord.Attributes().Range(func(k string, v pcommon.Value) bool {
-		switch v.Type() {
-		case pcommon.ValueTypeStr:
-			extra[k] = v.AsString()
-		case pcommon.ValueTypeBool:
-			extra[k] = strconv.FormatBool(v.Bool())
-		case pcommon.ValueTypeInt:
-			extra[k] = strconv.FormatInt(v.Int(), 10)
-		case pcommon.ValueTypeDouble:
-			extra[k] = fmt.Sprintf("%f", v.Double())
-		case pcommon.ValueTypeMap:
-			v.Map().Range(func(subKey string, subValue pcommon.Value) bool {
-				extra[k+"."+subKey] = subValue.AsString()
-				return true
-			})
-		default:
-			extra[k] = fmt.Sprintf("%v", v)
-		}
+		extra[k] = stringifyOtelValue(v)
 		return true
 	})
+
 	fullmsg := le.getMappedValue(le.config.GELFMapping.FullMessage, attributes, logRecord.Attributes())
 	if fullmsg == "" || strings.Contains(strings.ToLower(fullmsg), "not found") {
 		fullmsg = message
@@ -266,6 +251,47 @@ func (le *grayLogExporter) pushLogs(ctx context.Context, logs plog.Logs) error {
 		}
 	}
 	return nil
+}
+
+func stringifyAny(v interface{}) string {
+	switch val := v.(type) {
+	case string:
+		return val
+	case fmt.Stringer:
+		return val.String()
+	case map[string]interface{}:
+		if b, err := json.Marshal(val); err == nil {
+			return string(b)
+		}
+		return fmt.Sprintf("%v", val)
+	default:
+		return fmt.Sprintf("%v", val)
+	}
+}
+
+func stringifyOtelValue(v pcommon.Value) string {
+	switch v.Type() {
+	case pcommon.ValueTypeStr:
+		return v.Str()
+	case pcommon.ValueTypeBool:
+		return strconv.FormatBool(v.Bool())
+	case pcommon.ValueTypeInt:
+		return strconv.FormatInt(v.Int(), 10)
+	case pcommon.ValueTypeDouble:
+		return strconv.FormatFloat(v.Double(), 'f', -1, 64)
+	case pcommon.ValueTypeMap:
+		m := make(map[string]interface{})
+		v.Map().Range(func(k string, sv pcommon.Value) bool {
+			m[k] = sv.AsRaw()
+			return true
+		})
+		if b, err := json.Marshal(m); err == nil {
+			return string(b)
+		}
+		return fmt.Sprintf("%v", m)
+	default:
+		return fmt.Sprintf("%v", v.AsRaw())
+	}
 }
 
 func (le *grayLogExporter) getTimestampAndLevel(logRecord plog.LogRecord) (time.Time, uint) {

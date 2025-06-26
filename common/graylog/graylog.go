@@ -23,6 +23,7 @@ import (
 	"runtime/debug"
 	"time"
 
+	"github.com/Jeffail/gabs"
 	"go.uber.org/zap"
 )
 
@@ -214,7 +215,6 @@ func (gs *GraylogSender) tcpConnGoroutine(connNumber int) {
 
 func (gs *GraylogSender) startBatchWorker(batch int) {
 	go func() {
-		// var buffer strings.Builder
 		var buffer bytes.Buffer
 		ticker := time.NewTicker(batchWorkerFlushInterval)
 		defer ticker.Stop()
@@ -299,21 +299,21 @@ func (gs *GraylogSender) SendToQueue(m *Message) error {
 }
 
 func prepareMessage(m *Message) ([]byte, error) {
-	obj := map[string]interface{}{
-		"Version":      m.Version,
-		"Host":         m.Host,
-		"ShortMessage": m.ShortMessage,
-		"FullMessage":  m.FullMessage,
-		"Timestamp":    m.Timestamp,
-		"Level":        m.Level,
-	}
-	for k, v := range m.Extra {
-		obj["_"+k] = v
-	}
-	data, err := json.Marshal(obj)
+	jsonMessage, err := json.Marshal(m)
 	if err != nil {
 		return nil, err
 	}
-	data = append(data, 0)
+	c, err := gabs.ParseJSON(jsonMessage)
+	if err != nil {
+		return []byte{}, err
+	}
+
+	for key, value := range m.Extra {
+		_, err = c.Set(value, fmt.Sprintf("_%s", key))
+		if err != nil {
+			return []byte{}, err
+		}
+	}
+	data := append(c.Bytes(), byte(0))
 	return data, nil
 }
