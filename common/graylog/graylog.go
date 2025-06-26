@@ -20,8 +20,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"reflect"
 	"runtime/debug"
+	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/Jeffail/gabs"
 	"go.uber.org/zap"
@@ -299,21 +302,86 @@ func (gs *GraylogSender) SendToQueue(m *Message) error {
 }
 
 func prepareMessage(m *Message) ([]byte, error) {
-	jsonMessage, err := json.Marshal(m)
-	if err != nil {
-		return nil, err
+	if m == nil {
+		return nil, fmt.Errorf("message cannot be nil")
 	}
-	c, err := gabs.ParseJSON(jsonMessage)
-	if err != nil {
-		return []byte{}, err
-	}
+	cleanMsg := *m
+	v := reflect.ValueOf(&cleanMsg).Elem()
+	t := v.Type()
 
-	for key, value := range m.Extra {
-		_, err = c.Set(value, fmt.Sprintf("_%s", key))
-		if err != nil {
-			return []byte{}, err
+	for i := 0; i < v.NumField(); i++ {
+		field := v.Field(i)
+		fieldType := t.Field(i)
+		if fieldType.Name == "Extra" {
+			continue
+		}
+		if field.Kind() == reflect.String && field.CanSet() {
+			original := field.String()
+			cleaned := cleanString(original)
+			field.SetString(cleaned)
 		}
 	}
-	data := append(c.Bytes(), byte(0))
+	cleanExtra := make(map[string]string, len(cleanMsg.Extra))
+	for k, v := range cleanMsg.Extra {
+		cleanKey := cleanString(k)
+		cleanVal := cleanString(v)
+
+		if cleanKey != "" && cleanVal != "" {
+			cleanExtra[cleanKey] = cleanVal
+		}
+	}
+	cleanMsg.Extra = cleanExtra
+	jsonMessage, err := json.Marshal(cleanMsg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal message to JSON: %w", err)
+	}
+
+	if !utf8.Valid(jsonMessage) {
+		return nil, fmt.Errorf("JSON contains invalid UTF-8 characters")
+	}
+
+	c, err := gabs.ParseJSON(jsonMessage)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse JSON with gabs: %w", err)
+	}
+	for key, value := range cleanMsg.Extra {
+		_, err = c.Set(value, "_"+key)
+		if err != nil {
+			return nil, fmt.Errorf("failed to set extra field %s: %w", key, err)
+		}
+	}
+	data := append(c.Bytes(), 0)
+	if !utf8.Valid(data) {
+		return nil, fmt.Errorf("final message contains invalid UTF-8 characters")
+	}
 	return data, nil
+}
+
+func cleanString(s string) string {
+	if s == "" {
+		return ""
+	}
+	runes := []rune(s)
+	var cleanRunes []rune
+	for _, r := range runes {
+		if r == 0xFFFD || r < 0x20 {
+			cleanRunes = append(cleanRunes, ' ')
+		} else {
+			cleanRunes = append(cleanRunes, r)
+		}
+	}
+
+	result := strings.TrimSpace(string(cleanRunes))
+	result = strings.Map(func(r rune) rune {
+		if r < 0x20 && r != '\n' && r != '\r' && r != '\t' {
+			return -1
+		}
+		return r
+	}, result)
+
+	return result
+}
+
+func isValidUTF8(data []byte) bool {
+	return utf8.Valid(data)
 }
