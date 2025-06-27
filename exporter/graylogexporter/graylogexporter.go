@@ -189,7 +189,7 @@ func getStringFromPcommonMap(m pcommon.Map, key string) (string, bool) {
 }
 
 func (le *grayLogExporter) logRecordToMessage(logRecord plog.LogRecord, resourceAttrs pcommon.Map) (*graylog.Message, error) {
-	le.logger.Sugar().Debugf("msg receiveid and ready to parse: %v", logRecord)
+	le.logger.Sugar().Debugf("msg receiveid and ready to parse: %v, %v, %v", logRecord.Body().AsString(), logRecord.Attributes(), resourceAttrs)
 	timestamp, level := le.getTimestampAndLevel(logRecord)
 	attributes, message, err := extractAttributes(logRecord.Body())
 	if err != nil {
