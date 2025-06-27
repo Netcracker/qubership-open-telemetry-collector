@@ -279,8 +279,11 @@ func (gs *GraylogSender) SendRaw(data []byte) error {
 	defer tcpConn.Close()
 
 	gs.logger.Sugar().Debugf("Sending raw data  %s", string(data))
-
-	_, err = tcpConn.Write(data)
+	cleanData := extractGELFPartOnly(data)
+	if cleanData == nil {
+		gs.logger.Sugar().Debugf("Dropping malformed GELF message")
+	}
+	_, err = tcpConn.Write(cleanData)
 	if err != nil {
 		gs.logger.Sugar().Errorf("Error writing raw data to Graylog: %+v", err)
 		return err
@@ -362,4 +365,20 @@ func cleanString(s string) string {
 		}
 	}
 	return strings.TrimSpace(b.String())
+}
+
+func extractGELFPartOnly(data []byte) []byte {
+	var depth int
+	for i, b := range data {
+		switch b {
+		case '{':
+			depth++
+		case '}':
+			depth--
+			if depth == 0 {
+				return append(data[:i+1], byte(0))
+			}
+		}
+	}
+	return nil
 }
