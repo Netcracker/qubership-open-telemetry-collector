@@ -201,15 +201,15 @@ func (le *grayLogExporter) logRecordToMessage(logRecord plog.LogRecord, resource
 
 	extra := make(map[string]string)
 	for k, v := range attributes {
-		extra[k] = cleanAndStringifyAny(v)
+		extra["_"+k] = cleanAndStringifyAny(v)
 	}
 
 	logRecord.Attributes().Range(func(k string, v pcommon.Value) bool {
-		extra[k] = cleanAndStringifyOtelValue(v)
+		extra["_"+k] = cleanAndStringifyOtelValue(v)
 		return true
 	})
 	resourceAttrs.Range(func(k string, v pcommon.Value) bool {
-		extra["resource."+k] = cleanAndStringifyOtelValue(v)
+		extra["_resource."+k] = cleanAndStringifyOtelValue(v)
 		return true
 	})
 
@@ -226,9 +226,9 @@ func (le *grayLogExporter) logRecordToMessage(logRecord plog.LogRecord, resource
 	hostname := le.getMappedValue(le.config.GELFMapping.Host, attributes, logRecord.Attributes())
 	msg := &graylog.Message{
 		Version:      le.config.GELFMapping.Version,
-		Host:         hostname,
-		ShortMessage: shortmsg,
-		FullMessage:  fullmsg,
+		Host:         cleanAndStringifyAny(hostname),
+		ShortMessage: cleanAndStringifyAny(shortmsg),
+		FullMessage:  cleanAndStringifyAny(fullmsg),
 		Timestamp:    timestamp.Unix(),
 		Level:        level,
 		Extra:        extra,

@@ -15,7 +15,6 @@
 package graylog
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -51,7 +50,6 @@ type GraylogSender struct {
 	maxMessageSendRetryCnt      int
 	maxSuccessiveSendErrCnt     int
 	successiveSendErrFreezeTime time.Duration
-	useBulkSend                 bool
 }
 
 type Message struct {
@@ -72,13 +70,7 @@ func NewGraylogSender(
 	maxMessageSendRetryCnt int,
 	maxSuccessiveSendErrCnt int,
 	successiveSendErrFreezeTime time.Duration,
-	useBulkSend ...bool,
 ) *GraylogSender {
-
-	bulkSend := false
-	if len(useBulkSend) > 0 {
-		bulkSend = useBulkSend[0]
-	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -91,17 +83,12 @@ func NewGraylogSender(
 		maxMessageSendRetryCnt:      maxMessageSendRetryCnt,
 		maxSuccessiveSendErrCnt:     maxSuccessiveSendErrCnt,
 		successiveSendErrFreezeTime: successiveSendErrFreezeTime,
-		useBulkSend:                 bulkSend,
 	}
 	gs.logger.Info("GraylogSender initialized")
-	if bulkSend {
-		gs.logger.Info("GraylogSender starting in bulk send mode")
-		gs.startBatchWorker(queueSize)
-	} else {
-		gs.logger.Info("GraylogSender starting in individual send mode")
-		for i := 0; i < connPoolSize; i++ {
-			go gs.tcpConnGoroutine(i)
-		}
+
+	gs.logger.Info("GraylogSender starting in queue mode")
+	for i := 0; i < connPoolSize; i++ {
+		go gs.tcpConnGoroutine(i)
 	}
 
 	return gs
@@ -214,78 +201,6 @@ func (gs *GraylogSender) tcpConnGoroutine(connNumber int) {
 	}
 }
 
-func (gs *GraylogSender) startBatchWorker(batch int) {
-	go func() {
-		var buffer bytes.Buffer
-		ticker := time.NewTicker(batchWorkerFlushInterval)
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-gs.ctx.Done():
-				gs.logger.Info("GraylogBatchWorker : context canceled, stopping worker")
-				return
-
-			case msg, ok := <-gs.msgQueue:
-				if !ok {
-					gs.logger.Info("GraylogBatchWorker : msgQueue closed, stopping worker")
-					return
-				}
-				if msg == nil {
-					gs.logger.Warn("GraylogBatchWorker : nil message received, skipping")
-					continue
-				}
-				gs.logger.Sugar().Debugf("GraylogBatchWorker : before preparing message : %+v", msg)
-				data, err := prepareMessage(msg)
-				if err != nil {
-					gs.logger.Sugar().Errorf("GraylogBatchWorker : error preparing message for bulk send: %+v", err)
-					continue
-				}
-
-				if len(data) == 0 || data[len(data)-1] != 0 {
-					data = append(data, 0)
-					gs.logger.Sugar().Debugf("GraylogBatchWorker : added null byte at the end of message data")
-				}
-				gs.logger.Sugar().Debugf("GraylogBatchWorker : prepared message for bulk send: %+v", data)
-				buffer.Write(data)
-
-				if buffer.Len() >= batch {
-					if err := gs.SendRaw(buffer.Bytes()); err != nil {
-						gs.logger.Sugar().Errorf("GraylogBatchWorker : error sending bulk message: %+v", err)
-					}
-					buffer.Reset()
-				}
-
-			case <-ticker.C:
-				if buffer.Len() > 0 {
-					if err := gs.SendRaw(buffer.Bytes()); err != nil {
-						gs.logger.Sugar().Errorf("GraylogBatchWorker : error sending bulk message (timer flush): %+v", err)
-					}
-					buffer.Reset()
-				}
-			}
-		}
-	}()
-}
-
-func (gs *GraylogSender) SendRaw(data []byte) error {
-	tcpAddress := fmt.Sprintf("%s:%d", gs.endpoint.Address, gs.endpoint.Port)
-	tcpConn, err := net.Dial(string(gs.endpoint.Transport), tcpAddress)
-	if err != nil {
-		gs.logger.Sugar().Errorf("Error dialing Graylog TCP at %s: %+v", tcpAddress, err)
-		return err
-	}
-	defer tcpConn.Close()
-	gs.logger.Sugar().Debugf("Sending raw data  %s", string(data))
-	_, err = tcpConn.Write(data)
-	if err != nil {
-		gs.logger.Sugar().Errorf("Error writing raw data to Graylog: %+v", err)
-		return err
-	}
-	gs.logger.Sugar().Debug("Raw data sent successfully to Graylog")
-	return nil
-}
-
 func (gs *GraylogSender) SendToQueue(m *Message) error {
 	select {
 	case gs.msgQueue <- m:
@@ -305,9 +220,6 @@ func prepareMessage(m *Message) ([]byte, error) {
 	jsonMessage, err := json.Marshal(m)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal message to JSON: %w", err)
-	}
-	if !utf8.Valid(jsonMessage) {
-		return nil, fmt.Errorf("JSON contains invalid UTF-8 characters")
 	}
 	c, err := gabs.ParseJSON(jsonMessage)
 	if err != nil {
