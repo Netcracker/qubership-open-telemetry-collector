@@ -198,15 +198,15 @@ func (le *grayLogExporter) logRecordToMessage(logRecord plog.LogRecord, resource
 
 	extra := make(map[string]string)
 	for k, v := range attributes {
-		extra[k] = stringifyAny(v)
+		extra[k] = cleanAndStringifyAny(v)
 	}
 
 	logRecord.Attributes().Range(func(k string, v pcommon.Value) bool {
-		extra[k] = stringifyOtelValue(v)
+		extra[k] = cleanAndStringifyOtelValue(v)
 		return true
 	})
 	resourceAttrs.Range(func(k string, v pcommon.Value) bool {
-		extra["resource."+k] = stringifyOtelValue(v)
+		extra["resource."+k] = cleanAndStringifyOtelValue(v)
 		return true
 	})
 
@@ -258,26 +258,41 @@ func (le *grayLogExporter) pushLogs(ctx context.Context, logs plog.Logs) error {
 	return nil
 }
 
-func stringifyAny(v interface{}) string {
+func cleanString(s string) string {
+	if s == "" {
+		return ""
+	}
+	var b strings.Builder
+	for _, r := range s {
+		if r == 0xFFFD || (r < 0x20 && r != '\n' && r != '\r' && r != '\t') {
+			b.WriteRune(' ')
+		} else {
+			b.WriteRune(r)
+		}
+	}
+	return strings.TrimSpace(b.String())
+}
+
+func cleanAndStringifyAny(v interface{}) string {
 	switch val := v.(type) {
 	case string:
-		return val
+		return cleanString(val)
 	case fmt.Stringer:
-		return val.String()
+		return cleanString(val.String())
 	case map[string]interface{}:
 		if b, err := json.Marshal(val); err == nil {
-			return string(b)
+			return cleanString(string(b))
 		}
-		return fmt.Sprintf("%v", val)
+		return cleanString(fmt.Sprintf("%v", val))
 	default:
-		return fmt.Sprintf("%v", val)
+		return cleanString(fmt.Sprintf("%v", val))
 	}
 }
 
-func stringifyOtelValue(v pcommon.Value) string {
+func cleanAndStringifyOtelValue(v pcommon.Value) string {
 	switch v.Type() {
 	case pcommon.ValueTypeStr:
-		return v.Str()
+		return cleanString(v.Str())
 	case pcommon.ValueTypeBool:
 		return strconv.FormatBool(v.Bool())
 	case pcommon.ValueTypeInt:
@@ -291,11 +306,11 @@ func stringifyOtelValue(v pcommon.Value) string {
 			return true
 		})
 		if b, err := json.Marshal(m); err == nil {
-			return string(b)
+			return cleanString(string(b))
 		}
-		return fmt.Sprintf("%v", m)
+		return cleanString(fmt.Sprintf("%v", m))
 	default:
-		return fmt.Sprintf("%v", v.AsRaw())
+		return cleanString(fmt.Sprintf("%v", v.AsRaw()))
 	}
 }
 

@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"net"
 	"runtime/debug"
-	"strings"
 	"time"
 	"unicode/utf8"
 
@@ -303,23 +302,7 @@ func prepareMessage(m *Message) ([]byte, error) {
 		return nil, fmt.Errorf("message cannot be nil")
 	}
 
-	cleanMsg := *m
-	cleanMsg.Version = cleanString(cleanMsg.Version)
-	cleanMsg.Host = cleanString(cleanMsg.Host)
-	cleanMsg.ShortMessage = cleanString(cleanMsg.ShortMessage)
-	cleanMsg.FullMessage = cleanString(cleanMsg.FullMessage)
-
-	cleanExtra := make(map[string]string, len(cleanMsg.Extra))
-	for k, v := range cleanMsg.Extra {
-		ck := cleanString(k)
-		cv := cleanString(v)
-		if ck != "" && cv != "" {
-			cleanExtra[ck] = cv
-		}
-	}
-	cleanMsg.Extra = cleanExtra
-
-	jsonMessage, err := json.Marshal(cleanMsg)
+	jsonMessage, err := json.Marshal(m)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal message to JSON: %w", err)
 	}
@@ -331,7 +314,7 @@ func prepareMessage(m *Message) ([]byte, error) {
 		return nil, fmt.Errorf("failed to parse JSON with gabs: %w", err)
 	}
 
-	for key, value := range cleanMsg.Extra {
+	for key, value := range m.Extra {
 		if _, err := c.Set(value, "_"+key); err != nil {
 			return nil, fmt.Errorf("failed to set extra field %s: %w", key, err)
 		}
@@ -345,19 +328,4 @@ func prepareMessage(m *Message) ([]byte, error) {
 		return nil, fmt.Errorf("final message contains invalid UTF-8 characters")
 	}
 	return data, nil
-}
-
-func cleanString(s string) string {
-	if s == "" {
-		return ""
-	}
-	var b strings.Builder
-	for _, r := range s {
-		if r == 0xFFFD || (r < 0x20 && r != '\n' && r != '\r' && r != '\t') {
-			b.WriteRune(' ')
-		} else {
-			b.WriteRune(r)
-		}
-	}
-	return strings.TrimSpace(b.String())
 }
