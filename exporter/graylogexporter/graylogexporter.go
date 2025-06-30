@@ -52,7 +52,10 @@ func createLogExporter(cfg *Config, settings exporter.Settings) *grayLogExporter
 func (le *grayLogExporter) start(_ context.Context, _ component.Host) error {
 	var address string
 	var port uint64
-	useBulk := true
+	useBulk := false
+	if le.config.BatchSize > 1 {
+		useBulk = true
+	}
 
 	endpointSplitted := strings.Split(le.url, ":")
 	if len(endpointSplitted) == 1 {
