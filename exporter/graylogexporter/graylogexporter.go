@@ -52,10 +52,6 @@ func createLogExporter(cfg *Config, settings exporter.Settings) *grayLogExporter
 func (le *grayLogExporter) start(_ context.Context, _ component.Host) error {
 	var address string
 	var port uint64
-	useBulk := false
-	if le.config.BatchSize > 1 {
-		useBulk = true
-	}
 
 	endpointSplitted := strings.Split(le.url, ":")
 	if len(endpointSplitted) == 1 {
@@ -91,7 +87,6 @@ func (le *grayLogExporter) start(_ context.Context, _ component.Host) error {
 		le.config.MaxMessageSendRetryCnt,
 		le.config.MaxSuccessiveSendErrCnt,
 		freezeTime,
-		useBulk,
 	)
 
 	return nil
