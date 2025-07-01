@@ -196,15 +196,15 @@ func (le *grayLogExporter) logRecordToMessage(logRecord plog.LogRecord, resource
 
 	extra := make(map[string]string)
 	for k, v := range attributes {
-		extra["_"+k] = cleanAndStringifyAny(v)
+		extra["_"+k] = fmt.Sprintf("%v", v)
 	}
 
 	logRecord.Attributes().Range(func(k string, v pcommon.Value) bool {
-		extra["_"+k] = cleanAndStringifyOtelValue(v)
+		extra["_"+k] = fmt.Sprintf("%v", v)
 		return true
 	})
 	resourceAttrs.Range(func(k string, v pcommon.Value) bool {
-		extra["_resource."+k] = cleanAndStringifyOtelValue(v)
+		extra["_resource."+k] = fmt.Sprintf("%v", v)
 		return true
 	})
 
@@ -221,9 +221,9 @@ func (le *grayLogExporter) logRecordToMessage(logRecord plog.LogRecord, resource
 	hostname := le.getMappedValue(le.config.GELFMapping.Host, attributes, logRecord.Attributes())
 	msg := &graylog.Message{
 		Version:      le.config.GELFMapping.Version,
-		Host:         cleanAndStringifyAny(hostname),
-		ShortMessage: cleanAndStringifyAny(shortmsg),
-		FullMessage:  cleanAndStringifyAny(fullmsg),
+		Host:         hostname,
+		ShortMessage: shortmsg,
+		FullMessage:  fullmsg,
 		Timestamp:    timestamp.Unix(),
 		Level:        level,
 		Extra:        extra,
@@ -254,62 +254,6 @@ func (le *grayLogExporter) pushLogs(ctx context.Context, logs plog.Logs) error {
 		}
 	}
 	return nil
-}
-
-func cleanString(s string) string {
-	if s == "" {
-		return ""
-	}
-	var b strings.Builder
-	for _, r := range s {
-		if r == 0xFFFD || (r < 0x20 && r != '\n' && r != '\r' && r != '\t') {
-			b.WriteRune(' ')
-		} else {
-			b.WriteRune(r)
-		}
-	}
-	return strings.TrimSpace(b.String())
-}
-
-func cleanAndStringifyAny(v interface{}) string {
-	switch val := v.(type) {
-	case string:
-		return cleanString(val)
-	case fmt.Stringer:
-		return cleanString(val.String())
-	case map[string]interface{}:
-		if b, err := json.Marshal(val); err == nil {
-			return cleanString(string(b))
-		}
-		return cleanString(fmt.Sprintf("%v", val))
-	default:
-		return cleanString(fmt.Sprintf("%v", val))
-	}
-}
-
-func cleanAndStringifyOtelValue(v pcommon.Value) string {
-	switch v.Type() {
-	case pcommon.ValueTypeStr:
-		return cleanString(v.Str())
-	case pcommon.ValueTypeBool:
-		return strconv.FormatBool(v.Bool())
-	case pcommon.ValueTypeInt:
-		return strconv.FormatInt(v.Int(), 10)
-	case pcommon.ValueTypeDouble:
-		return strconv.FormatFloat(v.Double(), 'f', -1, 64)
-	case pcommon.ValueTypeMap:
-		m := make(map[string]interface{})
-		v.Map().Range(func(k string, sv pcommon.Value) bool {
-			m[k] = sv.AsRaw()
-			return true
-		})
-		if b, err := json.Marshal(m); err == nil {
-			return cleanString(string(b))
-		}
-		return cleanString(fmt.Sprintf("%v", m))
-	default:
-		return cleanString(fmt.Sprintf("%v", v.AsRaw()))
-	}
 }
 
 func (le *grayLogExporter) getTimestampAndLevel(logRecord plog.LogRecord) (time.Time, uint) {

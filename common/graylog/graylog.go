@@ -85,8 +85,6 @@ func NewGraylogSender(
 		successiveSendErrFreezeTime: successiveSendErrFreezeTime,
 	}
 	gs.logger.Info("GraylogSender initialized")
-
-	gs.logger.Info("GraylogSender starting in queue mode")
 	for i := 0; i < connPoolSize; i++ {
 		go gs.tcpConnGoroutine(i)
 	}
