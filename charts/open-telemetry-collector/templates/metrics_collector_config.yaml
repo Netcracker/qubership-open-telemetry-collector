@@ -113,7 +113,7 @@ data:
           exporters: [prometheus]
         logs:
           receivers: [otlp]
-          processors: [logdedup]
+          processors: [logdedup, batch]
           exporters: [debug, graylogexporter]
       telemetry:
         logs:

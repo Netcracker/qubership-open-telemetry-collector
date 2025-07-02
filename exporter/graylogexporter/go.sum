@@ -1,7 +1,7 @@
 github.com/Jeffail/gabs v1.4.0 h1://5fYRRTq1edjfIrQGvdkcd22pkYUrHZ5YC/H2GJVAo=
 github.com/Jeffail/gabs v1.4.0/go.mod h1:6xMvQMK4k33lb7GUUpaAPh6nKMmemQeg5d4gn7/bOXc=
-github.com/Netcracker/qubership-open-telemetry-collector/common/graylog v0.0.0-20250630112737-6c805a5d4242 h1:5d7l+afIgmutm4IE5ARhHLRs0c3j6sGJp4AR7M7vNZs=
-github.com/Netcracker/qubership-open-telemetry-collector/common/graylog v0.0.0-20250630112737-6c805a5d4242/go.mod h1:M5a59GqLwpm7NqJcQ24YO+ArNFfyKjSMye4m8E7CoRA=
+github.com/Netcracker/qubership-open-telemetry-collector/common/graylog v0.0.0-20250702050444-a4d08497ab8c h1:+wrslaRG0UktPjVUxMCqvc0e12ophyyU38/K5Frp9rU=
+github.com/Netcracker/qubership-open-telemetry-collector/common/graylog v0.0.0-20250702050444-a4d08497ab8c/go.mod h1:M5a59GqLwpm7NqJcQ24YO+ArNFfyKjSMye4m8E7CoRA=
 github.com/cenkalti/backoff/v5 v5.0.2 h1:rIfFVxEf1QsI7E1ZHfp/B4DF/6QBAUhmgkxc0H7Zss8=
 github.com/cenkalti/backoff/v5 v5.0.2/go.mod h1:rkhZdG3JZukswDf7f0cwqPNk4K0sa+F97BxZthm/crw=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
