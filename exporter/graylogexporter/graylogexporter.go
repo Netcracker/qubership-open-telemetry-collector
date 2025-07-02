@@ -150,28 +150,7 @@ func extractAttributes(body pcommon.Value) (map[string]interface{}, string, erro
 	}
 }
 
-func (le *grayLogExporter) getMappedValue(key string, attributes map[string]interface{}, logAttrs pcommon.Map) string {
-	if key == "" {
-		return fmt.Sprintf("empty key: %v", key)
-	}
-	if val, ok := attributes[key]; ok {
-		le.logger.Debug("Using attribute", zap.String("key", key), zap.Any("value", val))
-		return fmt.Sprintf("%v", val)
-	}
-	if val, ok := getStringFromPcommonMap(logAttrs, key); ok {
-		le.logger.Debug("Using log attribute", zap.String("key", key), zap.Any("value", val))
-		return val
-	}
-	le.logger.Debug("value not found in attributes", zap.String("key", key))
-	return fmt.Sprintf("%v not found", key)
-
-}
-
-func getStringFromPcommonMap(m pcommon.Map, key string) (string, bool) {
-	val, ok := m.Get(key)
-	if !ok {
-		return "", false
-	}
+func getStringFromPcommonValue(val pcommon.Value) (string, bool) {
 	switch val.Type() {
 	case pcommon.ValueTypeStr:
 		return val.AsString(), true
@@ -181,9 +160,59 @@ func getStringFromPcommonMap(m pcommon.Map, key string) (string, bool) {
 		return strconv.FormatInt(val.Int(), 10), true
 	case pcommon.ValueTypeDouble:
 		return fmt.Sprintf("%f", val.Double()), true
+	case pcommon.ValueTypeMap:
+		m := make(map[string]interface{})
+		val.Map().Range(func(k string, v pcommon.Value) bool {
+			if s, ok := getStringFromPcommonValue(v); ok {
+				m[k] = s
+			} else {
+				m[k] = fmt.Sprintf("%v", v)
+			}
+			return true
+		})
+		b, err := json.Marshal(m)
+		if err != nil {
+			return "", false
+		}
+		return string(b), true
+	case pcommon.ValueTypeSlice:
+		arr := make([]interface{}, 0, val.Slice().Len())
+		for i := 0; i < val.Slice().Len(); i++ {
+			v := val.Slice().At(i)
+			if s, ok := getStringFromPcommonValue(v); ok {
+				arr = append(arr, s)
+			} else {
+				arr = append(arr, fmt.Sprintf("%v", v))
+			}
+		}
+		b, err := json.Marshal(arr)
+		if err != nil {
+			return "", false
+		}
+		return string(b), true
+	case pcommon.ValueTypeBytes:
+		return string(val.Bytes().AsRaw()), true
 	default:
 		return "", false
 	}
+}
+
+func (le *grayLogExporter) getMappedValue(key string, attributes map[string]interface{}, logAttrs pcommon.Map) string {
+	if key == "" {
+		return fmt.Sprintf("empty key: %v", key)
+	}
+	if val, ok := attributes[key]; ok {
+		le.logger.Debug("Using attribute", zap.String("key", key), zap.Any("value", val))
+		return fmt.Sprintf("%v", val)
+	}
+	if val, ok := logAttrs.Get(key); ok {
+		if s, ok := getStringFromPcommonValue(val); ok {
+			le.logger.Debug("Using log attribute", zap.String("key", key), zap.String("value", s))
+			return s
+		}
+	}
+	le.logger.Debug("value not found in attributes", zap.String("key", key))
+	return fmt.Sprintf("%v not found", key)
 }
 
 func stringifyInterface(v interface{}) string {
