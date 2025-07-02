@@ -339,6 +339,6 @@ OTEC_LOGDEDUP_PROCESSOR_PARAMETERS:
 OTEC_GELF_FIELD_MAPPING:
   version: "1.1"
   host: "hostname"
-  short_message: "log"
-  full_message: "log"
+  short-message: "log"
+  full-message: "log"
   level: "level"

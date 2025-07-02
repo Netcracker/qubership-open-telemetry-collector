@@ -25,8 +25,8 @@ import (
 type GELFFieldMapping struct {
 	Version      string `mapstructure:"version"`
 	Host         string `mapstructure:"host"`
-	ShortMessage string `mapstructure:"short_message"`
-	FullMessage  string `mapstructure:"full_message"`
+	ShortMessage string `mapstructure:"short-message"`
+	FullMessage  string `mapstructure:"full-message"`
 	Level        string `mapstructure:"level"`
 }
 
@@ -44,8 +44,8 @@ func getDefaultGELFFields() *GELFFieldMapping {
 	return &GELFFieldMapping{
 		Version:      "1.1",
 		Host:         "open-telemetry-collector",
-		ShortMessage: "short_message",
-		FullMessage:  "full_message",
+		ShortMessage: "short-message",
+		FullMessage:  "full-message",
 		Level:        "info",
 	}
 }
