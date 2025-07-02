@@ -186,6 +186,18 @@ func getStringFromPcommonMap(m pcommon.Map, key string) (string, bool) {
 	}
 }
 
+func stringifyInterface(v interface{}) string {
+	switch val := v.(type) {
+	case string:
+		return val
+	default:
+		if jsonBytes, err := json.Marshal(val); err == nil {
+			return string(jsonBytes)
+		}
+		return fmt.Sprintf("%v", val)
+	}
+}
+
 func (le *grayLogExporter) logRecordToMessage(logRecord plog.LogRecord, resourceAttrs pcommon.Map) (*graylog.Message, error) {
 	le.logger.Sugar().Debugf("msg receiveid and ready to parse: %v, %v, %v", logRecord.Body().AsString(), logRecord.Attributes(), resourceAttrs)
 	timestamp, level := le.getTimestampAndLevel(logRecord)
@@ -196,15 +208,15 @@ func (le *grayLogExporter) logRecordToMessage(logRecord plog.LogRecord, resource
 
 	extra := make(map[string]string)
 	for k, v := range attributes {
-		extra[k] = fmt.Sprintf("%v", v)
+		extra[k] = stringifyInterface(v)
 	}
 
 	logRecord.Attributes().Range(func(k string, v pcommon.Value) bool {
-		extra[k] = fmt.Sprintf("%v", v)
+		extra[k] = stringifyInterface(v)
 		return true
 	})
 	resourceAttrs.Range(func(k string, v pcommon.Value) bool {
-		extra["resource."+k] = fmt.Sprintf("%v", v)
+		extra["resource."+k] = stringifyInterface(v)
 		return true
 	})
 
