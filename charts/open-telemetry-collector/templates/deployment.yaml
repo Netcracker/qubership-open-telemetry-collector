@@ -190,7 +190,7 @@ spec:
             failureThreshold: 3
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           securityContext:
             {{- if eq .Values.PAAS_PLATFORM "KUBERNETES" }}
             runAsUser: 10001

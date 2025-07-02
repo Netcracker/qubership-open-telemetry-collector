@@ -93,24 +93,6 @@ data:
     service:
       extensions: [health_check, pprof]
       pipelines:
-        traces:
-          {{- if .Values.ZIPKIN_RECEIVER_PORT}}
-          receivers: [jaeger, otlp, zipkin]
-          {{- else }}
-          receivers: [jaeger, otlp]
-          {{- if .Values.OTEC_TAILBASED_GENERAL_PARAMETERS }}
-          processors: [batch, tail_sampling]
-          {{- else }}
-          processors: [batch]
-          {{- end }}
-          {{- if .Values.OTEC_ENABLE_ARBITRARY_TRACES_LOGGING | default false }}
-          exporters: [otlp, spanmetrics, logtcpexporter]
-          {{- else }}
-          exporters: [otlp, spanmetrics]
-          {{- end }}
-        metrics:
-          receivers: [spanmetrics]
-          exporters: [prometheus]
         logs:
           receivers: [otlp]
           processors: [logdedup, batch]
