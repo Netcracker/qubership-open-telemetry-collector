@@ -30,9 +30,8 @@ import (
 type Transport string
 
 const (
-	UDP                      Transport = "udp"
-	TCP                      Transport = "tcp"
-	batchWorkerFlushInterval           = 5 * time.Second
+	UDP Transport = "udp"
+	TCP Transport = "tcp"
 )
 
 type Endpoint struct {

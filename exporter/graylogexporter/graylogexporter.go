@@ -142,11 +142,11 @@ func extractAttributes(body pcommon.Value) (map[string]interface{}, string, erro
 		return nil, message, nil
 	case pcommon.ValueTypeBytes:
 		attributes["bytes"] = body.Bytes()
-		return attributes, "", nil
+		return attributes, "no message provided", nil
 	case pcommon.ValueTypeEmpty:
-		return nil, "", fmt.Errorf("log body is empty")
+		return nil, "no message provided", fmt.Errorf("log body is empty")
 	default:
-		return nil, "", fmt.Errorf("unsupported body type: %v", body.Type())
+		return nil, "no message provided", fmt.Errorf("unsupported body type: %v", body.Type())
 	}
 }
 
@@ -162,7 +162,7 @@ func (le *grayLogExporter) getMappedValue(key string, attributes map[string]inte
 		le.logger.Debug("Using log attribute", zap.String("key", key), zap.Any("value", val))
 		return val
 	}
-
+	le.logger.Debug("value not found in attributes", zap.String("key", key))
 	return fmt.Sprintf("%v not found", key)
 
 }
@@ -209,14 +209,16 @@ func (le *grayLogExporter) logRecordToMessage(logRecord plog.LogRecord, resource
 	})
 
 	fullmsg := le.getMappedValue(le.config.GELFMapping.FullMessage, attributes, logRecord.Attributes())
-	if fullmsg == "" || strings.Contains(strings.ToLower(fullmsg), "not found") {
+	if message != "" && (fullmsg == "" || strings.Contains(strings.ToLower(fullmsg), "not found")) {
 		fullmsg = message
+	} else {
+		fullmsg = "No message provided"
 	}
-	shortmsg := "No short message provided"
-	if le.config.GELFMapping.ShortMessage == "log" || le.config.GELFMapping.ShortMessage == "message" {
+	shortmsg := le.getMappedValue(le.config.GELFMapping.ShortMessage, attributes, logRecord.Attributes())
+	if message != "" && (shortmsg == "" || strings.Contains(strings.ToLower(fullmsg), "not found")) {
 		shortmsg = message
 	} else {
-		shortmsg = le.getMappedValue(le.config.GELFMapping.ShortMessage, attributes, logRecord.Attributes())
+		shortmsg = "No short message provided"
 	}
 	hostname := le.getMappedValue(le.config.GELFMapping.Host, attributes, logRecord.Attributes())
 	msg := &graylog.Message{
