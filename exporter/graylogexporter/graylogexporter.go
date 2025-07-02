@@ -83,7 +83,7 @@ func (le *grayLogExporter) start(_ context.Context, _ component.Host) error {
 		},
 		le.logger,
 		le.config.ConnPoolSize,
-		le.config.BatchSize,
+		le.config.QueueSize,
 		le.config.MaxMessageSendRetryCnt,
 		le.config.MaxSuccessiveSendErrCnt,
 		freezeTime,
@@ -196,15 +196,15 @@ func (le *grayLogExporter) logRecordToMessage(logRecord plog.LogRecord, resource
 
 	extra := make(map[string]string)
 	for k, v := range attributes {
-		extra["_"+k] = fmt.Sprintf("%v", v)
+		extra[k] = fmt.Sprintf("%v", v)
 	}
 
 	logRecord.Attributes().Range(func(k string, v pcommon.Value) bool {
-		extra["_"+k] = fmt.Sprintf("%v", v)
+		extra[k] = fmt.Sprintf("%v", v)
 		return true
 	})
 	resourceAttrs.Range(func(k string, v pcommon.Value) bool {
-		extra["_resource."+k] = fmt.Sprintf("%v", v)
+		extra["resource."+k] = fmt.Sprintf("%v", v)
 		return true
 	})
 
@@ -247,7 +247,8 @@ func (le *grayLogExporter) pushLogs(ctx context.Context, logs plog.Logs) error {
 					le.logger.Sugar().Errorf("Error converting log record to Graylog message: %v", err)
 					continue
 				}
-				le.logger.Sugar().Debugf("Enqueuing Graylog message: %v", msg)
+				le.logger.Sugar().Debugf("Enqueuing Graylog message: version=%s host=%s shortmsg=%s fullmsg=%s timestamp=%d level=%d extra=%v",
+					msg.Version, msg.Host, msg.ShortMessage, msg.FullMessage, msg.Timestamp, msg.Level, msg.Extra)
 				if err := le.graylogSender.SendToQueue(msg); err != nil {
 					le.logger.Sugar().Warnf("Failed to enqueue Graylog message: %v", err)
 				}

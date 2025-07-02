@@ -66,7 +66,7 @@ func createDefaultConfig() component.Config {
 			Endpoint: defaultBindEndpoint,
 		},
 		ConnPoolSize:                1,
-		BatchSize:                   1000,
+		QueueSize:                   1000,
 		MaxMessageSendRetryCnt:      1,
 		MaxSuccessiveSendErrCnt:     5,
 		SuccessiveSendErrFreezeTime: "1m",

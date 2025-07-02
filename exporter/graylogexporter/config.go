@@ -34,7 +34,7 @@ type Config struct {
 	confignet.TCPAddrConfig     `mapstructure:",squash"`
 	GELFMapping                 GELFFieldMapping `mapstructure:"field-mapping"`
 	ConnPoolSize                int              `mapstructure:"connection-pool-size"`
-	BatchSize                   int              `mapstructure:"batch-size"`
+	QueueSize                   int              `mapstructure:"queue-size"`
 	MaxMessageSendRetryCnt      int              `mapstructure:"max-message-send-retry-count"`
 	MaxSuccessiveSendErrCnt     int              `mapstructure:"max-successive-send-error-count"`
 	SuccessiveSendErrFreezeTime string           `mapstructure:"successive-send-error-freeze-time"`
@@ -56,8 +56,8 @@ func (cfg *Config) Validate() error {
 	if cfg.ConnPoolSize < 1 {
 		return fmt.Errorf("connection-pool-size can not be less than 1 (actual value is %v)", cfg.ConnPoolSize)
 	}
-	if cfg.BatchSize < 1 {
-		return fmt.Errorf("batch-size can not be less than 1 (actual value is %v)", cfg.BatchSize)
+	if cfg.QueueSize < 1 {
+		return fmt.Errorf("batch-size can not be less than 1 (actual value is %v)", cfg.QueueSize)
 	}
 	if cfg.MaxMessageSendRetryCnt < 0 {
 		return fmt.Errorf("max-message-send-retry-count can not be negative (actual value is %v)", cfg.MaxMessageSendRetryCnt)

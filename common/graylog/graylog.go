@@ -173,6 +173,7 @@ func (gs *GraylogSender) tcpConnGoroutine(connNumber int) {
 				}
 			}
 
+			gs.logger.Sugar().Debugf("GraylogTcpConnection : Sending message in goroutine #%d: %s", connNumber, string(data))
 			_, err = tcpConn.Write(data)
 			if err != nil {
 				gs.logger.Sugar().Errorf("GraylogTcpConnection : Failed to send message in goroutine #%d: %v. Closing connection and retrying...", connNumber, err)
