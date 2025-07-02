@@ -25,8 +25,8 @@ import (
 type GELFFieldMapping struct {
 	Version      string `mapstructure:"version"`
 	Host         string `mapstructure:"host"`
-	ShortMessage string `mapstructure:"short-message"`
-	FullMessage  string `mapstructure:"full-message"`
+	ShortMessage string `mapstructure:"short_message"`
+	FullMessage  string `mapstructure:"full_message"`
 	Level        string `mapstructure:"level"`
 }
 
