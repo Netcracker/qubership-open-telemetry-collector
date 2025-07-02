@@ -44,8 +44,8 @@ func getDefaultGELFFields() *GELFFieldMapping {
 	return &GELFFieldMapping{
 		Version:      "1.1",
 		Host:         "open-telemetry-collector",
-		ShortMessage: "short-message",
-		FullMessage:  "full-message",
+		ShortMessage: "short_message",
+		FullMessage:  "full_message",
 		Level:        "info",
 	}
 }

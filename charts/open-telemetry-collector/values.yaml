@@ -57,7 +57,7 @@ OTEC_LOGTCPEXPORTER_PARAMETERS:
 #
 OTEC_GRAYLOGEXPORTER_PARAMETERS:
   connection-pool-size: 1
-  batch-size: 1000
+  queue-size: 1000
   max-message-send-retry-count: 1
   max-successive-send-error-count: 5
   successive-send-error-freeze-time: 1m
@@ -223,7 +223,6 @@ GRAYLOG_COLLECTOR_PORT: "12201"
 # Type: string
 # Mandatory: no
 # Default: 9411
-#
 ZIPKIN_RECEIVER_PORT: "9411"
 
 # CONFIG_MAP is the custom config-map for the open-telemetry-collector. If it is not set, the default one is used.
@@ -340,6 +339,6 @@ OTEC_LOGDEDUP_PROCESSOR_PARAMETERS:
 OTEC_GELF_FIELD_MAPPING:
   version: "1.1"
   host: "hostname"
-  short-message: "log"
-  full-message: "log"
+  short_message: "log"
+  full_message: "log"
   level: "level"
