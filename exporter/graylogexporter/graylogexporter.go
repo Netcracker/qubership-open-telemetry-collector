@@ -24,13 +24,30 @@ import (
 	"time"
 
 	"github.com/Netcracker/qubership-open-telemetry-collector/common/graylog"
-	"go.uber.org/zap"
-
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/exporter"
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/plog"
+	"go.uber.org/zap"
 )
+
+const (
+	defaultGraylogPort    = 12201
+	defaultNoMessage      = "No message provided"
+	defaultNoShortMessage = "No short message provided"
+	defaultGELFVersion    = "1.1"
+)
+
+var severityTextToLevel = map[string]uint{
+	"emergency": 0, "panic": 0,
+	"alert":    1,
+	"critical": 2, "crit": 2,
+	"error": 3, "err": 3,
+	"warning": 4, "warn": 4,
+	"notice": 5,
+	"info":   6,
+	"debug":  7, "trace": 7,
+}
 
 type grayLogExporter struct {
 	url           string
@@ -50,29 +67,15 @@ func createLogExporter(cfg *Config, settings exporter.Settings) *grayLogExporter
 }
 
 func (le *grayLogExporter) start(_ context.Context, _ component.Host) error {
-	var address string
-	var port uint64
-
-	endpointSplitted := strings.Split(le.url, ":")
-	if len(endpointSplitted) == 1 {
-		address = endpointSplitted[0]
-		port = 12201
-	} else {
-		address = endpointSplitted[0]
-		var err error
-		port, err = strconv.ParseUint(endpointSplitted[1], 10, 64)
-		if err != nil {
-			errMsg := fmt.Sprintf("Error parsing port '%v': %v", endpointSplitted[1], err)
-			le.logger.Error(errMsg)
-			return fmt.Errorf(errMsg)
-		}
+	address, port, err := parseEndpoint(le.url)
+	if err != nil {
+		le.logger.Error("Invalid endpoint", zap.Error(err))
+		return err
 	}
 
 	freezeTime, err := time.ParseDuration(le.config.SuccessiveSendErrFreezeTime)
 	if err != nil {
-		errMsg := fmt.Sprintf("Invalid SuccessiveSendErrFreezeTime '%s': %v", le.config.SuccessiveSendErrFreezeTime, err)
-		le.logger.Error(errMsg)
-		return fmt.Errorf(errMsg)
+		return fmt.Errorf("invalid freeze duration: %w", err)
 	}
 
 	le.graylogSender = graylog.NewGraylogSender(
@@ -88,230 +91,19 @@ func (le *grayLogExporter) start(_ context.Context, _ component.Host) error {
 		le.config.MaxSuccessiveSendErrCnt,
 		freezeTime,
 	)
-
 	return nil
 }
 
-func decodeConcatenatedJSON(logbody string) (map[string]interface{}, error) {
-	decoder := json.NewDecoder(strings.NewReader(logbody))
-	result := make(map[string]interface{})
-	for {
-		var obj map[string]interface{}
-		if err := decoder.Decode(&obj); err == io.EOF {
-			break
-		} else if err != nil {
-			return nil, fmt.Errorf("JSON decode error: %w", err)
-		}
-		for k, v := range obj {
-			result[k] = v
-		}
+func parseEndpoint(endpoint string) (string, uint64, error) {
+	parts := strings.Split(endpoint, ":")
+	if len(parts) == 1 {
+		return parts[0], defaultGraylogPort, nil
 	}
-	return result, nil
-}
-
-func extractAttributes(body pcommon.Value) (map[string]interface{}, string, error) {
-	attributes := make(map[string]interface{})
-	var message string
-
-	switch body.Type() {
-	case pcommon.ValueTypeStr:
-		message = body.AsString()
-		if message == "" {
-			message = "No message provided"
-		}
-		decoded, err := decodeConcatenatedJSON(message)
-		if err == nil {
-			attributes = decoded
-			if val, ok := attributes["message"]; ok {
-				message, _ = val.(string)
-			}
-			return attributes, message, nil
-		}
-		return nil, message, nil
-	case pcommon.ValueTypeMap:
-		body.Map().Range(func(k string, v pcommon.Value) bool {
-			attributes[k] = v.AsString()
-			return true
-		})
-		if val, ok := attributes["message"]; ok {
-			message, _ = val.(string)
-		}
-		return attributes, message, nil
-	case pcommon.ValueTypeSlice:
-		message = body.AsString()
-		return nil, message, nil
-	case pcommon.ValueTypeBytes:
-		attributes["bytes"] = body.Bytes()
-		return attributes, "no message provided", nil
-	case pcommon.ValueTypeEmpty:
-		return nil, "no message provided", fmt.Errorf("log body is empty")
-	default:
-		return nil, "no message provided", fmt.Errorf("unsupported body type: %v", body.Type())
-	}
-}
-
-func getStringFromPcommonValue(val pcommon.Value) (string, bool) {
-	switch val.Type() {
-	case pcommon.ValueTypeStr:
-		return val.AsString(), true
-	case pcommon.ValueTypeBool:
-		return strconv.FormatBool(val.Bool()), true
-	case pcommon.ValueTypeInt:
-		return strconv.FormatInt(val.Int(), 10), true
-	case pcommon.ValueTypeDouble:
-		return fmt.Sprintf("%f", val.Double()), true
-	case pcommon.ValueTypeMap:
-		m := make(map[string]interface{})
-		val.Map().Range(func(k string, v pcommon.Value) bool {
-			if s, ok := getStringFromPcommonValue(v); ok {
-				m[k] = s
-			} else {
-				m[k] = fmt.Sprintf("%v", v)
-			}
-			return true
-		})
-		b, err := json.Marshal(m)
-		if err != nil {
-			return "", false
-		}
-		return string(b), true
-	case pcommon.ValueTypeSlice:
-		arr := make([]interface{}, 0, val.Slice().Len())
-		for i := 0; i < val.Slice().Len(); i++ {
-			v := val.Slice().At(i)
-			if s, ok := getStringFromPcommonValue(v); ok {
-				arr = append(arr, s)
-			} else {
-				arr = append(arr, fmt.Sprintf("%v", v))
-			}
-		}
-		b, err := json.Marshal(arr)
-		if err != nil {
-			return "", false
-		}
-		return string(b), true
-	case pcommon.ValueTypeBytes:
-		return string(val.Bytes().AsRaw()), true
-	default:
-		return "", false
-	}
-}
-
-func (le *grayLogExporter) getMappedValue(key string, attributes map[string]interface{}, logAttrs pcommon.Map) string {
-	if key == "" {
-		return fmt.Sprintf("empty key: %v", key)
-	}
-	if val, ok := attributes[key]; ok {
-		le.logger.Debug("Using attribute", zap.String("key", key), zap.Any("value", val))
-		return fmt.Sprintf("%v", val)
-	}
-	if val, ok := logAttrs.Get(key); ok {
-		if s, ok := getStringFromPcommonValue(val); ok {
-			le.logger.Debug("Using log attribute", zap.String("key", key), zap.String("value", s))
-			return s
-		}
-	}
-	le.logger.Debug("value not found in attributes", zap.String("key", key))
-	return fmt.Sprintf("%v not found", key)
-}
-
-func extractPcommonAttributes(attrs pcommon.Map) map[string]string {
-	extra := make(map[string]string)
-
-	attrs.Range(func(k string, v pcommon.Value) bool {
-		switch v.Type() {
-		case pcommon.ValueTypeStr:
-			extra[k] = v.AsString()
-		case pcommon.ValueTypeBool:
-			extra[k] = strconv.FormatBool(v.Bool())
-		case pcommon.ValueTypeInt:
-			extra[k] = strconv.FormatInt(v.Int(), 10)
-		case pcommon.ValueTypeDouble:
-			extra[k] = fmt.Sprintf("%f", v.Double())
-		case pcommon.ValueTypeMap:
-			nested := make(map[string]interface{})
-			v.Map().Range(func(subKey string, subVal pcommon.Value) bool {
-				if s, ok := getStringFromPcommonValue(subVal); ok && s != "" {
-					nested[subKey] = s
-				}
-				return true
-			})
-			if len(nested) > 0 {
-				if jsonStr, err := json.Marshal(nested); err == nil {
-					extra[k] = string(jsonStr)
-				}
-			}
-		case pcommon.ValueTypeSlice:
-			slice := make([]interface{}, v.Slice().Len())
-			for i := 0; i < v.Slice().Len(); i++ {
-				if s, ok := getStringFromPcommonValue(v.Slice().At(i)); ok {
-					slice[i] = s
-				}
-			}
-			if len(slice) > 0 {
-				if jsonStr, err := json.Marshal(slice); err == nil {
-					extra[k] = string(jsonStr)
-				}
-			}
-		case pcommon.ValueTypeBytes:
-			extra[k] = string(v.Bytes().AsRaw())
-		default:
-			extra[k] = fmt.Sprintf("%v", v)
-		}
-		return true
-	})
-
-	return extra
-}
-
-func (le *grayLogExporter) logRecordToMessage(logRecord plog.LogRecord, resourceAttrs pcommon.Map) (*graylog.Message, error) {
-	le.logger.Sugar().Debugf("msg receiveid and ready to parse: %v, %v, %v", logRecord.Body().AsString(), logRecord.Attributes(), resourceAttrs)
-	timestamp, level := le.getTimestampAndLevel(logRecord)
-	attributes, message, err := extractAttributes(logRecord.Body())
+	port, err := strconv.ParseUint(parts[1], 10, 64)
 	if err != nil {
-		return nil, err
+		return "", 0, fmt.Errorf("invalid port in endpoint: %w", err)
 	}
-
-	extra := make(map[string]string)
-	for k, v := range attributes {
-		extra[k] = fmt.Sprintf("%v", v)
-	}
-
-	for k, v := range extractPcommonAttributes(logRecord.Attributes()) {
-		extra[k] = v
-	}
-	for k, v := range extractPcommonAttributes(resourceAttrs) {
-		extra["resource."+k] = v
-	}
-
-	fullmsg := le.getMappedValue(le.config.GELFMapping.FullMessage, attributes, logRecord.Attributes())
-	if fullmsg == "" || strings.Contains(strings.ToLower(fullmsg), "not found") {
-		if message != "" || !strings.Contains(strings.ToLower(message), "no message provided") {
-			fullmsg = message
-		} else {
-			fullmsg = "No message provided"
-		}
-	}
-	shortmsg := le.getMappedValue(le.config.GELFMapping.ShortMessage, attributes, logRecord.Attributes())
-	if shortmsg == "" || strings.Contains(strings.ToLower(shortmsg), "not found") {
-		if message != "" || !strings.Contains(strings.ToLower(message), "no message provided") {
-			fullmsg = message
-		} else {
-			fullmsg = "No short message provided"
-		}
-	}
-	hostname := le.getMappedValue(le.config.GELFMapping.Host, attributes, logRecord.Attributes())
-	msg := &graylog.Message{
-		Version:      le.config.GELFMapping.Version,
-		Host:         hostname,
-		ShortMessage: shortmsg,
-		FullMessage:  fullmsg,
-		Timestamp:    timestamp.Unix(),
-		Level:        level,
-		Extra:        extra,
-	}
-	le.logger.Sugar().Debugf("Converted log record to Graylog message: %v", msg)
-	return msg, nil
+	return parts[0], port, nil
 }
 
 func (le *grayLogExporter) pushLogs(ctx context.Context, logs plog.Logs) error {
@@ -324,52 +116,164 @@ func (le *grayLogExporter) pushLogs(ctx context.Context, logs plog.Logs) error {
 				logRecord := scopeLog.LogRecords().At(k)
 				msg, err := le.logRecordToMessage(logRecord, resource.Attributes())
 				if err != nil {
-					le.logger.Sugar().Errorf("Error converting log record to Graylog message: %v", err)
+					le.logger.Error("Failed to convert log to Graylog message", zap.Error(err))
 					continue
 				}
-				le.logger.Sugar().Debugf("Enqueuing Graylog message: version=%s host=%s shortmsg=%s fullmsg=%s timestamp=%d level=%d extra=%v",
-					msg.Version, msg.Host, msg.ShortMessage, msg.FullMessage, msg.Timestamp, msg.Level, msg.Extra)
 				if err := le.graylogSender.SendToQueue(msg); err != nil {
-					le.logger.Sugar().Warnf("Failed to enqueue Graylog message: %v", err)
+					le.logger.Warn("Failed to enqueue message", zap.Error(err))
 				}
-				le.logger.Sugar().Debugf("Graylog message added to queue successfully")
 			}
 		}
 	}
 	return nil
 }
 
+func (le *grayLogExporter) logRecordToMessage(logRecord plog.LogRecord, resourceAttrs pcommon.Map) (*graylog.Message, error) {
+	timestamp, level := le.getTimestampAndLevel(logRecord)
+	attributes, message, _ := extractAttributes(logRecord.Body())
+
+	extra := mergeAttributes(attributes)
+	mergeMapAttributes(extra, "attr.", logRecord.Attributes())
+	mergeMapAttributes(extra, "resource.", resourceAttrs)
+
+	fullmsg := defaultIfEmpty(
+		le.getMappedValue(le.config.GELFMapping.FullMessage, attributes, logRecord.Attributes()),
+		message,
+	)
+	shortmsg := defaultIfEmpty(
+		le.getMappedValue(le.config.GELFMapping.ShortMessage, attributes, logRecord.Attributes()),
+		message,
+	)
+	hostname := le.getMappedValue(le.config.GELFMapping.Host, attributes, logRecord.Attributes())
+
+	return &graylog.Message{
+		Version:      le.config.GELFMapping.Version,
+		Host:         hostname,
+		ShortMessage: shortmsg,
+		FullMessage:  fullmsg,
+		Timestamp:    timestamp.Unix(),
+		Level:        level,
+		Extra:        extra,
+	}, nil
+}
+
+func extractAttributes(body pcommon.Value) (map[string]interface{}, string, error) {
+	attributes := make(map[string]interface{})
+	switch body.Type() {
+	case pcommon.ValueTypeStr:
+		msg := body.AsString()
+		if msg == "" {
+			return nil, defaultNoMessage, nil
+		}
+		if decoded, err := decodeConcatenatedJSON(msg); err == nil {
+			if m, ok := decoded["message"].(string); ok {
+				msg = m
+			}
+			return decoded, msg, nil
+		}
+		return nil, msg, nil
+	case pcommon.ValueTypeMap:
+		body.Map().Range(func(k string, v pcommon.Value) bool {
+			attributes[k] = v.AsString()
+			return true
+		})
+		if msg, ok := attributes["message"].(string); ok {
+			return attributes, msg, nil
+		}
+		return attributes, defaultNoMessage, nil
+	case pcommon.ValueTypeBytes:
+		attributes["bytes"] = body.Bytes().AsRaw()
+		return attributes, defaultNoMessage, nil
+	default:
+		return nil, defaultNoMessage, nil
+	}
+}
+
+func decodeConcatenatedJSON(input string) (map[string]interface{}, error) {
+	result := make(map[string]interface{})
+	decoder := json.NewDecoder(strings.NewReader(input))
+	for {
+		var obj map[string]interface{}
+		if err := decoder.Decode(&obj); err == io.EOF {
+			break
+		} else if err != nil {
+			return nil, err
+		}
+		for k, v := range obj {
+			result[k] = v
+		}
+	}
+	return result, nil
+}
+
+func getStringFromPcommonValue(val pcommon.Value) (string, bool) {
+	switch val.Type() {
+	case pcommon.ValueTypeStr:
+		return val.AsString(), true
+	case pcommon.ValueTypeBool:
+		return strconv.FormatBool(val.Bool()), true
+	case pcommon.ValueTypeInt:
+		return strconv.FormatInt(val.Int(), 10), true
+	case pcommon.ValueTypeDouble:
+		return fmt.Sprintf("%f", val.Double()), true
+	case pcommon.ValueTypeBytes:
+		return string(val.Bytes().AsRaw()), true
+	default:
+		return "", false
+	}
+}
+
+func mergeAttributes(src map[string]interface{}) map[string]string {
+	out := make(map[string]string)
+	for k, v := range src {
+		out[k] = fmt.Sprintf("%v", v)
+	}
+	return out
+}
+
+func mergeMapAttributes(dest map[string]string, prefix string, attrs pcommon.Map) {
+	attrs.Range(func(k string, v pcommon.Value) bool {
+		if str, ok := getStringFromPcommonValue(v); ok {
+			dest[prefix+k] = str
+		}
+		return true
+	})
+}
+
+func (le *grayLogExporter) getMappedValue(key string, attributes map[string]interface{}, logAttrs pcommon.Map) string {
+	if key == "" {
+		return "empty key"
+	}
+	if val, ok := attributes[key]; ok {
+		return fmt.Sprintf("%v", val)
+	}
+	if val, ok := logAttrs.Get(key); ok {
+		if s, ok := getStringFromPcommonValue(val); ok {
+			return s
+		}
+	}
+	return fmt.Sprintf("%v not found", key)
+}
+
+func defaultIfEmpty(val, fallback string) string {
+	val = strings.TrimSpace(val)
+	if val == "" || strings.Contains(strings.ToLower(val), "not found") {
+		return fallback
+	}
+	return val
+}
+
 func (le *grayLogExporter) getTimestampAndLevel(logRecord plog.LogRecord) (time.Time, uint) {
-	timestampval := logRecord.Timestamp()
-	text := strings.ToLower(logRecord.SeverityText())
-	severity := logRecord.SeverityNumber()
-	var timestamp time.Time
-	if timestampval == 0 {
-		le.logger.Warn("Missing timestamp in log record, using current time as fallback")
+	timestamp := logRecord.Timestamp().AsTime()
+	if logRecord.Timestamp() == 0 {
 		timestamp = time.Now()
-	} else {
-		timestamp = timestampval.AsTime()
+		le.logger.Warn("Log record missing timestamp, using current time")
 	}
-
-	switch text {
-	case "emergency", "panic":
-		return timestamp, 0
-	case "alert":
-		return timestamp, 1
-	case "critical", "crit":
-		return timestamp, 2
-	case "error", "err":
-		return timestamp, 3
-	case "warning", "warn":
-		return timestamp, 4
-	case "notice":
-		return timestamp, 5
-	case "info":
-		return timestamp, 6
-	case "debug", "trace":
-		return timestamp, 7
+	text := strings.ToLower(logRecord.SeverityText())
+	if level, found := severityTextToLevel[text]; found {
+		return timestamp, level
 	}
-
+	severity := logRecord.SeverityNumber()
 	switch {
 	case severity >= plog.SeverityNumberFatal && severity <= plog.SeverityNumberFatal4:
 		return timestamp, 2
@@ -381,7 +285,7 @@ func (le *grayLogExporter) getTimestampAndLevel(logRecord plog.LogRecord) (time.
 		return timestamp, 6
 	case severity >= plog.SeverityNumberDebug && severity <= plog.SeverityNumberDebug4:
 		return timestamp, 7
+	default:
+		return timestamp, 6
 	}
-
-	return timestamp, 6
 }
