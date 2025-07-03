@@ -215,16 +215,53 @@ func (le *grayLogExporter) getMappedValue(key string, attributes map[string]inte
 	return fmt.Sprintf("%v not found", key)
 }
 
-func stringifyInterface(v interface{}) string {
-	switch val := v.(type) {
-	case string:
-		return val
-	default:
-		if jsonBytes, err := json.Marshal(val); err == nil {
-			return string(jsonBytes)
+func extractPcommonAttributes(attrs pcommon.Map) map[string]string {
+	extra := make(map[string]string)
+
+	attrs.Range(func(k string, v pcommon.Value) bool {
+		switch v.Type() {
+		case pcommon.ValueTypeStr:
+			extra[k] = v.AsString()
+		case pcommon.ValueTypeBool:
+			extra[k] = strconv.FormatBool(v.Bool())
+		case pcommon.ValueTypeInt:
+			extra[k] = strconv.FormatInt(v.Int(), 10)
+		case pcommon.ValueTypeDouble:
+			extra[k] = fmt.Sprintf("%f", v.Double())
+		case pcommon.ValueTypeMap:
+			nested := make(map[string]interface{})
+			v.Map().Range(func(subKey string, subVal pcommon.Value) bool {
+				if s, ok := getStringFromPcommonValue(subVal); ok && s != "" {
+					nested[subKey] = s
+				}
+				return true
+			})
+			if len(nested) > 0 {
+				if jsonStr, err := json.Marshal(nested); err == nil {
+					extra[k] = string(jsonStr)
+				}
+			}
+		case pcommon.ValueTypeSlice:
+			slice := make([]interface{}, v.Slice().Len())
+			for i := 0; i < v.Slice().Len(); i++ {
+				if s, ok := getStringFromPcommonValue(v.Slice().At(i)); ok {
+					slice[i] = s
+				}
+			}
+			if len(slice) > 0 {
+				if jsonStr, err := json.Marshal(slice); err == nil {
+					extra[k] = string(jsonStr)
+				}
+			}
+		case pcommon.ValueTypeBytes:
+			extra[k] = string(v.Bytes().AsRaw())
+		default:
+			extra[k] = fmt.Sprintf("%v", v)
 		}
-		return fmt.Sprintf("%v", val)
-	}
+		return true
+	})
+
+	return extra
 }
 
 func (le *grayLogExporter) logRecordToMessage(logRecord plog.LogRecord, resourceAttrs pcommon.Map) (*graylog.Message, error) {
@@ -237,17 +274,15 @@ func (le *grayLogExporter) logRecordToMessage(logRecord plog.LogRecord, resource
 
 	extra := make(map[string]string)
 	for k, v := range attributes {
-		extra[k] = stringifyInterface(v)
+		extra[k] = fmt.Sprintf("%v", v)
 	}
 
-	logRecord.Attributes().Range(func(k string, v pcommon.Value) bool {
-		extra[k] = stringifyInterface(v)
-		return true
-	})
-	resourceAttrs.Range(func(k string, v pcommon.Value) bool {
-		extra["resource."+k] = stringifyInterface(v)
-		return true
-	})
+	for k, v := range extractPcommonAttributes(logRecord.Attributes()) {
+		extra[k] = v
+	}
+	for k, v := range extractPcommonAttributes(resourceAttrs) {
+		extra["resource."+k] = v
+	}
 
 	fullmsg := le.getMappedValue(le.config.GELFMapping.FullMessage, attributes, logRecord.Attributes())
 	if message != "" && (fullmsg == "" || strings.Contains(strings.ToLower(fullmsg), "not found")) {
