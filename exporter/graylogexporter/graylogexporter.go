@@ -285,16 +285,16 @@ func (le *grayLogExporter) logRecordToMessage(logRecord plog.LogRecord, resource
 	}
 
 	fullmsg := le.getMappedValue(le.config.GELFMapping.FullMessage, attributes, logRecord.Attributes())
-	if message != "" && (fullmsg == "" || strings.Contains(strings.ToLower(fullmsg), "not found")) {
-		fullmsg = message
-	} else {
+	if message == "" || (fullmsg == "" || strings.Contains(strings.ToLower(fullmsg), "not found")) {
 		fullmsg = "No message provided"
+	} else {
+		fullmsg = message
 	}
 	shortmsg := le.getMappedValue(le.config.GELFMapping.ShortMessage, attributes, logRecord.Attributes())
-	if message != "" && (shortmsg == "" || strings.Contains(strings.ToLower(fullmsg), "not found")) {
-		shortmsg = message
-	} else {
+	if message == "" || (shortmsg == "" || strings.Contains(strings.ToLower(fullmsg), "not found")) {
 		shortmsg = "No short message provided"
+	} else {
+		shortmsg = message
 	}
 	hostname := le.getMappedValue(le.config.GELFMapping.Host, attributes, logRecord.Attributes())
 	msg := &graylog.Message{
