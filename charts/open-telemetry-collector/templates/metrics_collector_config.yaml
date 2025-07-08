@@ -98,6 +98,7 @@ data:
           receivers: [jaeger, otlp, zipkin]
           {{- else }}
           receivers: [jaeger, otlp]
+          {{- end }}
           {{- if .Values.OTEC_TAILBASED_GENERAL_PARAMETERS }}
           processors: [batch, tail_sampling]
           {{- else }}
