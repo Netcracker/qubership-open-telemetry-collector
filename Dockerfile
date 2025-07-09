@@ -6,7 +6,7 @@ ARG BUILDPLATFORM
 ARG TARGETOS
 ARG TARGETARCH
 
-ARG OTEL_VERSION=0.125.0
+ARG OTEL_VERSION=0.129.0
 
 ENV GOSUMDB=off \
     GO111MODULE=on
@@ -19,6 +19,7 @@ COPY ./collector ./collector
 COPY ./connector ./connector
 COPY ./exporter ./exporter
 COPY ./receiver ./receiver
+COPY ./common ./common
 COPY ./utils ./utils
 
 # Install the builder tool and dependencies

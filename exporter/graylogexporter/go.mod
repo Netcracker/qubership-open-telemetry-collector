@@ -1,10 +1,10 @@
-module github.com/Netcracker/qubership-open-telemetry-collector/exporter/logtcpexporter
+module github.com/Netcracker/qubership-open-telemetry-collector/exporter/graylogexporter
 
 go 1.24.2
 
 require (
 	github.com/Netcracker/qubership-open-telemetry-collector/common/graylog v0.0.0-20250702070231-9dd7205baef6
-	github.com/Netcracker/qubership-open-telemetry-collector/utils v0.0.0-20250502143338-730cf6843525
+	github.com/mitchellh/mapstructure v1.5.0
 	go.opentelemetry.io/collector/component v1.32.0
 	go.opentelemetry.io/collector/config/confignet v1.32.0
 	go.opentelemetry.io/collector/exporter v0.126.0

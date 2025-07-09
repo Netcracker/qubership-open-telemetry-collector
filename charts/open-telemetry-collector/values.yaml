@@ -51,6 +51,17 @@ OTEC_LOGTCPEXPORTER_PARAMETERS:
   max-successive-send-error-count: 5
   successive-send-error-freeze-time: 1m
 
+# Allows to set up graylogexporter parameters
+# Type: object
+# Default: see below
+#
+OTEC_GRAYLOGEXPORTER_PARAMETERS:
+  connection-pool-size: 1
+  queue-size: 1000
+  max-message-send-retry-count: 1
+  max-successive-send-error-count: 5
+  successive-send-error-freeze-time: 1m
+
 # Allows to set up tailbased tracing general parameters
 # Type: object
 # Default: see below
@@ -63,6 +74,7 @@ OTEC_TAILBASED_GENERAL_PARAMETERS:
     decision_cache:
       sampled_cache_size: 75000
       non_sampled_cache_size: 22500
+
 # Allows to set up tailbased tracing policy parameters
 # Type: object
 # Default: see below
@@ -115,6 +127,7 @@ OTEC_TAILBASED_POLICIES_PARAMETERS:
       }
     }
   ]
+
 # The resources describe to compute resource requests and limits for single Pods.
 # Ref: https://kubernetes.io/docs/user-guide/compute-resources/
 # Type: object
@@ -197,8 +210,8 @@ JAEGER_COLLECTOR_OTLP_PORT: "4317"
 # Mandatory: no
 # Default: https://graylog-logging.${CLOUD_PUBLIC_HOST}
 #
-GRAYLOG_COLLECTOR_HOST: ""
 
+GRAYLOG_COLLECTOR_HOST: ""
 # GRAYLOG_COLLECTOR_PORT is the port for the Graylog service above
 # Type: string
 # Mandatory: no
@@ -210,7 +223,6 @@ GRAYLOG_COLLECTOR_PORT: "12201"
 # Type: string
 # Mandatory: no
 # Default: 9411
-#
 ZIPKIN_RECEIVER_PORT: "9411"
 
 # CONFIG_MAP is the custom config-map for the open-telemetry-collector. If it is not set, the default one is used.
@@ -287,6 +299,11 @@ OTEC_LOG_FORMAT: 'json'
 # Default: 13133
 OTEC_HEALTH_CHECK_PORT: 13133
 
+# Allows to forward all logs to graylog
+# Default: false
+#
+OTEC_ENABLE_LOGGING: true
+
 # Allows to enable arbitrary traces logging
 # Type: boolean
 # Default: false
@@ -312,3 +329,16 @@ OTEC_ARBITRARY_TRACES_LOGGING_CONFIG: {}
 #
 CLOUD_TOPOLOGY_KEY: kubernetes.io/hostname
 
+# Defines fields and condtions for log deduplication processor.
+OTEC_LOGDEDUP_PROCESSOR_PARAMETERS:
+  include_fields:
+    - attributes.hostname
+  interval: 60s
+  log_count_attribute: logdup_count
+
+OTEC_GELF_FIELD_MAPPING:
+  version: "1.1"
+  host: "hostname"
+  short-message: "log"
+  full-message: "log"
+  level: "level"

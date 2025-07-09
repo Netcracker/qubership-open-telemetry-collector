@@ -1,6 +1,6 @@
 module github.com/Netcracker/qubership-open-telemetry-collector/receiver/sentryreceiver
 
-go 1.23.5
+go 1.24
 
 require (
 	github.com/Netcracker/qubership-open-telemetry-collector/utils v0.0.0-20250327101059-36aa6948477d
