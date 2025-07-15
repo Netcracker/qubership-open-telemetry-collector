@@ -6,7 +6,6 @@
     {{ mulf $value 1000 }}
   {{- end -}}
 {{- end -}}
- 
 {{/* Define new HPA parameters based on old if old parameters presented */}}
 {{- define "hpa_bwc" -}}
     {{- $valuesMap := .Values -}}
