@@ -40,6 +40,6 @@ Find an image in various places. Image can be found from:
   {{- if and (not (empty .Values.imageRepository)) (not (empty .Values.imageTag)) -}}
     {{- printf "%s:%s" .Values.imageRepository .Values.imageTag -}}
   {{- else -}}
-    {{- printf "ghcr.io/netcracker/qubership-open-telemetry-collector:main" -}}
+    {{- printf "qubership-open-telemetry-collector:latest" -}}
   {{- end -}}
 {{- end -}}

@@ -103,7 +103,7 @@ spec:
       containers:
         - name: opentelemetry-collector
           command: ["{{ .Values.entrypoint }}","--config", "/conf/otel.yaml"]
-          image: {{ template "otec.image" . }}
+          image: {{ template "otec.image" }}
           ports:
             - name: jaeger-compact
               containerPort: 6831
