@@ -27,9 +27,9 @@ For more details about open-telemetry approach for processing traces, metrics an
 [https://opentelemetry.io/docs](https://opentelemetry.io/docs/)
 
 Open-telemetry-collector approach for configuration see
-[here](https://opentelemetry.io/docs/collector/configuration/)
+[https://opentelemetry.io/docs/collector/configuration](https://opentelemetry.io/docs/collector/configuration/)
 New modules development approach see
-[here](https://opentelemetry.io/docs/collector/building/)
+[https://opentelemetry.io/docs/collector/building](https://opentelemetry.io/docs/collector/building/)
 
 ## Supported modules
 
@@ -100,7 +100,8 @@ GRAYLOG_COLLECTOR_PORT.
 
 ### Custom modules configuration
 
-General approach for the configuration is described [here](https://opentelemetry.io/docs/collector/configuration/).
+General approach for the configuration is described
+[https://opentelemetry.io/docs/collector/configuration](https://opentelemetry.io/docs/collector/configuration/).
 See below the custom modules configuration description.
 
 #### Sentry Receiver
@@ -170,4 +171,4 @@ contexts.<context_name>.<map_key> attribute.
   time period. Default value is 5.
 * `successive-send-error-freeze-time` (`optional`) - The time period for which open-telemetry-collector
   stops sending messages to the graylog after `max-successive-send-error-count` successive send errors to the graylog.
-  The time period is set in golang duration format. Default value is "1m" - 1 minute.
+  The time period is set in Go duration format. Default value is "1m" - 1 minute.
