@@ -1,6 +1,6 @@
 name: Scout repository scan
 on:
-  workflow_dispatch:
+  workflow_dispatch: {}
   release:
     types: [created]
   push:
@@ -36,27 +36,26 @@ jobs:
 
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+    - name: Checkout Repository
+      uses: actions/checkout@v4
 
-      - name: Analyze for critical and high CVEs
-        id: docker-scout-cves
-        if: ${{ github.event_name != 'pull_request_target' }}
-        uses: docker/scout-action@v1
-        continue-on-error: true
-        with:
-          command: cves
-          image: fs://../${{ github.event.repository.name }}
-          sarif-file: sarif.output.json
-          summary: true
-          ignore-base: true
-          dockerhub-user: ${{ secrets.DOCKERHUB_USER }}
-          dockerhub-password: ${{ secrets.DOCKERHUB_RW_TOKEN }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+    - name: Analyze for critical and high CVEs
+      id: docker-scout-cves
+      if: ${{ github.event_name != 'pull_request_target' }}
+      uses: docker/scout-action@v1
+      continue-on-error: true
+      with:
+        command: cves
+        image: fs://../${{ github.event.repository.name }}
+        sarif-file: sarif.output.json
+        summary: true
+        ignore-base: true
+        dockerhub-user: ${{ secrets.DOCKERHUB_USER }}
+        dockerhub-password: ${{ secrets.DOCKERHUB_RW_TOKEN }}
+        github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload SARIF result
-        if: ${{ success() && steps.docker-scout-cves.outputs.sarif_file != '' }}
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: sarif.output.json
+    - name: Upload SARIF result
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: sarif.output.json
 
