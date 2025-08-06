@@ -1,6 +1,6 @@
 # hadolint global ignore=DL3018
 # Stage 1: Build
-FROM --platform=$BUILDPLATFORM golang:1.24.3-alpine3.21 AS builder
+FROM --platform=$BUILDPLATFORM golang:1.24.5-alpine3.22 AS builder
 
 ARG BUILDPLATFORM
 ARG TARGETOS
