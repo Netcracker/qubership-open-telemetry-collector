@@ -93,9 +93,9 @@ func newReceiver(config *Config, nextConsumer consumer.Traces, settings receiver
 	return sr, nil
 }
 
-func (sr *sentrytraceReceiver) Start(ctx context.Context, host component.Host) error {
+func (sr *sentrytraceReceiver) Start(_ context.Context, host component.Host) error {
 	sr.host = host
-	ctx = context.Background()
+	var ctx = context.Background()
 	ctx, sr.cancel = context.WithCancel(ctx)
 
 	sr.logger.Info("SentryReceiver started")
@@ -104,13 +104,13 @@ func (sr *sentrytraceReceiver) Start(ctx context.Context, host component.Host) e
 	}
 
 	var err error
-	sr.server, err = sr.config.ServerConfig.ToServer(ctx, host, sr.settings.TelemetrySettings, sr)
+	sr.server, err = sr.config.ToServer(ctx, host, sr.settings.TelemetrySettings, sr)
 	if err != nil {
 		return err
 	}
 
 	var listener net.Listener
-	listener, err = sr.config.ServerConfig.ToListener(ctx)
+	listener, err = sr.config.ToListener(ctx)
 	if err != nil {
 		return err
 	}
@@ -148,9 +148,11 @@ func (sr *sentrytraceReceiver) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	var err error
 	envlp, err := sr.ParseEnvelopEvent(string(slurp))
 	if err != nil {
-		sr.logger.Sugar().Errorf("Error parsing envelop : %+v", err)
+		sr.logger.Sugar().Errorf("SentryReceiver : Error parsing envelop : %+v", err)
 		w.WriteHeader(http.StatusNotAcceptable)
-		w.Write([]byte("{}"))
+		if _, writeErr := w.Write([]byte("{}")); writeErr != nil {
+			sr.logger.Sugar().Errorf("SentryReceiver : Error writing response: %+v", writeErr)
+		}
 		return
 	}
 	td, err = sr.toTraceSpans(envlp, r)
@@ -160,20 +162,24 @@ func (sr *sentrytraceReceiver) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	sr.logger.Sugar().Debugf("For %v got trace with %v SpanCount() : %+v", envlp.EnvelopTypeHeader.Type, td.SpanCount(), td)
+	sr.logger.Sugar().Debugf("SentryReceiver : For %v got trace with %v SpanCount() : %+v", envlp.Type, td.SpanCount(), td)
 
 	consumerErr := sr.nextConsumer.ConsumeTraces(ctx, td)
 
 	sr.obsrecvr.EndTracesOp(ctx, "sentryReceiverTagValue", td.SpanCount(), consumerErr)
 	if consumerErr == nil {
 		if envlp.EnvelopType == models.ENVELOP_TYPE_SESSION {
-			w.Write([]byte("{}"))
+			if _, writeErr := w.Write([]byte("{}")); writeErr != nil {
+				sr.logger.Sugar().Errorf("SentryReceiver : Error writing response: %+v", writeErr)
+			}
 		} else {
-			w.Write([]byte(fmt.Sprintf("{\"id\": \"%v\"}", envlp.EnvelopEventHeader.EventID)))
+			if _, err := fmt.Fprintf(w, "{\"id\": \"%v\"}", envlp.EventID); err != nil {
+				sr.logger.Sugar().Errorf("SentryReceiver : Error writing response: %+v", err)
+			}
 		}
 		return
 	}
-	sr.logger.Sugar().Errorf("Consumer error : %+v", consumerErr)
+	sr.logger.Sugar().Errorf("SentryReceiver : Consumer error : %+v", consumerErr)
 
 	if consumererror.IsPermanent(consumerErr) {
 		w.WriteHeader(http.StatusBadRequest)
@@ -227,7 +233,7 @@ func (sr *sentrytraceReceiver) toTraceSpans(envlp *models.EnvelopEventParseResul
 
 func (sr *sentrytraceReceiver) fillResource(resource *pcommon.Resource, envlp *models.EnvelopEventParseResult, r *http.Request) {
 	attrs := resource.Attributes()
-	attrs.PutStr(conventions.AttributeTelemetrySDKName, envlp.EnvelopEventHeader.SdkInfo.Name)
+	attrs.PutStr(conventions.AttributeTelemetrySDKName, envlp.Name)
 	attrs.PutStr(conventions.AttributeServiceName, sr.GetServiceName(r))
 	attrs.PutStr("trace.source.type", "sentry")
 }
@@ -239,12 +245,13 @@ func (sr *sentrytraceReceiver) appendScopeSpans(scopeSpans *ptrace.ScopeSpans, e
 		rootSpan.SetTraceID(sr.GenerateTraceID(event.Contexts.Trace.TraceID))
 		eventTransaction := event.Transaction
 		eventTransactionPath := sr.removeIdFromURL(eventTransaction)
-		if envlp.EnvelopType == models.ENVELOP_TYPE_TRANSACTION {
+		switch envlp.EnvelopType {
+		case models.ENVELOP_TYPE_TRANSACTION:
 			rootSpan.SetName(eventTransactionPath + " " + event.Contexts.Trace.Op)
 			rootSpan.SetSpanID(sr.GenerateSpanId(event.Contexts.Trace.SpanID))
 			startTime = GetUnixTimeFromFloat64(event.StartTimestamp)
 			endTime = GetUnixTimeFromFloat64(event.Timestamp)
-		} else if envlp.EnvelopType == models.ENVELOP_TYPE_EVENT {
+		case models.ENVELOP_TYPE_EVENT:
 			endTime = GetUnixTimeFromFloat64(event.Timestamp)
 			startTime = endTime
 			rootSpan.SetSpanID(sr.GenerateSpanId(event.EventId[0:16]))
@@ -549,7 +556,7 @@ func (sr *sentrytraceReceiver) evaluateLevel(event models.Event) string {
 
 func (sr *sentrytraceReceiver) appendScopeSpansForSessionEvent(scopeSpans *ptrace.ScopeSpans, envlp *models.EnvelopEventParseResult, r *http.Request) {
 	for _, event := range envlp.SessionEvents {
-		sr.logger.Sugar().Debugf("Recieved session event event.Sid = %v", event.Sid)
+		sr.logger.Sugar().Debugf("Received session event event.Sid = %v", event.Sid)
 		rootSpan := scopeSpans.Spans().AppendEmpty()
 		rootSpan.SetTraceID(sr.GenerateTraceID(removeHyphens(event.Sid)))
 		rootSpan.SetName("Session " + event.Sid)

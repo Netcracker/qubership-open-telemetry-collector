@@ -66,16 +66,16 @@ func (lte *logTcpExporter) start(_ context.Context, host component.Host) (err er
 		address = endpointSplitted[0]
 		port, err = strconv.ParseUint(endpointSplitted[1], 10, 64)
 		if err != nil {
-			errMsg := fmt.Sprintf("Error parsing %v port number to uint64 : %+v\n", endpointSplitted[1], err)
+			errMsg := fmt.Sprintf("Error parsing %v port number to uint64 : %+v", endpointSplitted[1], err)
 			lte.logger.Error(errMsg)
-			return fmt.Errorf(errMsg)
+			return fmt.Errorf("%s", errMsg)
 		}
 	}
 	freezeTime, err := time.ParseDuration(lte.config.SuccessiveSendErrFreezeTime)
 	if err != nil {
-		errMsg := fmt.Sprintf("lte.config.successiveSendErrFreezeTime is not parseable : %+v", err)
+		errMsg := fmt.Sprintf("lte.config.successiveSendErrFreezeTime is not parsable : %+v", err)
 		lte.logger.Error(errMsg)
-		return fmt.Errorf(errMsg)
+		return fmt.Errorf("%s", errMsg)
 	}
 	lte.graylogSender = graylog.NewGraylogSender(
 		graylog.Endpoint{
@@ -99,10 +99,13 @@ func (lte *logTcpExporter) pushTraces(ctx context.Context, traces ptrace.Traces)
 	lte.logger.Sugar().Debugf("PushTraces : isSentryTrace = %v; traceFilterEnabled = %v; spanFilterEnabled = %v", isSentry, lte.traceFilterEnabled, lte.spanFilterEnabled)
 
 	if lte.traceFilterEnabled {
-		lte.sendArbitraryLoggingTrace(traces)
+		err := lte.sendArbitraryLoggingTrace(traces)
+		if err != nil {
+			return err
+		}
 	}
 
-	if !(isSentry || lte.spanFilterEnabled) {
+	if !isSentry && !lte.spanFilterEnabled {
 		return nil
 	}
 
@@ -115,11 +118,15 @@ func (lte *logTcpExporter) pushTraces(ctx context.Context, traces ptrace.Traces)
 				span := spans.At(k)
 				if isSentry {
 					if span.Name() == "Event" {
-						lte.sendSentrySpan(span)
+						if err := lte.sendSentrySpan(span); err != nil {
+							lte.logger.Sugar().Errorf("Failed to send sentry span: %v", err)
+						}
 					}
 				}
 				if lte.spanFilterEnabled {
-					lte.sendArbitraryLoggingSpan(span)
+					if err := lte.sendArbitraryLoggingSpan(span); err != nil {
+						lte.logger.Sugar().Errorf("Failed to send arbitrary logging span: %v", err)
+					}
 				}
 			}
 		}
@@ -567,12 +574,12 @@ func (lte *logTcpExporter) sendSentrySpan(span ptrace.Span) error {
 			if !ok {
 				lte.logger.Sugar().Errorf("Type assertion error : got type %v", reflect.TypeOf(breadcrumb))
 			}
-			levelB, ok := breadcrumbMap["level"].(string)
-			timestampB, ok := breadcrumbMap["timestamp"].(float64)
+			levelB, _ := breadcrumbMap["level"].(string)
+			timestampB, _ := breadcrumbMap["timestamp"].(float64)
 			timestampUnixB := int64(timestampB)
-			categoryB, ok := breadcrumbMap["category"].(string)
-			messageB, ok := breadcrumbMap["message"].(string)
-			statusB, ok := breadcrumbMap["status"].(string)
+			categoryB, _ := breadcrumbMap["category"].(string)
+			messageB, _ := breadcrumbMap["message"].(string)
+			statusB, _ := breadcrumbMap["status"].(string)
 
 			extra := map[string]string{
 				"span_id":     spanIdStr,
