@@ -31,7 +31,7 @@ import (
 	"go.uber.org/zap"
 )
 
-const scopeName = "otelcol/sentrymetricsconnector"
+// const scopeName = "otelcol/sentrymetricsconnector"
 
 // sentrymetrics can evaluate metrics based on sentry traces
 // and emit them to a metrics pipeline.
@@ -40,8 +40,8 @@ type sentrymetrics struct {
 	metricsConsumer consumer.Metrics
 	component.StartFunc
 	component.ShutdownFunc
-	logger                     *zap.Logger
-	counter                    int64
+	logger *zap.Logger
+	//	counter                    int64
 	measurementsHist           *metrics.CustomHistogram
 	measurementsBuckets        map[string][]float64
 	defaultMeasurementsBuckets []float64
@@ -80,9 +80,15 @@ func (c *sentrymetrics) ConsumeTraces(ctx context.Context, td ptrace.Traces) err
 	countMetrics := pmetric.NewMetrics()
 	resourceMetric := countMetrics.ResourceMetrics().AppendEmpty()
 	scopeMetrics := resourceMetric.ScopeMetrics().AppendEmpty()
-	c.calculateSessionCountMetric(scopeMetrics.Metrics().AppendEmpty(), td)
-	c.calculateEventCountMetric(scopeMetrics.Metrics().AppendEmpty(), td)
-	c.calculateMeasurementsMetric(scopeMetrics.Metrics().AppendEmpty(), td)
+	if err := c.calculateSessionCountMetric(scopeMetrics.Metrics().AppendEmpty(), td); err != nil {
+		return err
+	}
+	if err := c.calculateEventCountMetric(scopeMetrics.Metrics().AppendEmpty(), td); err != nil {
+		return err
+	}
+	if err := c.calculateMeasurementsMetric(scopeMetrics.Metrics().AppendEmpty(), td); err != nil {
+		return err
+	}
 	return c.metricsConsumer.ConsumeMetrics(ctx, countMetrics)
 }
 

@@ -14,7 +14,7 @@
       * [Sentry Receiver](#sentry-receiver)
       * [Sentrymetrics Connector](#sentrymetrics-connector)
       * [Logtcp Exporter](#logtcp-exporter)
-      * [graylog Exporter](#graylog-exporter)
+      * [Graylog Exporter](#graylog-exporter)
 
 ## Introduction
 
@@ -130,7 +130,7 @@ contexts.<context_name>.<map_key> attribute.
 
 * `sentry_measurements` (`optional`) - Contains settings for sentry_measurements Prometheus metric
   * `default_buckets` (`optional`) - Contains a list of float values which are defining default buckets for
-    the mesurements histograms. For the particular measurement buckets can be overwritten in custom section.
+    the measurements histograms. For the particular measurement buckets can be overwritten in custom section.
   * `default_labels` (`optional`) - Contains a map, in which a key is the label name and a value is the name of
     the open-telemetry-collector attribute, from which the label value must be taken. For the particular measurement
     the map can be overwritten in custom section.
@@ -175,6 +175,7 @@ contexts.<context_name>.<map_key> attribute.
   The time period is set in Go duration format. Default value is "1m" - 1 minute.
 
 #### Graylog Exporter
+
 * Currently tcp is only supported to transfer logs to graylog.
 * `endpoint` (`required`) - Contains host and port for the Graylog TCP destination
 * `connection-pool-size` (`optional`) - Connection pool size for the graylog. Default value is 1.
@@ -186,10 +187,10 @@ contexts.<context_name>.<map_key> attribute.
   time period. Default value is 5.
 * `successive-send-error-freeze-time` (`optional`) - The time period for which open-telemetry-collector
   stops sending messages to the graylog after `max-successive-send-error-count` successive send errors to the graylog.
-  The time period is set in golang duration format. Default value is "1m" - 1 minute.
+  The time period is set in Go language duration format. Default value is "1m" - 1 minute.
 * GELF Payload Specification
   * `version` - GELF spec version. Default is 1.1.
   * `host`  -  Name of the host, source or application that sent this message. Default is open-telemetry-collector.
   * `short_message` - Short, descriptive message.
   * `full_message`- Contains the actual log message. calculated dynamically from logs
-  * `level`  - Currenlty fetching it from log records.
+  * `level`  - Currently fetching it from log records.

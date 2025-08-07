@@ -3,9 +3,9 @@
 # Rules: https://yamllint.readthedocs.io/en/stable/rules.html
 
 # Exclude not required files
-ignore:
-  - .github/workflows/*
-  - charts/*
+ignore-from-file:
+- .gitignore
+- .yamlignore
 
 rules:
   braces:

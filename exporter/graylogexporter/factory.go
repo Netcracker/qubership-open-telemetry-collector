@@ -107,7 +107,7 @@ func newgraylogExporter(
 	lte.config.GELFMapping = *GetGELFFieldMapping()
 
 	if err != nil {
-		return nil, errors.New("GELF field mapping is not parseable")
+		return nil, errors.New("GELF field mapping is not parsable")
 	}
 	timeoutConfig := exporterhelper.TimeoutConfig{
 		Timeout: time.Duration(0), // Set your desired timeout value here

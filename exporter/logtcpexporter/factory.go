@@ -68,6 +68,6 @@ func createTracesExporter(
 		cfg,
 		lte.pushTraces,
 		exporterhelper.WithStart(lte.start),
-		exporterhelper.WithTimeout(exporterhelper.TimeoutConfig{time.Duration(0)}),
+		exporterhelper.WithTimeout(exporterhelper.TimeoutConfig{Timeout: time.Duration(0)}),
 	)
 }

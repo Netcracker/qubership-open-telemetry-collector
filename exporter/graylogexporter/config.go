@@ -67,7 +67,7 @@ func (cfg *Config) Validate() error {
 	}
 	_, err := time.ParseDuration(cfg.SuccessiveSendErrFreezeTime)
 	if err != nil {
-		return fmt.Errorf("successive-send-error-freeze-time is not parseable : %+v", err)
+		return fmt.Errorf("successive-send-error-freeze-time is not parsable : %+v", err)
 	}
 	return nil
 }

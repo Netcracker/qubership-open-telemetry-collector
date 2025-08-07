@@ -3,7 +3,7 @@ module github.com/Netcracker/qubership-open-telemetry-collector/receiver/sentryr
 go 1.24
 
 require (
-	github.com/Netcracker/qubership-open-telemetry-collector/utils v0.0.0-20250327101059-36aa6948477d
+	github.com/Netcracker/qubership-open-telemetry-collector/utils v0.0.0-20250806093422-21174617a6ea
 	go.opentelemetry.io/collector/component v1.37.0
 	go.opentelemetry.io/collector/config/confighttp v0.131.0
 	go.opentelemetry.io/collector/consumer v1.37.0
@@ -17,7 +17,7 @@ require (
 
 require (
 	github.com/felixge/httpsnoop v1.0.4 // indirect
-	github.com/foxboron/go-tpm-keyfiles v0.0.0-20250323135004-b31fac66206e // indirect
+	github.com/foxboron/go-tpm-keyfiles v0.0.0-20250520203025-c3c3a4ec1653 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
@@ -67,7 +67,7 @@ require (
 	golang.org/x/net v0.42.0 // indirect
 	golang.org/x/sys v0.34.0 // indirect
 	golang.org/x/text v0.27.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20250528174236-200df99c418a // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20250804133106-a7a43d27e69b // indirect
 	google.golang.org/grpc v1.74.2 // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
 )

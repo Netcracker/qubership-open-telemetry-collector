@@ -16,7 +16,6 @@ package utils
 
 import (
 	"bytes"
-	"flag"
 	"fmt"
 	"sort"
 	"strings"
@@ -24,11 +23,6 @@ import (
 
 const (
 	SELF_METRICS_REGISTRY_NAME = "__SELF_METRICS__"
-)
-
-var (
-	DisableTimestamp  = flag.Bool("disable-timestamp", false, "If set to true, prometheus output does not include timestamp. By default timestamp is included to prometheus output")
-	croniterPrecision = flag.String("croniter-precision", "second", "Croniter precision, possible values: second, minute")
 )
 
 func MapToString(m map[string]string) string {
@@ -164,24 +158,25 @@ const (
 )
 
 func IsIdFSM(s string, limit int) bool {
-	var state int = START
-	var counter int = 0
+	var state = START
+	var counter = 0
 	var digitsAndOtherCounter = 0
 	for _, c := range s {
 		if c >= 'a' && c <= 'z' {
-			if state == LOWER_CASE {
+			switch state {
+			case LOWER_CASE:
 				continue
-			}
-			if state == UPPER_CASE {
+			case UPPER_CASE:
 				counter++
-			} else if state == DIGIT || state == OTHER {
+			case DIGIT, OTHER:
 				counter += 2
 			}
 			state = LOWER_CASE
 		} else if c >= 'A' && c <= 'Z' {
-			if state == LOWER_CASE {
+			switch state {
+			case LOWER_CASE:
 				counter++
-			} else if state == DIGIT || state == OTHER {
+			case DIGIT, OTHER:
 				counter += 2
 			}
 			state = UPPER_CASE
@@ -199,15 +194,15 @@ func IsIdFSM(s string, limit int) bool {
 			}
 			state = DIGIT
 		} else if c == '-' || c == '_' || c == '.' {
-			if state == LOWER_CASE || state == UPPER_CASE {
+			switch state {
+			case LOWER_CASE, UPPER_CASE:
 				state = DELIMITER
 				continue
-			}
-			if state == DIGIT {
+			case DIGIT:
 				counter++
-			} else if state == START || state == OTHER {
+			case START, OTHER:
 				counter += 3
-			} else if state == DELIMITER {
+			case DELIMITER:
 				counter += 2
 			}
 			state = DELIMITER

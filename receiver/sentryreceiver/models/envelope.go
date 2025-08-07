@@ -16,6 +16,7 @@ package models
 
 import (
 	"encoding/json"
+	"fmt"
 )
 
 const (
@@ -57,8 +58,12 @@ type Breadcrumb struct {
 }
 
 func (d *StrongString) UnmarshalJSON(data []byte) error {
-	formattedData := StrongString(string(data))
-	d = &formattedData
+	var maxAllowedLength = 50 * 1024 * 1024 // Limit Message to 50 MB
+	if len(data) > maxAllowedLength {
+		return fmt.Errorf("StrongString: data length %d is more than allowed length %d", len(data), maxAllowedLength)
+	}
+	// formattedData := StrongString(string(data))
+	*d = StrongString(string(data))
 	return nil
 }
 
