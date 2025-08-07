@@ -2,13 +2,7 @@ name: Integration-test-qubership-open-telemetry-collector-prometheusremotewritee
 permissions:
   contents: read
 on:
-  workflow_run:
-    workflows: ["Build Artifacts"]
-    types:
-      - completed
-  pull_request:
-    branches:
-    - '**'
+  workflow_dispatch: {}
 
 env:
   kind_name: kind-cluster
