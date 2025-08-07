@@ -139,8 +139,10 @@ jobs:
 
       - name: Install qubership-open-telemetry-collector
         run: |
-              helm upgrade --install -n ${{ env.collector_namespace }} --create-namespace qubership-open-telemetry-collector ./ \
+              helm upgrade --install -n ${{ env.collector_namespace }} --create-namespace qubership-open-telemetry-collector\
                 ./qubership-open-telemetry-collector/charts/open-telemetry-collector/ \
+                --set JAEGER_COLLECTOR_HOST=jaeger-collector.${{ env.jaeger_namespace }}.svc.cluster.local \
+                --set JAEGER_COLLECTOR_OTLP_PORT=4317 \
                 --set imageRepository=qubership-open-telemetry-collector:latest
               sleep 20
               echo "============ Pods"
