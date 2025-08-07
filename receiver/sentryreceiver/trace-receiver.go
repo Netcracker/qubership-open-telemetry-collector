@@ -18,6 +18,7 @@ import (
 	"compress/zlib"
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -173,7 +174,7 @@ func (sr *sentrytraceReceiver) ServeHTTP(w http.ResponseWriter, r *http.Request)
 				sr.logger.Sugar().Errorf("SentryReceiver : Error writing response: %+v", writeErr)
 			}
 		} else {
-			if _, err := fmt.Fprintf(w, "{\"id\": \"%v\"}", envlp.EventID); err != nil {
+			if err := json.NewEncoder(w).Encode(map[string]string{"id": envlp.EventID}); err != nil {
 				sr.logger.Sugar().Errorf("SentryReceiver : Error writing response: %+v", err)
 			}
 		}

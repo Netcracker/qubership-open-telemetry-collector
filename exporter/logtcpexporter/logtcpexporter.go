@@ -64,9 +64,9 @@ func (lte *logTcpExporter) start(_ context.Context, host component.Host) (err er
 		port = 12201
 	} else if len(endpointSplitted) > 1 {
 		address = endpointSplitted[0]
-		port, err = strconv.ParseUint(endpointSplitted[1], 10, 64)
-		if err != nil {
-			errMsg := fmt.Sprintf("Error parsing %v port number to uint64 : %+v", endpointSplitted[1], err)
+		port, err = strconv.ParseUint(endpointSplitted[1], 10, 32)
+		if err != nil || port < 1 || port > 65535 {
+			errMsg := fmt.Sprintf("invalid port in endpoint: %v : %+v", endpointSplitted[1], err)
 			lte.logger.Error(errMsg)
 			return fmt.Errorf("%s", errMsg)
 		}

@@ -1,4 +1,6 @@
 name: Integration-test-qubership-open-telemetry-collector
+permissions:
+  contents: read
 on:
   workflow_run:
     workflows: ["Build Artifacts"]
@@ -22,7 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - name: Checkout code otel-collecor
+      - name: Checkout code otel-collector
         uses: actions/checkout@v4
         with:
           path: qubership-open-telemetry-collector
@@ -119,7 +121,7 @@ jobs:
               sleep 10
               kubectl rollout status --watch --timeout=600s statefulset/cassandra-dc1-default-sts -n ${{ env.cassandra_namespace }}
 
-      - name: Install required crds
+      - name: Install required CRDs
         run: |
             kubectl apply -f https://raw.githubusercontent.com/Netcracker/qubership-monitoring-operator/refs/heads/main/charts/qubership-monitoring-operator/charts/grafana-operator/crds/integreatly.org_grafanadashboards.yaml
             kubectl apply -f https://raw.githubusercontent.com/Netcracker/qubership-monitoring-operator/refs/heads/main/charts/qubership-monitoring-operator/charts/victoriametrics-operator/crds/monitoring.coreos.com_prometheusrules.yaml
@@ -165,7 +167,7 @@ jobs:
              kubectl get pods -n ${{ env.jaeger_namespace }}
              telemetrygen traces --otlp-insecure --otlp-insecure-skip-verify --duration 10s --otlp-endpoint localhost:4318 --child-spans 10 --otlp-http --service testservice --workers 1 --rate 100
 
-      - name: Check traces comming
+      - name: Check traces are coming
         run: |
               echo "Jaeger pods"
               kubectl get pods -n ${{ env.jaeger_namespace }}
@@ -179,10 +181,10 @@ jobs:
               echo "Start curl queries"
               curl http://localhost:8090/api/traces?service=testservice | jq '.' | grep testservice
               echo "Traces count:"
-              tracecount=$(curl http://localhost:8090/api/traces?service=testservice | jq '.' | grep -c testservice)
-              echo "$tracecount"
+              tracesCount=$(curl http://localhost:8090/api/traces?service=testservice | jq '.' | grep -c testservice)
+              echo "$tracesCount"
 
-              if [[ "$tracecount" -ge 1 ]]; then
+              if [[ "$tracesCount" -ge 1 ]]; then
               true
               else
               false

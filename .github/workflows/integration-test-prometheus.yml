@@ -1,4 +1,6 @@
 name: Integration-test-qubership-open-telemetry-collector-prometheusremotewriteexporter
+permissions:
+  contents: read
 on:
   workflow_run:
     workflows: ["Build Artifacts"]
@@ -21,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - name: Checkout code otel-collecor
+      - name: Checkout code otel-collector
         uses: actions/checkout@v4
         with:
           path: qubership-open-telemetry-collector
