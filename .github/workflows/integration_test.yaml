@@ -42,7 +42,7 @@ jobs:
            go version
            export GOPATH=$HOME/go
            export PATH=$PATH:$GOROOT/bin:$GOPATH/bin
-           echo "Start telemetrygen install"
+           echo "============ Start telemetrygen install"
            go install github.com/open-telemetry/opentelemetry-collector-contrib/cmd/telemetrygen@latest
 
       - name: Set up Kind
@@ -78,7 +78,7 @@ jobs:
       - name: Build and load qubership-open-telemetry-collector
         run: |
                 docker build ./qubership-open-telemetry-collector/ -t qubership-open-telemetry-collector
-                kind --name ${{ env.kind_name }} load docker-image docker.io/library/qubership-open-telemetry-collector:latest
+                kind --name ${{ env.kind_name }} load docker-image qubership-open-telemetry-collector:latest
 
       - name: Install cert-manager
         run: |
@@ -135,54 +135,56 @@ jobs:
             CASSANDRA_PASSWORD=$(kubectl get secret -n ${{ env.cassandra_namespace }} cassandra-superuser -o json | jq -r '.data.password' | base64 -d)
             CASSANDRA_SVC="cassandra-dc1-service.${{ env.cassandra_namespace }}.svc.cluster.local"
             helm upgrade --install qubership-jaeger ./qubership-jaeger/charts/qubership-jaeger --namespace ${{ env.jaeger_namespace}} \
-            --create-namespace --set jaeger.prometheusMonitoringDashboard=false --set jaeger.prometheusMonitoring=false \
-            --set "cassandraSchemaJob.host=$CASSANDRA_SVC" --set "cassandraSchemaJob.username=$CASSANDRA_USER" \
-            --set "cassandraSchemaJob.password=$CASSANDRA_PASSWORD" --set cassandraSchemaJob.datacenter=dc1
+              --create-namespace --set jaeger.prometheusMonitoringDashboard=false --set jaeger.prometheusMonitoring=false \
+              --set "cassandraSchemaJob.host=$CASSANDRA_SVC" --set "cassandraSchemaJob.username=$CASSANDRA_USER" \
+              --set "cassandraSchemaJob.password=$CASSANDRA_PASSWORD" --set cassandraSchemaJob.datacenter=dc1
             kubectl wait --for=condition=Ready pod --all -n ${{ env.jaeger_namespace }} --timeout=300s
 
       - name: Install qubership-open-telemetry-collector
         run: |
-              helm upgrade --install -n ${{ env.collector_namespace }} --create-namespace qubership-open-telemetry-collector ./qubership-open-telemetry-collector/charts/open-telemetry-collector/ \
-              --set JAEGER_COLLECTOR_HOST=jaeger-collector.${{ env.jaeger_namespace }}.svc.cluster.local \
-              --set JAEGER_COLLECTOR_OTLP_PORT:=4317
+              helm upgrade --install -n ${{ env.collector_namespace }} --create-namespace qubership-open-telemetry-collector ./ \
+                ./qubership-open-telemetry-collector/charts/open-telemetry-collector/ \
+                --set imageRepository=qubership-open-telemetry-collector:latest
               sleep 20
+              echo "============ Pods"
               kubectl get pods -n ${{ env.collector_namespace }}
+              echo "============ Configmap"
               kubectl describe configmap opentelemetry-collector-config -n ${{ env.collector_namespace }}
               POD_NAME=$(kubectl get pods --namespace ${{ env.collector_namespace }} -l "app.kubernetes.io/name=qubership-open-telemetry-collector" -o jsonpath="{.items[0].metadata.name}")
+              echo "============ Pod $POD_NAME logs"
               kubectl logs "$POD_NAME" -n ${{ env.collector_namespace }}
               kubectl wait --for=condition=Ready pod --all -n ${{ env.collector_namespace }} --timeout=120s
 
       - name: Run load
         run: |
              OTEL_COLLECTOR_POD_NAME=$(kubectl get pods --namespace ${{ env.collector_namespace }} -l "app.kubernetes.io/name=qubership-open-telemetry-collector" -o jsonpath="{.items[0].metadata.name}")
-             echo "OTEL collector pod $OTEL_COLLECTOR_POD_NAME"
-             echo "Start port forwarding"
+             echo "============ OTEL collector pod $OTEL_COLLECTOR_POD_NAME"
+             echo "============ Start port forwarding"
              kubectl port-forward --namespace ${{ env.collector_namespace }} "$OTEL_COLLECTOR_POD_NAME" 4318:4318 &
              sleep 10
              export GOPATH=$HOME/go
              export PATH=$PATH:$GOROOT/bin:$GOPATH/bin
-             echo "OTEL collector status"
+             echo "============ OTEL collector status"
              kubectl get pods -n ${{ env.collector_namespace }}
-             echo "Jaeger collector status"
+             echo "============ Jaeger collector status"
              kubectl get pods -n ${{ env.jaeger_namespace }}
              telemetrygen traces --otlp-insecure --otlp-insecure-skip-verify --duration 10s --otlp-endpoint localhost:4318 --child-spans 10 --otlp-http --service testservice --workers 1 --rate 100
 
       - name: Check traces are coming
         run: |
-              echo "Jaeger pods"
+              echo "============ Jaeger pods"
               kubectl get pods -n ${{ env.jaeger_namespace }}
-              echo "Jaeger services"
+              echo "============ Jaeger services"
               kubectl get services -n ${{ env.jaeger_namespace }}
               POD_NAME=$(kubectl get pods --namespace ${{ env.jaeger_namespace }} -l "app.kubernetes.io/name=jaeger-query" -o jsonpath="{.items[0].metadata.name}")
-              echo "$POD_NAME"
-              echo "Start port forwarding"
+              echo "============ Jaeger Query pod $POD_NAME"
+              echo "============ Start port forwarding"
               kubectl port-forward --namespace ${{ env.jaeger_namespace }} "$POD_NAME" 8090:16686 &
               sleep 30
-              echo "Start curl queries"
+              echo "============ Start curl queries"
               curl http://localhost:8090/api/traces?service=testservice | jq '.' | grep testservice
-              echo "Traces count:"
               tracesCount=$(curl http://localhost:8090/api/traces?service=testservice | jq '.' | grep -c testservice)
-              echo "$tracesCount"
+              echo "============ Traces count: $tracesCount"
 
               if [[ "$tracesCount" -ge 1 ]]; then
               true
