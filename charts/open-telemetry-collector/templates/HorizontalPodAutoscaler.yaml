@@ -39,7 +39,7 @@ spec:
         - type: Percent
           value: {{ .Values.HPA_SCALING_UP_PERCENT_VALUE }}
           periodSeconds: {{ .Values.HPA_SCALING_UP_PERCENT_PERIOD_SECONDS }}
-{{- end }}       
+{{- end }}
 {{- if and .Values.HPA_SCALING_UP_PODS_VALUE (ge (int .Values.HPA_SCALING_UP_PODS_PERIOD_SECONDS) 0) }}
         - type: Pods
           value: {{ .Values.HPA_SCALING_UP_PODS_VALUE }}

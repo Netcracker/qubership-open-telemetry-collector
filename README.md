@@ -11,10 +11,8 @@ versions of open-telemetry-collector.
 For more details about open-telemetry approach for processing traces, metrics and logs see
 [https://opentelemetry.io/docs](https://opentelemetry.io/docs/)
 
-Open-telemetry-collector approach for configuration see
-[here](https://opentelemetry.io/docs/collector/configuration/)
-New modules development approach see
-[here](https://opentelemetry.io/docs/collector/building/)
+Open-telemetry-collector approach for configuration see: <https://opentelemetry.io/docs/collector/configuration/>.
+New modules development approach see: <https://opentelemetry.io/docs/collector/building/>.
 
 ## Supported modules
 

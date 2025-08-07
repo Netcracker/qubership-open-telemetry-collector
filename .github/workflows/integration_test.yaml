@@ -147,7 +147,7 @@ jobs:
               kubectl get pods -n ${{ env.collector_namespace }}
               kubectl describe configmap opentelemetry-collector-config -n ${{ env.collector_namespace }}
               POD_NAME=$(kubectl get pods --namespace ${{ env.collector_namespace }} -l "app.kubernetes.io/name=qubership-open-telemetry-collector" -o jsonpath="{.items[0].metadata.name}")
-              kubectl logs $POD_NAME -n ${{ env.collector_namespace }}
+              kubectl logs "$POD_NAME" -n ${{ env.collector_namespace }}
               kubectl wait --for=condition=Ready pod --all -n ${{ env.collector_namespace }} --timeout=120s
 
       - name: Run load
@@ -155,7 +155,7 @@ jobs:
              OTEL_COLLECTOR_POD_NAME=$(kubectl get pods --namespace ${{ env.collector_namespace }} -l "app.kubernetes.io/name=qubership-open-telemetry-collector" -o jsonpath="{.items[0].metadata.name}")
              echo "OTEL collector pod $OTEL_COLLECTOR_POD_NAME"
              echo "Start port forwarding"
-             kubectl port-forward --namespace ${{ env.collector_namespace }} $OTEL_COLLECTOR_POD_NAME 4318:4318 &
+             kubectl port-forward --namespace ${{ env.collector_namespace }} "$OTEL_COLLECTOR_POD_NAME" 4318:4318 &
              sleep 10
              export GOPATH=$HOME/go
              export PATH=$PATH:$GOROOT/bin:$GOPATH/bin
@@ -174,7 +174,7 @@ jobs:
               POD_NAME=$(kubectl get pods --namespace ${{ env.jaeger_namespace }} -l "app.kubernetes.io/name=jaeger-query" -o jsonpath="{.items[0].metadata.name}")
               echo "$POD_NAME"
               echo "Start port forwarding"
-              kubectl port-forward --namespace ${{ env.jaeger_namespace }} $POD_NAME 8090:16686 &
+              kubectl port-forward --namespace ${{ env.jaeger_namespace }} "$POD_NAME" 8090:16686 &
               sleep 30
               echo "Start curl queries"
               curl http://localhost:8090/api/traces?service=testservice | jq '.' | grep testservice

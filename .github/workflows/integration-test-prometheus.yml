@@ -93,14 +93,14 @@ jobs:
               sleep 20
               kubectl get pods -n ${{ env.collector_namespace }}
               POD_NAME=$(kubectl get pods --namespace ${{ env.collector_namespace }} -l "app.kubernetes.io/name=qubership-open-telemetry-collector" -o jsonpath="{.items[0].metadata.name}")
-              kubectl logs $POD_NAME -n ${{ env.collector_namespace }}
+              kubectl logs "$POD_NAME" -n ${{ env.collector_namespace }}
               kubectl wait --for=condition=Ready pod --all -n ${{ env.collector_namespace }} --timeout=60s
       - name: Check OTEL telemetry come through remote write
         run: |
               VM_POD_NAME=$(kubectl get pods --namespace ${{ env.vm_namespace }} -l "app.kubernetes.io/name=victoria-metrics-single" -o jsonpath="{.items[0].metadata.name}")
               echo "VM server pod $VM_POD_NAME"
               echo "Start port forwarding"
-              kubectl port-forward --namespace ${{ env.vm_namespace }} $VM_POD_NAME 8428:8428 &
+              kubectl port-forward --namespace ${{ env.vm_namespace }} "$VM_POD_NAME" 8428:8428 &
               sleep 60
               echo "Start curl queries"
               curl http://localhost:8428/api/v1/query -d 'query={__name__!=""}' | jq '.' | grep otelcol
