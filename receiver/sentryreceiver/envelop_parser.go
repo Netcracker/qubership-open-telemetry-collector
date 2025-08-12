@@ -33,11 +33,11 @@ func (sr *sentrytraceReceiver) ParseEnvelopEvent(body string) (*models.EnvelopEv
 	sessionEvents := make([]models.SessionEvent, 0)
 	linesCount := len(lines)
 	if linesCount < 3 {
-		return nil, fmt.Errorf("Unexpected number of lines in the envelope : %v. Must be 3 or greater", linesCount)
+		return nil, fmt.Errorf("SentryReceiver : Unexpected number of lines in the envelope : %v. Must be 3 or greater", linesCount)
 	}
 
 	if err := json.Unmarshal([]byte(lines[0]), &header); err != nil {
-		logger.Sugar().Errorf("Unmarshal header error: %+v", err.Error())
+		logger.Sugar().Errorf("SentryReceiver : Unmarshal header error: %+v", err.Error())
 		return nil, err
 	}
 
@@ -52,7 +52,7 @@ func (sr *sentrytraceReceiver) ParseEnvelopEvent(body string) (*models.EnvelopEv
 			continue
 		}
 		if err := json.Unmarshal([]byte(header), &type_header); err != nil {
-			logger.Sugar().Errorf("Unmarshal type_header error: %+v", err.Error())
+			logger.Sugar().Errorf("SentryReceiver : Unmarshal type_header error: %+v", err.Error())
 			return nil, err
 		}
 		switch type_header.Type {
@@ -63,7 +63,7 @@ func (sr *sentrytraceReceiver) ParseEnvelopEvent(body string) (*models.EnvelopEv
 		case "session":
 			envelopType = models.ENVELOP_TYPE_SESSION
 		default:
-			logger.Sugar().Infof("Received %v item header. Skipping this item", type_header.Type)
+			logger.Sugar().Infof("SentryReceiver : Received %v item header. Skipping this item", type_header.Type)
 			continue
 		}
 
@@ -86,7 +86,7 @@ func (sr *sentrytraceReceiver) ParseEnvelopEvent(body string) (*models.EnvelopEv
 	}
 
 	if len(events) == 0 && len(sessionEvents) == 0 {
-		return nil, fmt.Errorf("No useful payload in the envelop")
+		return nil, fmt.Errorf("SentryReceiver : No useful payload in the envelop")
 	}
 
 	result := models.EnvelopEventParseResult{

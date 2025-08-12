@@ -94,16 +94,16 @@ func (le *grayLogExporter) start(_ context.Context, _ component.Host) error {
 	return nil
 }
 
-func parseEndpoint(endpoint string) (string, uint64, error) {
+func parseEndpoint(endpoint string) (string, uint, error) {
 	parts := strings.Split(endpoint, ":")
 	if len(parts) == 1 {
 		return parts[0], defaultGraylogPort, nil
 	}
-	port, err := strconv.ParseUint(parts[1], 10, 64)
-	if err != nil {
+	port, err := strconv.ParseUint(parts[1], 10, 32)
+	if err != nil || port < 1 || port > 65535 {
 		return "", 0, fmt.Errorf("invalid port in endpoint: %w", err)
 	}
-	return parts[0], port, nil
+	return parts[0], uint(port), nil
 }
 
 func (le *grayLogExporter) pushLogs(ctx context.Context, logs plog.Logs) error {
