@@ -29,6 +29,7 @@ permissions:
   contents: read
 jobs:
   scout_repo_scan:
+    if: github.actor != 'dependabot[bot]'
     permissions:
       contents: read
       security-events: write
