@@ -141,13 +141,6 @@ resources:
     cpu: 2000m
     memory: 2000Mi
 
-# The name of type cloud environment
-# Type: String
-# Possible values: KUBERNETES or OPENSHIFT
-# Default: KUBERNETES
-#
-PAAS_PLATFORM: KUBERNETES
-
 imageRepository: ghcr.io/netcracker/qubership-open-telemetry-collector
 imageTag: main
 
@@ -315,7 +308,6 @@ OTEC_ENABLE_ARBITRARY_TRACES_LOGGING: false
 # Default: empty
 #
 OTEC_ARBITRARY_TRACES_LOGGING_CONFIG: {}
-
 
 # Array of topologies settings for topologySpreadConstraints. Each array item must contain at least 'topologyKey' attribute. Other supported attributes are 'maxSkew' and 'whenUnsatisfiable' - optional. This parameter has higher priority over CLOUD_TOPOLOGY_KEY. Should not be empty list
 # Type: object

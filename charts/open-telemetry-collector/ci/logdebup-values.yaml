@@ -1,0 +1,21 @@
+imageRepository: netcracker/qubership-open-telemetry-collector
+imageTag: main
+
+OTEC_ENABLE_LOGGING: true
+
+OTEC_GRAYLOGEXPORTER_PARAMETERS:
+  connection-pool-size: 1
+  queue-size: 1000
+  max-message-send-retry-count: 1
+  max-successive-send-error-count: 5
+  successive-send-error-freeze-time: 1m
+
+GRAYLOG_COLLECTOR_HOST: "1.2.3.4"
+GRAYLOG_COLLECTOR_PORT: "12001"
+
+OTEC_GELF_FIELD_MAPPING:
+  version: "1.1"
+  host: "hostname"
+  short-message: "log"
+  full-message: "log"
+  level: "level"

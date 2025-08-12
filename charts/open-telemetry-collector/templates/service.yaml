@@ -1,13 +1,11 @@
-kind: Service
 apiVersion: v1
+kind: Service
 metadata:
   name: {{ .Values.SERVICE_NAME }}
   labels:
-    name: {{ .Values.SERVICE_NAME }}
     app.kubernetes.io/name: {{ .Values.SERVICE_NAME }}
-    app.kubernetes.io/part-of: open-telemetry-collector
-    app.kubernetes.io/managed-by: saasDeployer
-    app: open-telemetry-collector
+    app.kubernetes.io/component: open-telemetry-collector
+    app.kubernetes.io/part-of: observability
 spec:
   ports:
   {{- if .Values.SERVICE_PORTS }}

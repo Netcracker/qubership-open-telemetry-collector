@@ -3,103 +3,92 @@ apiVersion: apps/v1
 metadata:
   name: {{ .Values.SERVICE_NAME }}
   labels:
-    {{ - if .Values.labels }}
-    {{ - toYaml (.Values.labels | default dict) | nindent 4 }}
-    {{ - end }}
-    name: '{{ .Values.SERVICE_NAME }}'
+    name: {{ coalesce .Values.DEPLOYMENT_RESOURCE_NAME .Values.SERVICE_NAME }}
     app: open-telemetry-collector
     app.kubernetes.io/instance: '{{ cat (coalesce .Values.DEPLOYMENT_RESOURCE_NAME .Values.SERVICE_NAME) "-" .Values.NAMESPACE | nospace | trunc 63 | trimSuffix "-" }}'
-    app.kubernetes.io/name: '{{ .Values.SERVICE_NAME }}'
-    app.kubernetes.io/component: backend
-    app.kubernetes.io/version: '{{ .Values.ARTIFACT_DESCRIPTOR_VERSION }}'
-    app.kubernetes.io/managed-by: saasDeployer
-    app.kubernetes.io/part-of: open-telemetry-collector
-    app.kubernetes.io/technology: 'go'
+    app.kubernetes.io/component: open-telemetry-collector
+    app.kubernetes.io/part-of: observability
+    app.kubernetes.io/version: {{ .Values.ARTIFACT_DESCRIPTOR_VERSION }}
+    app.kubernetes.io/technology: go
+    {{- if .Values.labels }}
+      {{- toYaml (.Values.labels | default dict) | nindent 4 }}
+    {{- end }}
 spec:
   strategy:
-    {{ - if eq (default "" .Values.DEPLOYMENT_STRATEGY_TYPE) "recreate" }}
+    {{- if eq (default "" .Values.DEPLOYMENT_STRATEGY_TYPE) "recreate" }}
     type: Recreate
-    {{ - else if eq (default "" .Values.DEPLOYMENT_STRATEGY_TYPE) "best_effort_controlled_rollout" }}
+    {{- else if eq (default "" .Values.DEPLOYMENT_STRATEGY_TYPE) "best_effort_controlled_rollout" }}
     type: RollingUpdate
     rollingUpdate:
       maxSurge: 0
       maxUnavailable: 80%
-    {{ - else if eq (default "" .Values.DEPLOYMENT_STRATEGY_TYPE) "ramped_slow_rollout" }}
+    {{- else if eq (default "" .Values.DEPLOYMENT_STRATEGY_TYPE) "ramped_slow_rollout" }}
     type: RollingUpdate
     rollingUpdate:
       maxSurge: 1
       maxUnavailable: 0
-    {{ - else if eq (default "" .Values.DEPLOYMENT_STRATEGY_TYPE) "custom_rollout" }}
+    {{- else if eq (default "" .Values.DEPLOYMENT_STRATEGY_TYPE) "custom_rollout" }}
     type: RollingUpdate
     rollingUpdate:
       maxSurge: {{ .Values.DEPLOYMENT_STRATEGY_MAXSURGE | default "25%" }}
       maxUnavailable: {{ .Values.DEPLOYMENT_STRATEGY_MAXUNAVAILABLE | default "25%" }}
-    {{ - else }}
+    {{- else }}
     type: RollingUpdate
     rollingUpdate:
       maxSurge: 25%
       maxUnavailable: 25%
-    {{ - end }}
+    {{- end }}
   replicas: 1
   selector:
     matchLabels:
       app: open-telemetry-collector
   template:
     metadata:
-      creationTimestamp: null
       labels:
-        name: '{{ coalesce .Values.DEPLOYMENT_RESOURCE_NAME .Values.SERVICE_NAME }}'
         app: open-telemetry-collector
+        app.kubernetes.io/name: {{ coalesce .Values.DEPLOYMENT_RESOURCE_NAME .Values.SERVICE_NAME }}
         app.kubernetes.io/instance: '{{ cat (coalesce .Values.DEPLOYMENT_RESOURCE_NAME .Values.SERVICE_NAME) "-" .Values.NAMESPACE | nospace | trunc 63 | trimSuffix "-" }}'
-        app.kubernetes.io/name: '{{ coalesce .Values.DEPLOYMENT_RESOURCE_NAME .Values.SERVICE_NAME }}'
-        app.kubernetes.io/component: backend
+        app.kubernetes.io/component: open-telemetry-collector
+        app.kubernetes.io/part-of: observability
         app.kubernetes.io/version: '{{ .Values.ARTIFACT_DESCRIPTOR_VERSION }}'
-        app.kubernetes.io/managed-by: saasDeployer
-        app.kubernetes.io/part-of: open-telemetry-collector
       annotations:
-        checksum/config: {{ include (print $.Template.BasePath "/metrics_collector_config.yaml") . | sha256sum }}
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
     spec:
       topologySpreadConstraints:
-        {{ - if .Values.CLOUD_TOPOLOGIES }}
-        {{ - range $v := .Values.CLOUD_TOPOLOGIES }}
+        {{- if .Values.CLOUD_TOPOLOGIES }}
+        {{- range $v := .Values.CLOUD_TOPOLOGIES }}
         - topologyKey: {{ $v.topologyKey }}
           maxSkew: {{ $v.maxSkew | default 1 }}
           whenUnsatisfiable: {{ $v.whenUnsatisfiable | default "ScheduleAnyway" }}
           labelSelector:
             matchLabels:
               name: "{{ coalesce $.Values.DEPLOYMENT_RESOURCE_NAME $.Values.SERVICE_NAME }}"
-        {{ - end }}
-        {{ - else }}
+        {{- end }}
+        {{- else }}
         - maxSkew: 1
           topologyKey: "{{ .Values.CLOUD_TOPOLOGY_KEY }}"
           whenUnsatisfiable: ScheduleAnyway
           labelSelector:
             matchLabels:
               name: "{{ coalesce .Values.DEPLOYMENT_RESOURCE_NAME .Values.SERVICE_NAME }}"
-        {{ - end }}
-      {{ - with .Values.imagePullSecrets }}
+        {{- end }}
+      {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
-        {{ - toYaml . | nindent 8 }}
-      {{ - end }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       volumes:
         - name: opentelemetry-collector-vol
           configMap:
             name: opentelemetry-collector-config
             defaultMode: 420
-        {{ - if .Values.READONLY_CONTAINER_FILE_SYSTEM_ENABLED }}
+        {{- if .Values.READONLY_CONTAINER_FILE_SYSTEM_ENABLED }}
         - name: tmp
           emptyDir: {}
         - name: env
           emptyDir: {}
-        - name: ncdiag
-          emptyDir: {}
-        - name: glowroot
-          emptyDir: {}
         - name: nss
           emptyDir: {}
-        - name: java-certs
-          emptyDir: {}
-        {{ - end }}
+        {{- end }}
       containers:
         - name: opentelemetry-collector
           command: ["{{ .Values.entrypoint }}","--config", "/conf/otel.yaml"]
@@ -139,33 +128,12 @@ spec:
               containerPort: 8888
               protocol: TCP
           resources:
-          {{ - if .Values.resources }}
-            {{ - toYaml .Values.resources | nindent 12 }}
-          {{ - else }}
-            limits:
-              cpu: '{{ .Values.resources.limits.cpu }}'
-              memory: '{{ .Values.resources.limits.memory }}'
-            requests:
-              cpu: '{{ .Values.resources.requests.cpu }}'
-              memory: '{{ .Values.resources.requests.memory }}'
-          {{ - end }}
+            {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
             - name: opentelemetry-collector-vol
               mountPath: /conf/
-            {{ - if .Values.READONLY_CONTAINER_FILE_SYSTEM_ENABLED }}
             - name: tmp
               mountPath: /tmp
-            - name: env
-              mountPath: /etc/env
-            - name: ncdiag
-              mountPath: /app/ncdiag
-            - name: glowroot
-              mountPath: /app/glowroot
-            - name: nss
-              mountPath: /app/nss
-            - name: java-certs
-              mountPath: /etc/ssl/certs/java
-            {{ - end }}
           env:
             - name: OTEC_LOG_FORMAT
               value: "{{ .Values.OTEC_LOG_FORMAT }}"
@@ -192,14 +160,7 @@ spec:
           terminationMessagePolicy: File
           imagePullPolicy: IfNotPresent
           securityContext:
-            {{ - if eq .Values.PAAS_PLATFORM "KUBERNETES" }}
-            runAsUser: 10001
-            runAsGroup: 10001
-            {{ - end }}
             readOnlyRootFilesystem: true
-            runAsNonRoot: true
-            seccompProfile:
-              type: RuntimeDefault
             allowPrivilegeEscalation: false
             capabilities:
               drop:
@@ -207,7 +168,10 @@ spec:
       restartPolicy: Always
       terminationGracePeriodSeconds: 30
       dnsPolicy: ClusterFirst
-      securityContext: {}
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       schedulerName: default-scheduler
   strategy:
     type: RollingUpdate

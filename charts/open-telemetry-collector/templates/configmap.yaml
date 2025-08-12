@@ -3,10 +3,9 @@ apiVersion: v1
 metadata:
   name: opentelemetry-collector-config
   labels:
-    app.kubernetes.io/instance: '{{ cat .Values.SERVICE_NAME .Values.DELIMITER .Values.NAMESPACE | nospace | trunc 63 }}'
-    app.kubernetes.io/name: '{{ .Values.SERVICE_NAME }}'
-    app.kubernetes.io/part-of: open-telemetry-collector
-    app.kubernetes.io/managed-by: saasDeployer
+    app.kubernetes.io/name: {{ .Values.SERVICE_NAME }}
+    app.kubernetes.io/component: open-telemetry-collector
+    app.kubernetes.io/part-of: observability
 data:
   otel.yaml: |
   {{- if .Values.CONFIG_MAP }}

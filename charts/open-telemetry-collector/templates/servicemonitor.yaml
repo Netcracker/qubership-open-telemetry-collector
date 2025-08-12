@@ -1,0 +1,21 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ .Values.SERVICE_NAME }}
+  labels:
+    app.kubernetes.io/name: {{ .Values.SERVICE_NAME }}
+    app.kubernetes.io/component: open-telemetry-collector
+    app.kubernetes.io/part-of: observability
+spec:
+  endpoints:
+    - interval: 30s
+      port: {{ .Values.SERVICE_MONITOR_PORT_NAME }}
+      path: /metrics
+      scheme: http
+    - interval: 30s
+      port: self-telemetry
+      path: /metrics
+      scheme: http
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ .Values.SERVICE_NAME }}
