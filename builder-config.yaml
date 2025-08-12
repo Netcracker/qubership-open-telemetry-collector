@@ -2,7 +2,7 @@ dist:
   name: qubership-otec
   description: Custom OTel Collector for qubership platform
   module: github.com/Netcracker/qubership-open-telemetry-collector
-  version: 1.1.25
+  version: 1.2.0
   output_path: ./collector
 
 connectors:
@@ -10,8 +10,8 @@ connectors:
   - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/connector/spanmetricsconnector latest
 
 exporters:
-  - gomod: github.com/Netcracker/qubership-open-telemetry-collector/exporter/logtcpexporter main
   - gomod: github.com/Netcracker/qubership-open-telemetry-collector/exporter/graylogexporter main
+  - gomod: github.com/Netcracker/qubership-open-telemetry-collector/exporter/logtcpexporter main
   - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/exporter/prometheusexporter latest
   - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/exporter/prometheusremotewriteexporter latest
   - gomod: go.opentelemetry.io/collector/exporter/debugexporter latest
@@ -21,14 +21,15 @@ exporters:
 extensions:
   - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/extension/healthcheckextension latest
   - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/extension/pprofextension latest
+  - gomod: go.opentelemetry.io/collector/extension/memorylimiterextension latest
 
 processors:
   - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/filterprocessor latest
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/logdedupprocessor latest
   - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/probabilisticsamplerprocessor latest
   - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/tailsamplingprocessor latest
   - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/transformprocessor latest
   - gomod: go.opentelemetry.io/collector/processor/batchprocessor latest
-  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/logdedupprocessor latest
 
 providers:
   - gomod: go.opentelemetry.io/collector/confmap/provider/envprovider latest
@@ -40,6 +41,6 @@ providers:
 receivers:
   - gomod: github.com/Netcracker/qubership-open-telemetry-collector/receiver/sentryreceiver main
   - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/jaegerreceiver latest
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/prometheusremotewritereceiver latest
   - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/zipkinreceiver latest
   - gomod: go.opentelemetry.io/collector/receiver/otlpreceiver latest
-  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/prometheusremotewritereceiver latest
