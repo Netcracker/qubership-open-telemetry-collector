@@ -20,7 +20,7 @@ func main() {
 	info := component.BuildInfo{
 		Command:     "qubership-otec",
 		Description: "Custom OTel Collector for qubership platform",
-		Version:     "1.1.25",
+		Version:     "1.2.0",
 	}
 
 	set := otelcol.CollectorSettings{
