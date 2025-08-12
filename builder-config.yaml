@@ -12,7 +12,6 @@ connectors:
 exporters:
   - gomod: github.com/Netcracker/qubership-open-telemetry-collector/exporter/graylogexporter main
   - gomod: github.com/Netcracker/qubership-open-telemetry-collector/exporter/logtcpexporter main
-  - gomod: github.com/Netcracker/qubership-open-telemetry-collector/exporter/graylogexporter main
   - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/exporter/prometheusexporter latest
   - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/exporter/prometheusremotewriteexporter latest
   - gomod: go.opentelemetry.io/collector/exporter/debugexporter latest
