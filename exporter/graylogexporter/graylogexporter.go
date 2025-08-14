@@ -133,8 +133,8 @@ func (le *grayLogExporter) logRecordToMessage(logRecord plog.LogRecord, resource
 	attributes, message, _ := extractAttributes(logRecord.Body())
 
 	extra := mergeAttributes(attributes)
-	mergeMapAttributes(extra, "attr.", logRecord.Attributes())
-	mergeMapAttributes(extra, "resource.", resourceAttrs)
+	mergeMapAttributes(extra, logRecord.Attributes())
+	mergeMapAttributes(extra, resourceAttrs)
 
 	fullmsg := defaultIfEmpty(
 		le.getMappedValue(le.config.GELFMapping.FullMessage, attributes, logRecord.Attributes()),
@@ -231,10 +231,10 @@ func mergeAttributes(src map[string]interface{}) map[string]string {
 	return out
 }
 
-func mergeMapAttributes(dest map[string]string, prefix string, attrs pcommon.Map) {
+func mergeMapAttributes(dest map[string]string, attrs pcommon.Map) {
 	attrs.Range(func(k string, v pcommon.Value) bool {
 		if str, ok := getStringFromPcommonValue(v); ok {
-			dest[prefix+k] = str
+			dest[k] = str
 		}
 		return true
 	})
