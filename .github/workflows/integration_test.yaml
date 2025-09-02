@@ -22,12 +22,12 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout code otel-collector
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           path: qubership-open-telemetry-collector
 
       - name: Checkout jaeger
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: 'Netcracker/qubership-jaeger'
           ref: 'main'
