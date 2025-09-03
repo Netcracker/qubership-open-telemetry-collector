@@ -10,7 +10,7 @@ connectors:
   - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/connector/spanmetricsconnector latest
 
 exporters:
-  - gomod: github.com/Netcracker/qubership-open-telemetry-collector/exporter/graylogexporter main
+  - gomod: github.com/Netcracker/qubership-open-telemetry-collector/exporter/graylogexporter ad333c432f0717cd05d405acfc4ea65895e59ca9
   - gomod: github.com/Netcracker/qubership-open-telemetry-collector/exporter/logtcpexporter main
   - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/exporter/prometheusexporter latest
   - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/exporter/prometheusremotewriteexporter latest
