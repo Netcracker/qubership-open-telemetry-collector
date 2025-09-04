@@ -48,7 +48,7 @@ data:
       graylogexporter:
         endpoint: {{ .Values.GRAYLOG_COLLECTOR_HOST }}:{{ .Values.GRAYLOG_COLLECTOR_PORT }}
         {{- toYaml (.Values.OTEC_GRAYLOGEXPORTER_PARAMETERS) | nindent 8 }}
-        field-mapping:
+        field_mapping:
         {{- toYaml .Values.OTEC_GELF_FIELD_MAPPING | nindent 10 }}
     {{- end }}
       debug:

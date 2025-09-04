@@ -32,12 +32,12 @@ type GELFFieldMapping struct {
 
 type Config struct {
 	confignet.TCPAddrConfig     `mapstructure:",squash"`
-	GELFMapping                 GELFFieldMapping `mapstructure:"field-mapping"`
-	ConnPoolSize                int              `mapstructure:"connection-pool-size"`
-	QueueSize                   int              `mapstructure:"queue-size"`
-	MaxMessageSendRetryCnt      int              `mapstructure:"max-message-send-retry-count"`
-	MaxSuccessiveSendErrCnt     int              `mapstructure:"max-successive-send-error-count"`
-	SuccessiveSendErrFreezeTime string           `mapstructure:"successive-send-error-freeze-time"`
+	GELFMapping                 GELFFieldMapping `mapstructure:"field_mapping"`
+	ConnPoolSize                int              `mapstructure:"connection_pool_size"`
+	QueueSize                   int              `mapstructure:"queue_size"`
+	MaxMessageSendRetryCnt      int              `mapstructure:"max_message_send_retry_count"`
+	MaxSuccessiveSendErrCnt     int              `mapstructure:"max_successive_send_error_count"`
+	SuccessiveSendErrFreezeTime string           `mapstructure:"successive_send_error_freeze_time"`
 }
 
 func getDefaultGELFFields() *GELFFieldMapping {
@@ -54,20 +54,20 @@ var _ component.Config = (*Config)(nil)
 
 func (cfg *Config) Validate() error {
 	if cfg.ConnPoolSize < 1 {
-		return fmt.Errorf("connection-pool-size can not be less than 1 (actual value is %v)", cfg.ConnPoolSize)
+		return fmt.Errorf("connection_pool_size can not be less than 1 (actual value is %v)", cfg.ConnPoolSize)
 	}
 	if cfg.QueueSize < 1 {
-		return fmt.Errorf("batch-size can not be less than 1 (actual value is %v)", cfg.QueueSize)
+		return fmt.Errorf("queue_size can not be less than 1 (actual value is %v)", cfg.QueueSize)
 	}
 	if cfg.MaxMessageSendRetryCnt < 0 {
-		return fmt.Errorf("max-message-send-retry-count can not be negative (actual value is %v)", cfg.MaxMessageSendRetryCnt)
+		return fmt.Errorf("max_message_send_retry_count can not be negative (actual value is %v)", cfg.MaxMessageSendRetryCnt)
 	}
 	if cfg.MaxSuccessiveSendErrCnt < 0 {
-		return fmt.Errorf("max-successive-send-error-count can not be negative (actual value is %v)", cfg.MaxSuccessiveSendErrCnt)
+		return fmt.Errorf("max_successive_send_error_count can not be negative (actual value is %v)", cfg.MaxSuccessiveSendErrCnt)
 	}
 	_, err := time.ParseDuration(cfg.SuccessiveSendErrFreezeTime)
 	if err != nil {
-		return fmt.Errorf("successive-send-error-freeze-time is not parsable : %+v", err)
+		return fmt.Errorf("successive_send_error_freeze_time is not parsable : %+v", err)
 	}
 	return nil
 }

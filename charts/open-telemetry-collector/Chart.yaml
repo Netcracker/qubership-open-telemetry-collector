@@ -3,4 +3,4 @@ description: A Helm chart for qubership-open-telemetry-collector
 name: qubership-open-telemetry-collector
 
 appVersion: 1.2.0
-version: 0.0.1
+version: 0.0.2

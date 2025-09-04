@@ -81,9 +81,9 @@ func parseGELFFieldMapping(cfg *Config) (*GELFFieldMapping, error) {
 		return nil, errors.New("failed to decode config to map")
 	}
 
-	if fmRaw, ok := raw["field-mapping"]; ok {
+	if fmRaw, ok := raw["field_mapping"]; ok {
 		if err := mapstructure.Decode(fmRaw, &fieldMapping); err != nil {
-			return nil, errors.New("failed to decode field-mapping")
+			return nil, errors.New("failed to decode field_mapping")
 		}
 	}
 	return &fieldMapping, nil

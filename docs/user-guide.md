@@ -178,15 +178,15 @@ contexts.<context_name>.<map_key> attribute.
 
 * Currently tcp is only supported to transfer logs to graylog.
 * `endpoint` (`required`) - Contains host and port for the Graylog TCP destination
-* `connection-pool-size` (`optional`) - Connection pool size for the graylog. Default value is 1.
+* `connection_pool_size` (`optional`) - Connection pool size for the graylog. Default value is 1.
 * `Batch-size` (`optional`) - Size of the batch of messages before sending them to the graylog. Default value is 1000.
-* `max-message-send-retry-count` (`optional`) - message is skipped after this number of retries to send it
+* `max_message_send_retry_count` (`optional`) - message is skipped after this number of retries to send it
   to the graylog. Default value is 1.
-* `max-successive-send-error-count` (`optional`) - the number of successive send errors to the graylog after
-  which open-telemetry-collector stops sending messages to the graylog for a `successive-send-error-freeze-time`
+* `max_successive_send_error_count` (`optional`) - the number of successive send errors to the graylog after
+  which open-telemetry-collector stops sending messages to the graylog for a `successive_send_error_freeze_time`
   time period. Default value is 5.
-* `successive-send-error-freeze-time` (`optional`) - The time period for which open-telemetry-collector
-  stops sending messages to the graylog after `max-successive-send-error-count` successive send errors to the graylog.
+* `successive_send_error_freeze_time` (`optional`) - The time period for which open-telemetry-collector
+  stops sending messages to the graylog after `max_successive_send_error_count` successive send errors to the graylog.
   The time period is set in Go language duration format. Default value is "1m" - 1 minute.
 * GELF Payload Specification
   * `version` - GELF spec version. Default is 1.1.

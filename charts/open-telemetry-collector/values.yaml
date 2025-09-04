@@ -56,11 +56,11 @@ OTEC_LOGTCPEXPORTER_PARAMETERS:
 # Default: see below
 #
 OTEC_GRAYLOGEXPORTER_PARAMETERS:
-  connection-pool-size: 1
-  queue-size: 1000
-  max-message-send-retry-count: 1
-  max-successive-send-error-count: 5
-  successive-send-error-freeze-time: 1m
+  connection_pool_size: 1
+  queue_size: 1000
+  max_message_send_retry_count: 1
+  max_successive_send_error_count: 5
+  successive_send_error_freeze_time: 1m
 
 # Allows to set up tailbased tracing general parameters
 # Type: object
@@ -331,9 +331,14 @@ CLOUD_TOPOLOGY_KEY: kubernetes.io/hostname
 
 # Defines fields and condtions for log deduplication processor.
 OTEC_LOGDEDUP_PROCESSOR_PARAMETERS:
-  include_fields:
-    - attributes.hostname
-  interval: 60s
+  exclude_fields:
+    - attributes.time
+    - attributes.timestamp
+    - attributes.fluent\.tag
+    - attributes.full_message
+    - attributes.first_observed_timestamp
+    - attributes.last_observed_timestamp
+  interval: 10s
   log_count_attribute: logdup_count
 
 OTEC_GELF_FIELD_MAPPING:
