@@ -169,6 +169,10 @@ spec:
           env:
             - name: OTEC_LOG_FORMAT
               value: "{{ .Values.OTEC_LOG_FORMAT }}"
+            - name: BROWSER_LOG_LEVEL
+              value: "{{ .Values.BROWSER_LOG_LEVEL }}"
+            - name: ENABLE_BREADCRUMBS
+              value: "{{ .Values.ENABLE_BREADCRUMBS }}"  
           livenessProbe:
             httpGet:
               path: /

@@ -293,6 +293,18 @@ LOG_LEVEL: 'debug'
 # Default: "json"
 OTEC_LOG_FORMAT: 'json'
 
+# OTeC log format, possible values : json, text
+# Type: string
+# Mandatory: no
+# Default: "json"
+BROWSER_LOG_LEVEL: 'warn'
+
+# OTeC enable and disable breadcrumbs
+# Type: boolean
+# Mandatory: no
+# Default: "false"
+ENABLE_BREADCRUMBS: false
+
 # OTeC health check port
 # Type: int
 # Mandatory: no
