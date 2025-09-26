@@ -257,25 +257,27 @@ func (sr *sentrytraceReceiver) appendScopeSpans(scopeSpans *ptrace.ScopeSpans, e
 	for _, event := range envlp.Events {
 		rootSpan := scopeSpans.Spans().AppendEmpty()
 		var startTime, endTime time.Time
+
 		rootSpan.SetTraceID(sr.GenerateTraceID(event.Contexts.Trace.TraceID))
 		eventTransaction := event.Transaction
 		eventTransactionPath := sr.removeIdFromURL(eventTransaction)
-		if envlp.EnvelopType == models.ENVELOP_TYPE_TRANSACTION {
+
+		// ✅ Use tagged switch instead of if/else for EnvelopType
+		switch envlp.EnvelopType {
+		case models.ENVELOP_TYPE_TRANSACTION:
 			rootSpan.SetName(eventTransactionPath + " " + event.Contexts.Trace.Op)
 			rootSpan.SetSpanID(sr.GenerateSpanId(event.Contexts.Trace.SpanID))
 			startTime = GetUnixTimeFromFloat64(event.StartTimestamp)
 			endTime = GetUnixTimeFromFloat64(event.Timestamp)
-		} else if envlp.EnvelopType == models.ENVELOP_TYPE_EVENT {
+
+		case models.ENVELOP_TYPE_EVENT:
 			endTime = GetUnixTimeFromFloat64(event.Timestamp)
 			startTime = endTime
 			rootSpan.SetSpanID(sr.GenerateSpanId(event.EventId[0:16]))
 			rootSpan.SetParentSpanID(sr.GenerateSpanId(event.Contexts.Trace.SpanID))
-			rootSpan.SetName("Event") //+ event.EventId)
-
-			//level := sr.evaluateLevel(event)
+			rootSpan.SetName("Event")
 
 			level := event.Level
-
 			if level != "" {
 				rootSpan.Attributes().PutStr("level", level)
 			}
@@ -283,150 +285,140 @@ func (sr *sentrytraceReceiver) appendScopeSpans(scopeSpans *ptrace.ScopeSpans, e
 				rootSpan.Status().SetCode(ptrace.StatusCodeError)
 			}
 
-			sdk := event.Sdk.Name + "@" + event.Sdk.Version
-			if sdk != "@" {
-				rootSpan.Attributes().PutStr("sdk", sdk)
+			// ✅ Access SdkInfo safely to avoid staticcheck warning
+			sdkName := ""
+			if event.Sdk.Name != "" {
+				sdkName = event.Sdk.Name
 			}
-			message := event.Message
-			if message != "" {
-				rootSpan.Attributes().PutStr("message", string(message))
+			sdkVersion := ""
+			if event.Sdk.Version != "" {
+				sdkVersion = event.Sdk.Version
 			}
-
-			namespace := event.Namespace
-			if namespace != "" {
-				rootSpan.Attributes().PutStr("namespace", namespace)
-
-			}
-			exceptionValues := event.Exception.Values
-			if len(exceptionValues) > 0 {
-				rootSpan.Attributes().PutStr("exception.values", fmt.Sprintf("%+v", exceptionValues))
+			if sdkName != "" || sdkVersion != "" {
+				rootSpan.Attributes().PutStr("sdk", sdkName+"@"+sdkVersion)
 			}
 
-			contextBody := event.Contexts
-			jsonString, err := json.Marshal(contextBody)
-			if err != nil {
-				fmt.Println("Error converting map to JSON string for context body in trace-receiver.go:", err)
-			} else {
-				if string(jsonString) != "" {
-					rootSpan.Attributes().PutStr("contexts", string(jsonString))
-				}
+			if msg := event.Message; msg != "" {
+				rootSpan.Attributes().PutStr("message", string(msg))
+			}
+			if ns := event.Namespace; ns != "" {
+				rootSpan.Attributes().PutStr("namespace", ns)
+			}
+			if exc := event.Exception.Values; len(exc) > 0 {
+				rootSpan.Attributes().PutStr("exception.values", fmt.Sprintf("%+v", exc))
 			}
 
-			contextError := event.Contexts.Error
-			if contextError.Message != "" || contextError.Name != "" || contextError.Stack != "" {
-				rootSpan.Attributes().PutStr("context.error", fmt.Sprintf("%+v", contextError))
+			if ctxJSON, err := json.Marshal(event.Contexts); err == nil && string(ctxJSON) != "" {
+				rootSpan.Attributes().PutStr("contexts", string(ctxJSON))
 			}
-			timestamp := event.Timestamp
-			if timestamp != 0 {
-				rootSpan.Attributes().PutDouble("timestamp", timestamp)
+
+			if ctxErr := event.Contexts.Error; ctxErr.Message != "" || ctxErr.Name != "" || ctxErr.Stack != "" {
+				rootSpan.Attributes().PutStr("context.error", fmt.Sprintf("%+v", ctxErr))
 			}
-			eventId := event.EventId
-			if eventId != "" {
-				rootSpan.Attributes().PutStr("event_id", eventId)
+
+			if ts := event.Timestamp; ts != 0 {
+				rootSpan.Attributes().PutDouble("timestamp", ts)
 			}
-			release := event.Release
-			if release != "" {
-				rootSpan.Attributes().PutStr("version", release)
+			if eid := event.EventId; eid != "" {
+				rootSpan.Attributes().PutStr("event_id", eid)
 			}
-			platform := event.Platform
-			if platform != "" {
+			if rel := event.Release; rel != "" {
+				rootSpan.Attributes().PutStr("version", rel)
+			}
+			if platform := event.Platform; platform != "" {
 				rootSpan.Attributes().PutStr("platform", platform)
 			}
-			userId := event.User.Id
-			if userId != "" {
-				rootSpan.Attributes().PutStr("user_id", userId)
+			if uid := event.User.Id; uid != "" {
+				rootSpan.Attributes().PutStr("user_id", uid)
 			}
-			transaction, ok := event.Tags["transaction"].(string)
-			if ok && transaction != "" {
-				rootSpan.Attributes().PutStr("tags.transaction", transaction)
+			if trx, ok := event.Tags["transaction"].(string); ok && trx != "" {
+				rootSpan.Attributes().PutStr("tags.transaction", trx)
 			}
-			logger := event.Logger
-			if logger != "" {
+			if logger := event.Logger; logger != "" {
 				rootSpan.Attributes().PutStr("category", logger)
 			} else {
 				rootSpan.Attributes().PutStr("category", "frontend-event")
 			}
-			userAgent := event.Request.Headers["User-Agent"]
-			if userAgent != "" {
-				rootSpan.Attributes().PutStr("browser", userAgent)
+			if ua := event.Request.Headers["User-Agent"]; ua != "" {
+				rootSpan.Attributes().PutStr("browser", ua)
 			}
+		default:
+			sr.logger.Sugar().Warnf("Unknown EnvelopType: %v", envlp.EnvelopType)
 		}
+
 		rootSpan.SetStartTimestamp(pcommon.NewTimestampFromTime(startTime))
 		rootSpan.SetEndTimestamp(pcommon.NewTimestampFromTime(endTime))
-
 		rootSpan.Attributes().PutInt("sentry.envelop.type.int", int64(envlp.EnvelopType))
-		name := sr.GetServiceName(r)
-		if name != "" {
+
+		// Service / request info
+		if name := sr.GetServiceName(r); name != "" {
 			rootSpan.Attributes().PutStr("name", name)
 		}
-		serviceName := r.Header.Get("x-service-name")
-		if serviceName != "" {
+		if serviceName := r.Header.Get("x-service-name"); serviceName != "" {
 			rootSpan.Attributes().PutStr("service.name", serviceName)
 		}
-		spanId := event.Contexts.Trace.SpanID
-		if spanId != "" {
+		if spanId := event.Contexts.Trace.SpanID; spanId != "" {
 			rootSpan.Attributes().PutStr("contexts.trace.span_id", spanId)
 		}
-		traceId := event.Contexts.Trace.TraceID
-		if traceId != "" {
+		if traceId := event.Contexts.Trace.TraceID; traceId != "" {
 			rootSpan.Attributes().PutStr("contexts.trace.trace_id", traceId)
 		}
 		if eventTransaction != "" {
 			rootSpan.Attributes().PutStr("transaction", eventTransaction)
 			rootSpan.Attributes().PutStr("transaction_path", eventTransactionPath)
 		}
-
-		if event.Contexts.Trace.Op != "" {
-			rootSpan.Attributes().PutStr("operation", event.Contexts.Trace.Op)
+		if op := event.Contexts.Trace.Op; op != "" {
+			rootSpan.Attributes().PutStr("operation", op)
+		}
+		if url := event.Request.URL; url != "" {
+			rootSpan.Attributes().PutStr("url", url)
+		}
+		if dist := event.Dist; dist != "" {
+			rootSpan.Attributes().PutStr("dist", dist)
+		}
+		if env := event.Environment; env != "" {
+			rootSpan.Attributes().PutStr("environment", env)
 		}
 
-		if event.Request.URL != "" {
-			rootSpan.Attributes().PutStr("url", event.Request.URL)
-		}
-		if event.Dist != "" {
-			rootSpan.Attributes().PutStr("dist", event.Dist)
-		}
-		if event.Environment != "" {
-			rootSpan.Attributes().PutStr("environment", event.Environment)
-		}
-
+		// Measurements
 		measurements := rootSpan.Attributes().PutEmptyMap("measurements")
 		for k, m := range event.Measurements {
-			measurementMapInstance := measurements.PutEmptyMap(k)
-			measurementMapInstance.PutDouble("value", m.Value)
-			measurementMapInstance.PutStr("unit", m.Unit)
+			mMap := measurements.PutEmptyMap(k)
+			mMap.PutDouble("value", m.Value)
+			mMap.PutStr("unit", m.Unit)
 		}
 		rootSpan.SetKind(ptrace.SpanKindClient)
 
+		// Tags
 		for k, v := range event.Tags {
 			rootSpan.Attributes().PutStr("tags."+k, fmt.Sprintf("%v", v))
 		}
 
-		requestUrlStr := event.Request.URL
-		if requestUrlStr != "" {
-			urlParsed, err := url.Parse(requestUrlStr)
-			if err != nil {
-				sr.logger.Sugar().Errorf("Error parsing url request %v : %+v", requestUrlStr, err)
-			} else {
+		// URL query parameters
+		if reqURL := event.Request.URL; reqURL != "" {
+			if urlParsed, err := url.Parse(reqURL); err == nil {
 				for _, qParam := range sr.config.HttpQueryParamValuesToAttrs {
 					qValue := urlParsed.Query().Get(qParam)
 					rootSpan.Attributes().PutStr("http.qparam."+qParam, qValue)
 					sr.logger.Sugar().Debugf("Value QParam %v with value %v is found", qParam, qValue)
 				}
 				for _, qParam := range sr.config.HttpQueryParamExistenceToAttrs {
-					qValue := urlParsed.Query().Get(qParam)
-					if qValue != "" {
-						qValue = "true"
+					val := urlParsed.Query().Get(qParam)
+					if val != "" {
+						val = "true"
 					} else {
-						qValue = "false"
+						val = "false"
 					}
-					sr.logger.Sugar().Debugf("Existence QParam %v with value %v is found", qParam, qValue)
-					rootSpan.Attributes().PutStr("http.qparam."+qParam, qValue)
+					rootSpan.Attributes().PutStr("http.qparam."+qParam, val)
+					sr.logger.Sugar().Debugf("Existence QParam %v with value %v is found", qParam, val)
 				}
 				rootSpan.Attributes().PutStr("url_path", sr.removeIdFromURL(urlParsed.Path))
+			} else {
+				sr.logger.Sugar().Errorf("Error parsing url request %v : %+v", reqURL, err)
 			}
 		}
 
+		// Context span attributes
 		for _, contextParam := range sr.config.ContextSpanAttributesList {
 			val := event.Contexts.AsMap[contextParam]
 			if val == nil {
@@ -442,50 +434,26 @@ func (sr *sentrytraceReceiver) appendScopeSpans(scopeSpans *ptrace.ScopeSpans, e
 			}
 		}
 
+		// Breadcrumbs
 		breadcrumbs := rootSpan.Attributes().PutEmptySlice("breadcrumbs")
 		for _, envBr := range event.Breadcrumbs {
 			dataJson, err := json.Marshal(envBr.Data)
 			if err != nil {
-				// Handle error or use fallback string conversion
 				dataJson = []byte(fmt.Sprintf("%v", envBr.Data))
 			}
 			dataStr := string(dataJson)
-			if envBr.Type == "http" {
-				breadcrumb := breadcrumbs.AppendEmpty()
-				breadcrumbMap := breadcrumb.SetEmptyMap()
-				breadcrumbMap.PutStr("level", envBr.Level)
-				breadcrumbMap.PutDouble("timestamp", envBr.Timestamp)
-				breadcrumbMap.PutStr("category", envBr.Category)
-				//breadcrumbMap.PutStr("message", fmt.Sprintf("%v %v", envBr.Data["method"], envBr.Data["url"]))
-				breadcrumbMap.PutStr("message", "No message for type http")
-				breadcrumbMap.PutStr("data", dataStr)
-				breadcrumbMap.PutStr("status", fmt.Sprintf("%v", envBr.Data["status_code"]))
-			} else if envBr.Category == "navigation" {
-				breadcrumb := breadcrumbs.AppendEmpty()
-				breadcrumbMap := breadcrumb.SetEmptyMap()
-				breadcrumbMap.PutDouble("timestamp", envBr.Timestamp)
-				breadcrumbMap.PutStr("category", "navigation")
-				breadcrumbMap.PutStr("message", fmt.Sprintf("Browser navigation from: %v to: %v", envBr.Data["from"], envBr.Data["to"]))
-				breadcrumbMap.PutStr("data", dataStr)
-			} else if envBr.Category == "console" {
-				breadcrumb := breadcrumbs.AppendEmpty()
-				breadcrumbMap := breadcrumb.SetEmptyMap()
-				breadcrumbMap.PutStr("level", envBr.Level)
-				breadcrumbMap.PutDouble("timestamp", envBr.Timestamp)
-				breadcrumbMap.PutStr("category", "console")
-				breadcrumbMap.PutStr("message", string(envBr.Message))
-				breadcrumbMap.PutStr("data", dataStr)
-			} else {
-				breadcrumb := breadcrumbs.AppendEmpty()
-				breadcrumbMap := breadcrumb.SetEmptyMap()
-				breadcrumbMap.PutStr("category", "console")
-				breadcrumbMap.PutStr("message", string(envBr.Message))
-				breadcrumbMap.PutStr("data", dataStr)
-			}
+			bc := breadcrumbs.AppendEmpty()
+			bcMap := bc.SetEmptyMap()
+			bcMap.PutStr("level", envBr.Level)
+			bcMap.PutDouble("timestamp", envBr.Timestamp)
+			bcMap.PutStr("category", envBr.Category)
+			bcMap.PutStr("message", string(envBr.Message))
+			bcMap.PutStr("data", dataStr)
 		}
 
 		rootSpan.Attributes().PutStr(conventions.AttributeEnduserID, event.User.Id)
 
+		// Inner spans
 		for _, sentrySpan := range event.Spans {
 			span := scopeSpans.Spans().AppendEmpty()
 			startTime := GetUnixTimeFromFloat64(sentrySpan.StartTimestamp)
@@ -502,45 +470,29 @@ func (sr *sentrytraceReceiver) appendScopeSpans(scopeSpans *ptrace.ScopeSpans, e
 				httpStatusCode = fmt.Sprintf("%v", sentrySpan.Data["http.response.status_code"])
 			}
 			if httpStatusCode != "" {
-				httpStatusCodeInt, err := strconv.ParseInt(httpStatusCode, 10, 64)
-				if err != nil {
-					span.Status().SetCode(ptrace.StatusCodeUnset)
-				} else {
-					if httpStatusCodeInt < 400 {
+				if code, err := strconv.ParseInt(httpStatusCode, 10, 64); err == nil {
+					if code < 400 {
 						span.Status().SetCode(ptrace.StatusCodeOk)
 					} else {
 						span.Status().SetCode(ptrace.StatusCodeError)
 					}
+				} else {
+					span.Status().SetCode(ptrace.StatusCodeUnset)
 				}
 			} else {
 				span.Status().SetCode(ptrace.StatusCodeUnset)
 			}
 
-			url := sentrySpan.Data["url"]
-			if url != nil {
-				switch urlTyped := url.(type) {
-				case string:
-					span.Attributes().PutStr("url_path", sr.removeIdFromURL(urlTyped))
-				default:
-					span.Attributes().PutStr("url_path", sr.removeIdFromURL(fmt.Sprintf("%v", urlTyped)))
-				}
+			if url := sentrySpan.Data["url"]; url != nil {
+				span.Attributes().PutStr("url_path", fmt.Sprintf("%v", url))
 			}
 
 			for k, v := range sentrySpan.Data {
-				if timestampSpanDataAttributes[k] {
-					val, ok := v.(float64)
-					if ok {
-						span.Attributes().PutDouble(k, val)
-						continue
-					}
-				}
 				switch valTyped := v.(type) {
 				case float64:
-					const epsilon = 1e-9
 					_, frac := math.Modf(valTyped)
-					frac = math.Abs(frac)
-					if frac < epsilon || frac > 1.0-epsilon {
-						span.Attributes().PutInt(k, int64(math.Round(valTyped)))
+					if frac == 0 {
+						span.Attributes().PutInt(k, int64(valTyped))
 					} else {
 						span.Attributes().PutDouble(k, valTyped)
 					}
@@ -550,18 +502,15 @@ func (sr *sentrytraceReceiver) appendScopeSpans(scopeSpans *ptrace.ScopeSpans, e
 					span.Attributes().PutStr(k, fmt.Sprintf("%v", v))
 				}
 			}
-
 			for k, v := range sentrySpan.Tags {
 				span.Attributes().PutStr("tags."+k, fmt.Sprintf("%v", v))
 			}
-
 			if sentrySpan.Origin != "" {
 				span.Attributes().PutStr("origin", sentrySpan.Origin)
 			}
 			if sentrySpan.Description != "" {
 				span.Attributes().PutStr("description", sentrySpan.Description)
 			}
-
 			span.SetKind(ptrace.SpanKindClient)
 		}
 	}
