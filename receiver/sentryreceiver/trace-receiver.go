@@ -138,11 +138,17 @@ func (sr *sentrytraceReceiver) ServeHTTP(w http.ResponseWriter, r *http.Request)
 
 	ctx = sr.obsrecvr.StartTracesOp(ctx)
 
-	// HSTS header for reqeust
+	// HSTS header for request
 	w.Header().Set("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload")
 
 	pr := processBodyIfNecessary(r)
-	slurp, _ := io.ReadAll(pr)
+	slurp, readErr := io.ReadAll(pr)
+	if readErr != nil {
+		sr.logger.Sugar().Errorf("Failed to read request body: %+v", readErr)
+		http.Error(w, "failed to read body", http.StatusBadRequest)
+		return
+	}
+
 	if c, ok := pr.(io.Closer); ok {
 		_ = c.Close()
 	}
@@ -152,39 +158,50 @@ func (sr *sentrytraceReceiver) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	var err error
 	envlp, err := sr.ParseEnvelopEvent(string(slurp))
 	if err != nil {
-		sr.logger.Sugar().Errorf("Error parsing envelop : %+v", err)
+		sr.logger.Sugar().Errorf("Error parsing envelop: %+v", err)
 		w.WriteHeader(http.StatusNotAcceptable)
-		w.Write([]byte("{}"))
+		if _, wErr := w.Write([]byte("{}")); wErr != nil {
+			sr.logger.Sugar().Errorf("Failed to write response: %+v", wErr)
+		}
 		return
 	}
-	td, err = sr.toTraceSpans(envlp, r)
 
+	td, err = sr.toTraceSpans(envlp, r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	sr.logger.Sugar().Debugf("For %v got trace with %v SpanCount() : %+v", envlp.EnvelopTypeHeader.Type, td.SpanCount(), td)
+	sr.logger.Sugar().Debugf("For %v got trace with %v SpanCount(): %+v", envlp.EnvelopTypeHeader.Type, td.SpanCount(), td)
 
 	consumerErr := sr.nextConsumer.ConsumeTraces(ctx, td)
-
 	sr.obsrecvr.EndTracesOp(ctx, "sentryReceiverTagValue", td.SpanCount(), consumerErr)
+
 	if consumerErr == nil {
+		var resp []byte
 		if envlp.EnvelopType == models.ENVELOP_TYPE_SESSION {
-			w.Write([]byte("{}"))
+			resp = []byte("{}")
 		} else {
-			w.Write([]byte(fmt.Sprintf("{\"id\": \"%v\"}", envlp.EnvelopEventHeader.EventID)))
+			resp = []byte(fmt.Sprintf("{\"id\": \"%v\"}", envlp.EnvelopEventHeader.EventID))
+		}
+		if _, wErr := w.Write(resp); wErr != nil {
+			sr.logger.Sugar().Errorf("Failed to write response: %+v", wErr)
 		}
 		return
 	}
-	sr.logger.Sugar().Errorf("Consumer error : %+v", consumerErr)
+
+	sr.logger.Sugar().Errorf("Consumer error: %+v", consumerErr)
 
 	if consumererror.IsPermanent(consumerErr) {
 		w.WriteHeader(http.StatusBadRequest)
-		_, _ = w.Write(errBadRequestRespBody)
+		if _, wErr := w.Write(errBadRequestRespBody); wErr != nil {
+			sr.logger.Sugar().Errorf("Failed to write error response: %+v", wErr)
+		}
 	} else {
 		w.WriteHeader(http.StatusInternalServerError)
-		_, _ = w.Write(errNextConsumerRespBody)
+		if _, wErr := w.Write(errNextConsumerRespBody); wErr != nil {
+			sr.logger.Sugar().Errorf("Failed to write error response: %+v", wErr)
+		}
 	}
 }
 
