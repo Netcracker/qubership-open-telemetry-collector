@@ -3,7 +3,7 @@ module github.com/Netcracker/qubership-open-telemetry-collector/exporter/logtcpe
 go 1.24.2
 
 require (
-	github.com/Netcracker/qubership-open-telemetry-collector/common/graylog v0.0.0-20250806132106-839173b232d2
+	github.com/Netcracker/qubership-open-telemetry-collector/common/graylog v0.0.0-20250926063152-2d5216606656
 	github.com/Netcracker/qubership-open-telemetry-collector/utils v0.0.0-20250806132106-839173b232d2
 	go.opentelemetry.io/collector/component v1.40.0
 	go.opentelemetry.io/collector/config/confignet v1.40.0
