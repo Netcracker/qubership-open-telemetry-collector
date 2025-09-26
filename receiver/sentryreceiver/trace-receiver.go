@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -93,10 +92,8 @@ func newReceiver(config *Config, nextConsumer consumer.Traces, settings receiver
 	}
 	return sr, nil
 }
-
 func (sr *sentrytraceReceiver) Start(ctx context.Context, host component.Host) error {
 	sr.host = host
-	ctx = context.Background()
 	ctx, sr.cancel = context.WithCancel(ctx)
 
 	sr.logger.Info("SentryReceiver started")
@@ -105,20 +102,20 @@ func (sr *sentrytraceReceiver) Start(ctx context.Context, host component.Host) e
 	}
 
 	var err error
-	sr.server, err = sr.config.ServerConfig.ToServer(ctx, host, sr.settings.TelemetrySettings, sr)
+	cfg := sr.config.ServerConfig
+	sr.server, err = cfg.ToServer(ctx, host, sr.settings.TelemetrySettings, sr)
 	if err != nil {
 		return err
 	}
 
-	var listener net.Listener
-	listener, err = sr.config.ServerConfig.ToListener(ctx)
+	listener, err := cfg.ToListener(ctx)
 	if err != nil {
 		return err
 	}
+
 	sr.shutdownWG.Add(1)
 	go func() {
 		defer sr.shutdownWG.Done()
-
 		if errHTTP := sr.server.Serve(listener); !errors.Is(errHTTP, http.ErrServerClosed) && errHTTP != nil {
 			sr.logger.Sugar().Fatal(errHTTP)
 		}
@@ -129,7 +126,6 @@ func (sr *sentrytraceReceiver) Start(ctx context.Context, host component.Host) e
 
 func (sr *sentrytraceReceiver) Shutdown(ctx context.Context) error {
 	sr.logger.Info("SentryReceiver is shutdown")
-
 	return nil
 }
 
@@ -232,17 +228,22 @@ func zlibUncompressedbody(r io.Reader) io.Reader {
 	return zr
 }
 
-func (sr *sentrytraceReceiver) toTraceSpans(envlp *models.EnvelopEventParseResult, r *http.Request) (reqs ptrace.Traces, err error) {
+func (sr *sentrytraceReceiver) toTraceSpans(envlp *models.EnvelopEventParseResult, r *http.Request) (ptrace.Traces, error) {
 	traces := ptrace.NewTraces()
 	resourceSpan := traces.ResourceSpans().AppendEmpty()
 	resource := resourceSpan.Resource()
 	sr.fillResource(&resource, envlp, r)
 	scopeSpans := resourceSpan.ScopeSpans().AppendEmpty()
-	if envlp.EnvelopType == models.ENVELOP_TYPE_SESSION {
+
+	switch envlp.EnvelopType {
+	case models.ENVELOP_TYPE_SESSION:
 		sr.appendScopeSpansForSessionEvent(&scopeSpans, envlp, r)
-	} else {
+	case models.ENVELOP_TYPE_TRANSACTION, models.ENVELOP_TYPE_EVENT:
 		sr.appendScopeSpans(&scopeSpans, envlp, r)
+	default:
+		sr.logger.Sugar().Warnf("Unknown EnvelopType: %v", envlp.EnvelopType)
 	}
+
 	return traces, nil
 }
 
