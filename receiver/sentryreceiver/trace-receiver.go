@@ -128,10 +128,8 @@ func (sr *sentrytraceReceiver) Shutdown(ctx context.Context) error {
 	sr.logger.Info("SentryReceiver is shutdown")
 	return nil
 }
-
 func (sr *sentrytraceReceiver) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-
 	ctx = sr.obsrecvr.StartTracesOp(ctx)
 
 	// HSTS header for request
@@ -151,7 +149,6 @@ func (sr *sentrytraceReceiver) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	_ = r.Body.Close()
 
 	var td ptrace.Traces
-	var err error
 	envlp, err := sr.ParseEnvelopEvent(string(slurp))
 	if err != nil {
 		sr.logger.Sugar().Errorf("Error parsing envelop: %+v", err)
@@ -168,17 +165,19 @@ func (sr *sentrytraceReceiver) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	sr.logger.Sugar().Debugf("For %v got trace with %v SpanCount(): %+v", envlp.EnvelopTypeHeader.Type, td.SpanCount(), td)
+	// ✅ Fixed: removed embedded struct field usage
+	sr.logger.Sugar().Debugf("For %v got trace with %v SpanCount(): %+v", envlp.Type, td.SpanCount(), td)
 
 	consumerErr := sr.nextConsumer.ConsumeTraces(ctx, td)
 	sr.obsrecvr.EndTracesOp(ctx, "sentryReceiverTagValue", td.SpanCount(), consumerErr)
 
 	if consumerErr == nil {
 		var resp []byte
+		// ✅ Fixed: removed embedded struct field usage
 		if envlp.EnvelopType == models.ENVELOP_TYPE_SESSION {
 			resp = []byte("{}")
 		} else {
-			resp = []byte(fmt.Sprintf("{\"id\": \"%v\"}", envlp.EnvelopEventHeader.EventID))
+			resp = []byte(fmt.Sprintf("{\"id\": \"%v\"}", envlp.EventID))
 		}
 		if _, wErr := w.Write(resp); wErr != nil {
 			sr.logger.Sugar().Errorf("Failed to write response: %+v", wErr)
