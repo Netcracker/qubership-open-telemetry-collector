@@ -248,7 +248,7 @@ func (sr *sentrytraceReceiver) toTraceSpans(envlp *models.EnvelopEventParseResul
 
 func (sr *sentrytraceReceiver) fillResource(resource *pcommon.Resource, envlp *models.EnvelopEventParseResult, r *http.Request) {
 	attrs := resource.Attributes()
-	attrs.PutStr(conventions.AttributeTelemetrySDKName, envlp.SdkInfo.Name) // direct access
+	attrs.PutStr(conventions.AttributeTelemetrySDKName, envlp.Name)
 	attrs.PutStr(conventions.AttributeServiceName, sr.GetServiceName(r))
 	attrs.PutStr("trace.source.type", "sentry")
 }
@@ -488,6 +488,13 @@ func (sr *sentrytraceReceiver) appendScopeSpans(scopeSpans *ptrace.ScopeSpans, e
 			}
 
 			for k, v := range sentrySpan.Data {
+				if timestampSpanDataAttributes[k] {
+					val, ok := v.(float64)
+					if ok {
+						span.Attributes().PutDouble(k, val)
+						continue
+					}
+				}
 				switch valTyped := v.(type) {
 				case float64:
 					_, frac := math.Modf(valTyped)
