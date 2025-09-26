@@ -168,7 +168,7 @@ func (gs *GraylogSender) SendToQueue(m *Message) error {
 	case gs.msgQueue <- m:
 		return nil
 	default:
-		err := fmt.Errorf("Chan is full")
+		err := fmt.Errorf("chan is full")
 		return err
 	}
 }
