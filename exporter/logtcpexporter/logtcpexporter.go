@@ -65,7 +65,7 @@ func (lte *logTcpExporter) start(_ context.Context, host component.Host) (err er
 	var exists bool
 	browserLogLevel, exists = os.LookupEnv("BROWSER_LOG_LEVEL")
 	if !exists {
-		browserLogLevel = "WARN" // Default value if not set
+		browserLogLevel = "WARN" // Default value if  the value is not set
 	}
 	lte.logger.Sugar().Infof("BROWSER_LOG_LEVEL  is: %s", browserLogLevel)
 	if val, exists := os.LookupEnv("ENABLE_BREADCRUMBS"); exists {
