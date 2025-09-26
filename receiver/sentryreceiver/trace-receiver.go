@@ -249,7 +249,7 @@ func (sr *sentrytraceReceiver) toTraceSpans(envlp *models.EnvelopEventParseResul
 
 func (sr *sentrytraceReceiver) fillResource(resource *pcommon.Resource, envlp *models.EnvelopEventParseResult, r *http.Request) {
 	attrs := resource.Attributes()
-	attrs.PutStr(conventions.AttributeTelemetrySDKName, envlp.EnvelopEventHeader.SdkInfo.Name)
+	attrs.PutStr(conventions.AttributeTelemetrySDKName, envlp.SdkInfo.Name) // direct access
 	attrs.PutStr(conventions.AttributeServiceName, sr.GetServiceName(r))
 	attrs.PutStr("trace.source.type", "sentry")
 }
@@ -566,38 +566,6 @@ func (sr *sentrytraceReceiver) appendScopeSpans(scopeSpans *ptrace.ScopeSpans, e
 			span.SetKind(ptrace.SpanKindClient)
 		}
 	}
-}
-
-var levelRating = map[string]int{
-	"fatal":   6,
-	"error":   5,
-	"warning": 4,
-	"log":     3,
-	"info":    2,
-	"debug":   1,
-}
-
-var ratingLevel = map[int]string{
-	6: "fatal",
-	5: "error",
-	4: "warning",
-	3: "log",
-	2: "info",
-	1: "debug",
-}
-
-func (sr *sentrytraceReceiver) evaluateLevel(event models.Event) string {
-	if sr.config.LevelEvaluationStrategy == "" {
-		return event.Level
-	}
-	maxLevel := levelRating[event.Level]
-	for _, envBr := range event.Breadcrumbs {
-		brLevel := levelRating[envBr.Level]
-		if brLevel > maxLevel {
-			maxLevel = brLevel
-		}
-	}
-	return ratingLevel[maxLevel]
 }
 
 func (sr *sentrytraceReceiver) appendScopeSpansForSessionEvent(scopeSpans *ptrace.ScopeSpans, envlp *models.EnvelopEventParseResult, r *http.Request) {
