@@ -16,7 +16,10 @@ package logtcpexporter
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -27,12 +30,15 @@ import (
 	"github.com/Netcracker/qubership-open-telemetry-collector/common/graylog"
 	"github.com/Netcracker/qubership-open-telemetry-collector/exporter/logtcpexporter/atl/atlmarshaller"
 	"github.com/Netcracker/qubership-open-telemetry-collector/utils"
-
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/exporter"
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/ptrace"
 )
+
+var browserLogLevel string
+
+var enable_breadcrumbs bool = false
 
 type logTcpExporter struct {
 	url                string
@@ -56,6 +62,19 @@ func createLogTcpExporter(cfg *Config, settings exporter.Settings) *logTcpExport
 }
 
 func (lte *logTcpExporter) start(_ context.Context, host component.Host) (err error) {
+	var exists bool
+	browserLogLevel, exists = os.LookupEnv("BROWSER_LOG_LEVEL")
+	if !exists {
+		browserLogLevel = "WARN" // Default value if  the value is not set
+	}
+	lte.logger.Sugar().Infof("BROWSER_LOG_LEVEL  is: %s", browserLogLevel)
+	if val, exists := os.LookupEnv("ENABLE_BREADCRUMBS"); exists {
+		parsed, err := strconv.ParseBool(val)
+		enable_breadcrumbs = (err == nil) && parsed
+	}
+
+	lte.logger.Sugar().Infof("ENABLE_BREADCRUMBS  is: %s", enable_breadcrumbs)
+
 	var address string
 	var port uint64
 	endpointSplitted := strings.Split(lte.url, ":")
@@ -64,18 +83,18 @@ func (lte *logTcpExporter) start(_ context.Context, host component.Host) (err er
 		port = 12201
 	} else if len(endpointSplitted) > 1 {
 		address = endpointSplitted[0]
-		port, err = strconv.ParseUint(endpointSplitted[1], 10, 32)
-		if err != nil || port < 1 || port > 65535 {
-			errMsg := fmt.Sprintf("invalid port in endpoint: %v : %+v", endpointSplitted[1], err)
+		port, err = strconv.ParseUint(endpointSplitted[1], 10, 64)
+		if err != nil {
+			errMsg := fmt.Sprintf("Error parsing %v port number to uint64 : %+v\n", endpointSplitted[1], err)
 			lte.logger.Error(errMsg)
-			return fmt.Errorf("%s", errMsg)
+			return errors.New(errMsg)
 		}
 	}
 	freezeTime, err := time.ParseDuration(lte.config.SuccessiveSendErrFreezeTime)
 	if err != nil {
-		errMsg := fmt.Sprintf("lte.config.successiveSendErrFreezeTime is not parsable : %+v", err)
+		errMsg := fmt.Sprintf("lte.config.successiveSendErrFreezeTime is not parseable : %+v", err)
 		lte.logger.Error(errMsg)
-		return fmt.Errorf("%s", errMsg)
+		return errors.New(errMsg)
 	}
 	lte.graylogSender = graylog.NewGraylogSender(
 		graylog.Endpoint{
@@ -99,8 +118,8 @@ func (lte *logTcpExporter) pushTraces(ctx context.Context, traces ptrace.Traces)
 	lte.logger.Sugar().Debugf("PushTraces : isSentryTrace = %v; traceFilterEnabled = %v; spanFilterEnabled = %v", isSentry, lte.traceFilterEnabled, lte.spanFilterEnabled)
 
 	if lte.traceFilterEnabled {
-		err := lte.sendArbitraryLoggingTrace(traces)
-		if err != nil {
+		if err := lte.sendArbitraryLoggingTrace(traces); err != nil {
+
 			return err
 		}
 	}
@@ -119,15 +138,16 @@ func (lte *logTcpExporter) pushTraces(ctx context.Context, traces ptrace.Traces)
 				if isSentry {
 					if span.Name() == "Event" {
 						if err := lte.sendSentrySpan(span); err != nil {
-							lte.logger.Sugar().Errorf("Failed to send sentry span: %v", err)
+							return err
 						}
 					}
 				}
 				if lte.spanFilterEnabled {
 					if err := lte.sendArbitraryLoggingSpan(span); err != nil {
-						lte.logger.Sugar().Errorf("Failed to send arbitrary logging span: %v", err)
+						return err
 					}
 				}
+
 			}
 		}
 	}
@@ -430,9 +450,14 @@ func (lte *logTcpExporter) getTimeFromSpanFields(span ptrace.Span, spanFields []
 }
 
 func (lte *logTcpExporter) sendSentrySpan(span ptrace.Span) error {
-	var spanIdStr, traceIdStr, levelStr, sdkStr, messageStr, fullMessageStr, eventIdStr, versionStr, nameStr, platformStr, userIdStr, transactionStr, categoryStr, urlStr, browserStr string
+	var contextsBodyStr, spanIdStr, traceIdStr, levelStr, sdkStr, messageStr, fullMessageStr, eventIdStr, versionStr, nameStr, platformStr, userIdStr, transactionStr, categoryStr, urlStr, namespaceStr, browserStr string
 	var graylogLevel uint
 	var timestampUnix int64
+
+	contextsBody, ok := span.Attributes().Get("contexts")
+	if ok {
+		contextsBodyStr = contextsBody.AsString()
+	}
 
 	spanId, ok := span.Attributes().Get("contexts.trace.span_id")
 	if ok {
@@ -530,6 +555,10 @@ func (lte *logTcpExporter) sendSentrySpan(span ptrace.Span) error {
 		browserStr = browser.AsString()
 	}
 
+	namespace, ok := span.Attributes().Get("namespace")
+	if ok {
+		namespaceStr = namespace.AsString()
+	}
 	timestampParsed := time.Unix(timestampUnix, 0)
 	msg := graylog.Message{
 		Version:      versionStr,
@@ -549,75 +578,91 @@ func (lte *logTcpExporter) sendSentrySpan(span ptrace.Span) error {
 			"name":        nameStr,
 			"platform":    platformStr,
 			"time":        timestampParsed.Format(time.RFC3339),
-			"user_id":     userIdStr,
+			"user_name":   userIdStr,
 			"transaction": transactionStr,
 			"category":    categoryStr,
 			"url":         urlStr,
 			"browser":     browserStr,
+			"namespace":   namespaceStr,
+			"contexts":    contextsBodyStr,
 		},
 	}
-	err := lte.graylogSender.SendToQueue(&msg)
-	if err != nil {
-		lte.logger.Sugar().Errorf("Message with trace_id %v and span_id %v has not been put to the graylog queue: %+v\n", traceIdStr, spanIdStr, err)
-		return err
-	}
-	lte.logger.Sugar().Debugf("Message with trace_id %v and span_id %v has been put successfully to the graylog queue\n", traceIdStr, spanIdStr)
+	if graylogLevel <= lte.getGraylogLevel(browserLogLevel) {
 
-	if graylogLevel == 3 {
-		breadcrumbs, ok := span.Attributes().Get("breadcrumbs")
-		if !ok {
-			return nil
+		err := lte.graylogSender.SendToQueue(&msg)
+		if err != nil {
+			lte.logger.Sugar().Errorf("Message with trace_id %v and span_id %v has not been put to the graylog queue: %+v\n", traceIdStr, spanIdStr, err)
+			return err
 		}
-		breadcrumbsList := breadcrumbs.Slice().AsRaw()
-		for i, breadcrumb := range breadcrumbsList {
-			breadcrumbMap, ok := breadcrumb.(map[string]interface{})
+		lte.logger.Sugar().Debugf("Message with trace_id %v and span_id %v has been put successfully to the graylog queue\n", traceIdStr, spanIdStr)
+	}
+	if enable_breadcrumbs {
+		if graylogLevel <= lte.getGraylogLevel(browserLogLevel) {
+			breadcrumbs, ok := span.Attributes().Get("breadcrumbs")
 			if !ok {
-				lte.logger.Sugar().Errorf("Type assertion error : got type %v", reflect.TypeOf(breadcrumb))
+				return nil
 			}
-			levelB, _ := breadcrumbMap["level"].(string)
-			timestampB, _ := breadcrumbMap["timestamp"].(float64)
-			timestampUnixB := int64(timestampB)
-			categoryB, _ := breadcrumbMap["category"].(string)
-			messageB, _ := breadcrumbMap["message"].(string)
-			statusB, _ := breadcrumbMap["status"].(string)
+			breadcrumbsList := breadcrumbs.Slice().AsRaw()
+			for i, breadcrumb := range breadcrumbsList {
+				breadcrumbMap, ok := breadcrumb.(map[string]interface{})
+				if !ok {
+					lte.logger.Sugar().Errorf("Type assertion error : got type %v", reflect.TypeOf(breadcrumb))
+				}
 
-			extra := map[string]string{
-				"span_id":     spanIdStr,
-				"trace_id":    traceIdStr,
-				"component":   "frontend",
-				"facility":    "open-telemetry-collector",
-				"sdk":         sdkStr,
-				"stacktrace":  fullMessageStr,
-				"event_id":    eventIdStr,
-				"name":        nameStr,
-				"platform":    platformStr,
-				"time":        timestampParsed.Format(time.RFC3339),
-				"user_id":     userIdStr,
-				"transaction": transactionStr,
-				"category":    getFirst(categoryB, categoryStr),
-				"url":         urlStr,
-				"browser":     browserStr,
-			}
+				// Convert breadcrumbMap to JSON string
+				breadcrumbJSON, errorbreadcrumb := json.Marshal(breadcrumbMap)
+				if errorbreadcrumb != nil {
+					lte.logger.Sugar().Errorf("Failed to marshal breadcrumb: %v", errorbreadcrumb)
+					return errorbreadcrumb
+				}
+				breadcrumbStr := string(breadcrumbJSON)
 
-			if statusB != "" {
-				extra["status"] = statusB
-			}
+				levelB, _ := breadcrumbMap["level"].(string)
+				timestampB, _ := breadcrumbMap["timestamp"].(float64)
+				timestampUnixB := int64(timestampB)
+				categoryB, _ := breadcrumbMap["category"].(string)
+				messageB, _ := breadcrumbMap["message"].(string)
+				statusB, _ := breadcrumbMap["status"].(string)
 
-			msg := graylog.Message{
-				Version:      versionStr,
-				Host:         "user_browser",
-				ShortMessage: getFirst(messageB, messageStr),
-				FullMessage:  fullMessageStr,
-				Timestamp:    getFirstInt64(timestampUnixB, timestampUnix),
-				Level:        lte.getGraylogLevel(getFirst(levelB, levelStr)),
-				Extra:        extra,
+				extra := map[string]string{
+					"span_id":     spanIdStr,
+					"trace_id":    traceIdStr,
+					"component":   "frontend",
+					"facility":    "open-telemetry-collector",
+					"sdk":         sdkStr,
+					"stacktrace":  fullMessageStr,
+					"event_id":    eventIdStr,
+					"name":        nameStr,
+					"platform":    platformStr,
+					"time":        timestampParsed.Format(time.RFC3339),
+					"user_name":   userIdStr,
+					"transaction": transactionStr,
+					"category":    getFirst(categoryB, categoryStr),
+					"url":         urlStr,
+					"browser":     browserStr,
+				}
+
+				if statusB != "" {
+					extra["status"] = statusB
+				}
+
+				msg := graylog.Message{
+					Version:      versionStr,
+					Host:         "user_browser",
+					ShortMessage: getFirst(messageB, "No message present for this breadcrumb"),
+					FullMessage:  "No full message for breadcrumbs",
+					Timestamp:    getFirstInt64(timestampUnixB, timestampUnix),
+					Level:        lte.getGraylogLevel(getFirst(levelB, levelStr)),
+					Extra:        extra,
+					Breadcrumb:   breadcrumbStr,
+				}
+				err := lte.graylogSender.SendToQueue(&msg)
+				if err != nil {
+					lte.logger.Sugar().Errorf("Message with trace_id %v and span_id %v has not been put to the graylog queue for breadcrumb %v : %+v\n", traceIdStr, spanIdStr, i, err)
+					return err
+				}
+				lte.logger.Sugar().Debugf("Message with trace_id %v and span_id %v has been put successfully to the graylog queue for breadcrumb %v\n", traceIdStr, spanIdStr, i)
 			}
-			err := lte.graylogSender.SendToQueue(&msg)
-			if err != nil {
-				lte.logger.Sugar().Errorf("Message with trace_id %v and span_id %v has not been put to the graylog queue for breadcrumb %v : %+v\n", traceIdStr, spanIdStr, i, err)
-				return err
-			}
-			lte.logger.Sugar().Debugf("Message with trace_id %v and span_id %v has been put successfully to the graylog queue for breadcrumb %v\n", traceIdStr, spanIdStr, i)
 		}
 	}
 	return nil

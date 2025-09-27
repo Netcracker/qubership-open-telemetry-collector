@@ -58,14 +58,46 @@ type Breadcrumb struct {
 }
 
 func (d *StrongString) UnmarshalJSON(data []byte) error {
-	var maxAllowedLength = 50 * 1024 * 1024 // Limit Message to 50 MB
-	if len(data) > maxAllowedLength {
-		return fmt.Errorf("StrongString: data length %d is more than allowed length %d", len(data), maxAllowedLength)
+	// Case 1: Try unmarshalling the data as a plain string.
+	var str string
+	if err := json.Unmarshal(data, &str); err == nil {
+		*d = StrongString(str)
+		return nil
 	}
-	// formattedData := StrongString(string(data))
-	*d = StrongString(string(data))
-	return nil
+
+	// Case 2: Try unmarshalling the data as an array of objects.
+	var arr []map[string]interface{}
+	if err := json.Unmarshal(data, &arr); err == nil {
+		// Convert the entire JSON array to a string
+		arrayAsString, err := json.Marshal(arr)
+		if err != nil {
+			return fmt.Errorf("failed to convert array to string: %v", err)
+		}
+
+		*d = StrongString(string(arrayAsString))
+		return nil
+	}
+
+	// If neither string nor array of objects, return an error.
+	return fmt.Errorf("message must be a string or a valid JSON array, got: %s", string(data))
 }
+
+// func (d *StrongString) UnmarshalJSON(data []byte) error {
+// 	// Create a new StrongString from the incoming data
+// 	formattedData := StrongString(string(data))
+
+// 	// Dereference the pointer d and assign the value to it
+// 	*d = formattedData
+
+// 	return nil
+// }
+
+//Below is og unmarshlling written by Andrey
+// func (d *StrongString) UnmarshalJSON(data []byte) error {
+// 	formattedData := StrongString(string(data))
+// 	d = &formattedData
+// 	return nil
+// }
 
 type EventRequest struct {
 	URL     string            `json:"url,omitempty"`
@@ -93,6 +125,7 @@ type Event struct {
 	Sdk            SdkInfo                     `json:"sdk,omitempty"`
 	Exception      EventException              `json:"exception,omitempty"`
 	Logger         string                      `json:"logger,omitempty"`
+	Namespace      string                      `json:"namespace,omitempty"`
 }
 
 type SessionEvent struct {
@@ -127,7 +160,9 @@ type EventUser struct {
 }
 
 type EventContexts struct {
-	Trace struct {
+	Page    map[string]interface{} `json:"page,omitempty"`
+	Request map[string]interface{} `json:"request,omitempty"`
+	Trace   struct {
 		Op      string `json:"op,omitempty"`
 		SpanID  string `json:"span_id,omitempty"`
 		TraceID string `json:"trace_id,omitempty"`
