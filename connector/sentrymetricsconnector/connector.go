@@ -31,8 +31,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// const scopeName = "otelcol/sentrymetricsconnector"
-
 // sentrymetrics can evaluate metrics based on sentry traces
 // and emit them to a metrics pipeline.
 type sentrymetrics struct {
@@ -40,8 +38,7 @@ type sentrymetrics struct {
 	metricsConsumer consumer.Metrics
 	component.StartFunc
 	component.ShutdownFunc
-	logger *zap.Logger
-	//	counter                    int64
+	logger                     *zap.Logger
 	measurementsHist           *metrics.CustomHistogram
 	measurementsBuckets        map[string][]float64
 	defaultMeasurementsBuckets []float64
@@ -80,6 +77,8 @@ func (c *sentrymetrics) ConsumeTraces(ctx context.Context, td ptrace.Traces) err
 	countMetrics := pmetric.NewMetrics()
 	resourceMetric := countMetrics.ResourceMetrics().AppendEmpty()
 	scopeMetrics := resourceMetric.ScopeMetrics().AppendEmpty()
+
+	// Check errors from metric calculation functions
 	if err := c.calculateSessionCountMetric(scopeMetrics.Metrics().AppendEmpty(), td); err != nil {
 		return err
 	}
@@ -89,6 +88,7 @@ func (c *sentrymetrics) ConsumeTraces(ctx context.Context, td ptrace.Traces) err
 	if err := c.calculateMeasurementsMetric(scopeMetrics.Metrics().AppendEmpty(), td); err != nil {
 		return err
 	}
+
 	return c.metricsConsumer.ConsumeMetrics(ctx, countMetrics)
 }
 
@@ -129,8 +129,15 @@ func (c *sentrymetrics) calculateSessionCountMetric(metric pmetric.Metric, td pt
 				if ok {
 					serviceNameStr = serviceName.AsString()
 				}
+
+				var namespaceStr string
+				namespace, ok := span.Attributes().Get("namespace")
+				if ok {
+					namespaceStr = namespace.AsString()
+				}
 				dataPoint := dataPoints.AppendEmpty()
 				dataPoint.Attributes().PutStr("service_name", serviceNameStr)
+				dataPoint.Attributes().PutStr("namespace", namespaceStr)
 				dataPoint.SetDoubleValue(1.0)
 			}
 		}
@@ -164,7 +171,15 @@ func (c *sentrymetrics) calculateEventCountMetric(metric pmetric.Metric, td ptra
 				if envelopTypeInt != models.ENVELOP_TYPE_EVENT {
 					continue
 				}
+
+				var namespaceStr string
+				namespace, ok := span.Attributes().Get("namespace")
+				if ok {
+					namespaceStr = namespace.AsString()
+				}
+
 				dataPoint := dataPoints.AppendEmpty()
+				dataPoint.Attributes().PutStr("namespace", namespaceStr)
 				dataPoint.SetDoubleValue(1.0)
 				labels := c.getLabels(span, labelsToExtract)
 				for labelName, labelValue := range labels {
@@ -179,6 +194,8 @@ func (c *sentrymetrics) calculateEventCountMetric(metric pmetric.Metric, td ptra
 
 func (c *sentrymetrics) calculateMeasurementsMetric(metric pmetric.Metric, td ptrace.Traces) error {
 	rss := td.ResourceSpans()
+	var namespaceStr string
+
 	for i := 0; i < rss.Len(); i++ {
 		rs := rss.At(i)
 		ilss := rs.ScopeSpans()
@@ -193,6 +210,11 @@ func (c *sentrymetrics) calculateMeasurementsMetric(metric pmetric.Metric, td pt
 				}
 				if envelopTypeInt != models.ENVELOP_TYPE_TRANSACTION {
 					continue
+				}
+
+				namespace, ok := span.Attributes().Get("namespace")
+				if ok {
+					namespaceStr = namespace.AsString()
 				}
 				var measurementsCommonMap pcommon.Map
 				measurements, ok := span.Attributes().Get("measurements")
@@ -252,7 +274,7 @@ func (c *sentrymetrics) calculateMeasurementsMetric(metric pmetric.Metric, td pt
 			}
 		}
 	}
-	c.measurementsHist.UpdateDataPoints(metric)
+	c.measurementsHist.UpdateDataPoints(metric, namespaceStr)
 
 	return nil
 }
