@@ -56,7 +56,7 @@ Also there are custom implementations for
 * [sentryreceiver](../receiver/sentryreceiver), see also the [document](sentry-receiver.md#sentry-envelope-mapping-to-jaeger-traces)
 * [sentrymetricsconnector](../connector/sentrymetricsconnector), see also the [document](sentry-receiver.md#sentry-envelope-to-metrics)
 * [logtcpexporter](../exporter/logtcpexporter), see also the [document](sentry-receiver.md#sentry-envelope-to-logs-records-graylog-mapping)
-* [logtcpexporter](../exporter/graylogexporter)
+* [graylogexporter](../exporter/graylogexporter), for detailed configurations to forward logs see also [document](graylog-exporter.md)
 
 All third-party and custom modules are listed in [builder-config.yaml](../builder-config.yaml).
 
