@@ -48,7 +48,7 @@ data:
       graylogexporter:
         endpoint: {{ .Values.GRAYLOG_COLLECTOR_HOST }}:{{ .Values.GRAYLOG_COLLECTOR_PORT }}
         {{- toYaml (.Values.OTEC_GRAYLOGEXPORTER_PARAMETERS) | nindent 8 }}
-        field-mapping:
+        field_mapping:
         {{- toYaml .Values.OTEC_GELF_FIELD_MAPPING | nindent 10 }}
     {{- end }}
       debug:
@@ -113,9 +113,15 @@ data:
           receivers: [spanmetrics]
           exporters: [prometheus]
         logs:
+          {{- if .Values.OTEC_ENABLE_LOGDEDUP_PROCESSOR }}
           receivers: [otlp]
           processors: [logdedup, batch]
-          exporters: [debug, graylogexporter]
+          exporters: [graylogexporter]
+          {{- else if .Values.OTEC_ENABLE_LOGGING | default false }}
+          receivers: [otlp]
+          processors: [batch]
+          exporters: [graylogexporter]
+          {{- end }}
       telemetry:
         logs:
           level: "{{ .Values.LOG_LEVEL }}"
