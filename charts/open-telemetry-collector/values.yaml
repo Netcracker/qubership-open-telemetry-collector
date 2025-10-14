@@ -304,6 +304,11 @@ OTEC_HEALTH_CHECK_PORT: 13133
 #
 OTEC_ENABLE_LOGGING: true
 
+# Allows to forward all logs to graylog
+# Default: false
+#
+OTEC_ENABLE_LOGDEDUP_PROCESSOR: true
+
 # Allows to enable arbitrary traces logging
 # Type: boolean
 # Default: false

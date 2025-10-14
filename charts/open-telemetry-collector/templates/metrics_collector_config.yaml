@@ -113,12 +113,11 @@ data:
           receivers: [spanmetrics]
           exporters: [prometheus]
         logs:
-          {{- if .Values.OTEC_LOGDEDUP_PROCESSOR_PARAMETERS }}
+          {{- if .Values.OTEC_ENABLE_LOGDEDUP_PROCESSOR }}
           receivers: [otlp]
           processors: [logdedup, batch]
           exporters: [graylogexporter]
-          {{- end }}
-          {{- if .Values.OTEC_ENABLE_LOGGING | default false }}
+          {{- else if .Values.OTEC_ENABLE_LOGGING | default false }}
           receivers: [otlp]
           processors: [batch]
           exporters: [graylogexporter]
