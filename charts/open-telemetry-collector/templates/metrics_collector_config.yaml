@@ -113,9 +113,16 @@ data:
           receivers: [spanmetrics]
           exporters: [prometheus]
         logs:
+          {{- if .Values.OTEC_LOGDEDUP_PROCESSOR_PARAMETERS }}
           receivers: [otlp]
           processors: [logdedup, batch]
-          exporters: [debug, graylogexporter]
+          exporters: [graylogexporter]
+          {{- end }}
+          {{- if .Values.OTEC_ENABLE_LOGGING | default false }}
+          receivers: [otlp]
+          processors: [batch]
+          exporters: [graylogexporter]
+          {{- end }}
       telemetry:
         logs:
           level: "{{ .Values.LOG_LEVEL }}"
