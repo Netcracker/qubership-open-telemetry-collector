@@ -132,7 +132,6 @@ func (sr *sentrytraceReceiver) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	ctx := r.Context()
 	ctx = sr.obsrecvr.StartTracesOp(ctx)
 
-	// HSTS header for request
 	w.Header().Set("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload")
 
 	pr := processBodyIfNecessary(r)
@@ -165,7 +164,6 @@ func (sr *sentrytraceReceiver) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// ✅ Fixed: removed embedded struct field usage
 	sr.logger.Sugar().Debugf("For %v got trace with %v SpanCount(): %+v", envlp.Type, td.SpanCount(), td)
 
 	consumerErr := sr.nextConsumer.ConsumeTraces(ctx, td)
@@ -173,7 +171,7 @@ func (sr *sentrytraceReceiver) ServeHTTP(w http.ResponseWriter, r *http.Request)
 
 	if consumerErr == nil {
 		var resp []byte
-		// ✅ Fixed: removed embedded struct field usage
+
 		if envlp.EnvelopType == models.ENVELOP_TYPE_SESSION {
 			resp = []byte("{}")
 		} else {
@@ -262,7 +260,6 @@ func (sr *sentrytraceReceiver) appendScopeSpans(scopeSpans *ptrace.ScopeSpans, e
 		eventTransaction := event.Transaction
 		eventTransactionPath := sr.removeIdFromURL(eventTransaction)
 
-		// ✅ Use tagged switch instead of if/else for EnvelopType
 		switch envlp.EnvelopType {
 		case models.ENVELOP_TYPE_TRANSACTION:
 			rootSpan.SetName(eventTransactionPath + " " + event.Contexts.Trace.Op)
@@ -285,7 +282,6 @@ func (sr *sentrytraceReceiver) appendScopeSpans(scopeSpans *ptrace.ScopeSpans, e
 				rootSpan.Status().SetCode(ptrace.StatusCodeError)
 			}
 
-			// ✅ Access SdkInfo safely to avoid staticcheck warning
 			sdkName := ""
 			if event.Sdk.Name != "" {
 				sdkName = event.Sdk.Name
@@ -350,7 +346,6 @@ func (sr *sentrytraceReceiver) appendScopeSpans(scopeSpans *ptrace.ScopeSpans, e
 		rootSpan.SetEndTimestamp(pcommon.NewTimestampFromTime(endTime))
 		rootSpan.Attributes().PutInt("sentry.envelop.type.int", int64(envlp.EnvelopType))
 
-		// Service / request info
 		if name := sr.GetServiceName(r); name != "" {
 			rootSpan.Attributes().PutStr("name", name)
 		}
@@ -380,7 +375,6 @@ func (sr *sentrytraceReceiver) appendScopeSpans(scopeSpans *ptrace.ScopeSpans, e
 			rootSpan.Attributes().PutStr("environment", env)
 		}
 
-		// Measurements
 		measurements := rootSpan.Attributes().PutEmptyMap("measurements")
 		for k, m := range event.Measurements {
 			mMap := measurements.PutEmptyMap(k)
@@ -389,12 +383,10 @@ func (sr *sentrytraceReceiver) appendScopeSpans(scopeSpans *ptrace.ScopeSpans, e
 		}
 		rootSpan.SetKind(ptrace.SpanKindClient)
 
-		// Tags
 		for k, v := range event.Tags {
 			rootSpan.Attributes().PutStr("tags."+k, fmt.Sprintf("%v", v))
 		}
 
-		// URL query parameters
 		if reqURL := event.Request.URL; reqURL != "" {
 			if urlParsed, err := url.Parse(reqURL); err == nil {
 				for _, qParam := range sr.config.HttpQueryParamValuesToAttrs {
@@ -418,7 +410,6 @@ func (sr *sentrytraceReceiver) appendScopeSpans(scopeSpans *ptrace.ScopeSpans, e
 			}
 		}
 
-		// Context span attributes
 		for _, contextParam := range sr.config.ContextSpanAttributesList {
 			val := event.Contexts.AsMap[contextParam]
 			if val == nil {
@@ -434,7 +425,6 @@ func (sr *sentrytraceReceiver) appendScopeSpans(scopeSpans *ptrace.ScopeSpans, e
 			}
 		}
 
-		// Breadcrumbs
 		breadcrumbs := rootSpan.Attributes().PutEmptySlice("breadcrumbs")
 		for _, envBr := range event.Breadcrumbs {
 			dataJson, err := json.Marshal(envBr.Data)
@@ -453,7 +443,6 @@ func (sr *sentrytraceReceiver) appendScopeSpans(scopeSpans *ptrace.ScopeSpans, e
 
 		rootSpan.Attributes().PutStr(conventions.AttributeEnduserID, event.User.Id)
 
-		// Inner spans
 		for _, sentrySpan := range event.Spans {
 			span := scopeSpans.Spans().AppendEmpty()
 			startTime := GetUnixTimeFromFloat64(sentrySpan.StartTimestamp)

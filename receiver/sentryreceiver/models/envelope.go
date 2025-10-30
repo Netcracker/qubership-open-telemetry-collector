@@ -58,17 +58,16 @@ type Breadcrumb struct {
 }
 
 func (d *StrongString) UnmarshalJSON(data []byte) error {
-	// Case 1: Try unmarshalling the data as a plain string.
+
 	var str string
 	if err := json.Unmarshal(data, &str); err == nil {
 		*d = StrongString(str)
 		return nil
 	}
 
-	// Case 2: Try unmarshalling the data as an array of objects.
 	var arr []map[string]interface{}
 	if err := json.Unmarshal(data, &arr); err == nil {
-		// Convert the entire JSON array to a string
+
 		arrayAsString, err := json.Marshal(arr)
 		if err != nil {
 			return fmt.Errorf("failed to convert array to string: %v", err)
@@ -78,26 +77,8 @@ func (d *StrongString) UnmarshalJSON(data []byte) error {
 		return nil
 	}
 
-	// If neither string nor array of objects, return an error.
 	return fmt.Errorf("message must be a string or a valid JSON array, got: %s", string(data))
 }
-
-// func (d *StrongString) UnmarshalJSON(data []byte) error {
-// 	// Create a new StrongString from the incoming data
-// 	formattedData := StrongString(string(data))
-
-// 	// Dereference the pointer d and assign the value to it
-// 	*d = formattedData
-
-// 	return nil
-// }
-
-//Below is og unmarshlling written by Andrey
-// func (d *StrongString) UnmarshalJSON(data []byte) error {
-// 	formattedData := StrongString(string(data))
-// 	d = &formattedData
-// 	return nil
-// }
 
 type EventRequest struct {
 	URL     string            `json:"url,omitempty"`

@@ -85,7 +85,7 @@ func (lte *logTcpExporter) start(_ context.Context, host component.Host) (err er
 		address = endpointSplitted[0]
 		port, err = strconv.ParseUint(endpointSplitted[1], 10, 64)
 		if err != nil {
-			errMsg := fmt.Sprintf("Error parsing %v port number to uint64 : %+v\n", endpointSplitted[1], err)
+			errMsg := fmt.Sprintf("Error parsing %v port number to uint64 : %+v", endpointSplitted[1], err)
 			lte.logger.Error(errMsg)
 			return errors.New(errMsg)
 		}
@@ -164,7 +164,7 @@ func (lte *logTcpExporter) sendArbitraryLoggingTrace(traces ptrace.Traces) error
 
 	messageBytes, err := atlmarshaller.MarshalTraces(traces)
 	if err != nil {
-		lte.logger.Sugar().Errorf("Arbitrary logging : Error marshalling trace : %+v\n", err)
+		lte.logger.Sugar().Errorf("Arbitrary logging : Error marshalling trace : %+v", err)
 		return err
 	}
 	traceId := lte.getTraceId(traces)
@@ -184,10 +184,10 @@ func (lte *logTcpExporter) sendArbitraryLoggingTrace(traces ptrace.Traces) error
 	}
 	err = lte.graylogSender.SendToQueue(&msg)
 	if err != nil {
-		lte.logger.Sugar().Errorf("Arbitrary logging : Message with timestamp %v has not been put to the graylog queue: %+v\n", msg.Timestamp, err)
+		lte.logger.Sugar().Errorf("Arbitrary logging : Message with timestamp %v has not been put to the graylog queue: %+v", msg.Timestamp, err)
 		return err
 	}
-	lte.logger.Sugar().Debugf("Arbitrary logging : Message with timestamp %v has been put successfully to the graylog queue\n", msg.Timestamp)
+	lte.logger.Sugar().Debugf("Arbitrary logging : Message with timestamp %v has been put successfully to the graylog queue", msg.Timestamp)
 
 	return nil
 }
@@ -243,10 +243,10 @@ func (lte *logTcpExporter) sendArbitraryLoggingSpan(span ptrace.Span) error {
 	}
 	err := lte.graylogSender.SendToQueue(&msg)
 	if err != nil {
-		lte.logger.Sugar().Errorf("Arbitrary logging : Message with timestamp %v has not been put to the graylog queue: %+v\n", msg.Timestamp, err)
+		lte.logger.Sugar().Errorf("Arbitrary logging : Message with timestamp %v has not been put to the graylog queue: %+v", msg.Timestamp, err)
 		return err
 	}
-	lte.logger.Sugar().Debugf("Arbitrary logging : Message with timestamp %v has been put successfully to the graylog queue\n", msg.Timestamp)
+	lte.logger.Sugar().Debugf("Arbitrary logging : Message with timestamp %v has been put successfully to the graylog queue", msg.Timestamp)
 
 	return nil
 }
@@ -591,10 +591,10 @@ func (lte *logTcpExporter) sendSentrySpan(span ptrace.Span) error {
 
 		err := lte.graylogSender.SendToQueue(&msg)
 		if err != nil {
-			lte.logger.Sugar().Errorf("Message with trace_id %v and span_id %v has not been put to the graylog queue: %+v\n", traceIdStr, spanIdStr, err)
+			lte.logger.Sugar().Errorf("Message with trace_id %v and span_id %v has not been put to the graylog queue: %+v", traceIdStr, spanIdStr, err)
 			return err
 		}
-		lte.logger.Sugar().Debugf("Message with trace_id %v and span_id %v has been put successfully to the graylog queue\n", traceIdStr, spanIdStr)
+		lte.logger.Sugar().Debugf("Message with trace_id %v and span_id %v has been put successfully to the graylog queue", traceIdStr, spanIdStr)
 	}
 	if enable_breadcrumbs {
 		if graylogLevel <= lte.getGraylogLevel(browserLogLevel) {
@@ -658,10 +658,10 @@ func (lte *logTcpExporter) sendSentrySpan(span ptrace.Span) error {
 				}
 				err := lte.graylogSender.SendToQueue(&msg)
 				if err != nil {
-					lte.logger.Sugar().Errorf("Message with trace_id %v and span_id %v has not been put to the graylog queue for breadcrumb %v : %+v\n", traceIdStr, spanIdStr, i, err)
+					lte.logger.Sugar().Errorf("Message with trace_id %v and span_id %v has not been put to the graylog queue for breadcrumb %v : %+v", traceIdStr, spanIdStr, i, err)
 					return err
 				}
-				lte.logger.Sugar().Debugf("Message with trace_id %v and span_id %v has been put successfully to the graylog queue for breadcrumb %v\n", traceIdStr, spanIdStr, i)
+				lte.logger.Sugar().Debugf("Message with trace_id %v and span_id %v has been put successfully to the graylog queue for breadcrumb %v", traceIdStr, spanIdStr, i)
 			}
 		}
 	}
