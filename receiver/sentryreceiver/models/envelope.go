@@ -58,26 +58,26 @@ type Breadcrumb struct {
 }
 
 func (d *StrongString) UnmarshalJSON(data []byte) error {
-
-	var str string
-	if err := json.Unmarshal(data, &str); err == nil {
-		*d = StrongString(str)
-		return nil
+	if len(data) == 0 {
+		return fmt.Errorf("empty input")
 	}
 
-	var arr []map[string]interface{}
-	if err := json.Unmarshal(data, &arr); err == nil {
-
-		arrayAsString, err := json.Marshal(arr)
-		if err != nil {
-			return fmt.Errorf("failed to convert array to string: %v", err)
+	switch data[0] {
+	case '"':
+		var str string
+		if err := json.Unmarshal(data, &str); err != nil {
+			return fmt.Errorf("invalid string: %v", err)
 		}
+		*d = StrongString(str)
 
-		*d = StrongString(string(arrayAsString))
-		return nil
+	case '[':
+		*d = StrongString(string(data))
+
+	default:
+		return fmt.Errorf("message must be a string or JSON array, got: %s", string(data))
 	}
 
-	return fmt.Errorf("message must be a string or a valid JSON array, got: %s", string(data))
+	return nil
 }
 
 type EventRequest struct {
