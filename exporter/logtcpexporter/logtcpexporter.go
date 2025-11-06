@@ -19,7 +19,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -62,18 +61,14 @@ func createLogTcpExporter(cfg *Config, settings exporter.Settings) *logTcpExport
 }
 
 func (lte *logTcpExporter) start(_ context.Context, host component.Host) (err error) {
-	var exists bool
-	browserLogLevel, exists = os.LookupEnv("BROWSER_LOG_LEVEL")
-	if !exists {
-		browserLogLevel = "WARN" // Default value if  the value is not set
+	browserLogLevel := lte.config.BrowserLogLevel
+	if browserLogLevel == "" {
+		browserLogLevel = "WARN"
 	}
-	lte.logger.Sugar().Infof("BROWSER_LOG_LEVEL  is: %s", browserLogLevel)
-	if val, exists := os.LookupEnv("ENABLE_BREADCRUMBS"); exists {
-		parsed, err := strconv.ParseBool(val)
-		enable_breadcrumbs = (err == nil) && parsed
-	}
+	lte.logger.Sugar().Infof("BROWSER_LOG_LEVEL is : %s", browserLogLevel)
 
-	lte.logger.Sugar().Infof("ENABLE_BREADCRUMBS  is: %s", enable_breadcrumbs)
+	enableBreadcrumbs := lte.config.EnableBreadcrumbs
+	lte.logger.Sugar().Infof("ENABLE_BREADCRUMBS is : %v", enableBreadcrumbs)
 
 	var address string
 	var port uint64
