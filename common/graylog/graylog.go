@@ -59,6 +59,7 @@ type Message struct {
 	Timestamp    int64             `json:"timestamp,omitempty"`
 	Level        uint              `json:"level,omitempty"`
 	Extra        map[string]string `json:"-"`
+	Breadcrumb   string            `json:"breadcrumb,omitempty"`
 }
 
 func NewGraylogSender(

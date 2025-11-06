@@ -30,6 +30,8 @@ type Config struct {
 	MaxMessageSendRetryCnt      int       `mapstructure:"max-message-send-retry-count"`
 	MaxSuccessiveSendErrCnt     int       `mapstructure:"max-successive-send-error-count"`
 	SuccessiveSendErrFreezeTime string    `mapstructure:"successive-send-error-freeze-time"`
+	BrowserLogLevel             string    `mapstructure:"browser-log-level"`
+	EnableBreadcrumbs           bool      `mapstructure:"enable-breadcrumbs"`
 }
 
 var _ component.Config = (*Config)(nil)
