@@ -105,13 +105,13 @@ func (sr *sentrytraceReceiver) Start(_ context.Context, host component.Host) err
 	}
 
 	var err error
-	sr.server, err = sr.config.ServerConfig.ToServer(ctx, host.GetExtensions(), sr.settings.TelemetrySettings, sr)
+	sr.server, err = sr.config.ToServer(ctx, host.GetExtensions(), sr.settings.TelemetrySettings, sr)
 	if err != nil {
 		return err
 	}
 
 	var listener net.Listener
-	listener, err = sr.config.ServerConfig.ToListener(ctx)
+	listener, err = sr.config.ToListener(ctx)
 	if err != nil {
 		return err
 	}
