@@ -2,7 +2,7 @@ dist:
   name: qubership-otec
   description: Custom OTel Collector for qubership platform
   module: github.com/Netcracker/qubership-open-telemetry-collector
-  version: 1.2.0
+  version: 1.3.0
   output_path: ./collector
 
 connectors:
@@ -44,3 +44,9 @@ receivers:
   - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/prometheusremotewritereceiver latest
   - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/zipkinreceiver latest
   - gomod: go.opentelemetry.io/collector/receiver/otlpreceiver latest
+
+replaces:
+  - github.com/Netcracker/qubership-open-telemetry-collector/connector/sentrymetricsconnector => ../connector/sentrymetricsconnector
+  - github.com/Netcracker/qubership-open-telemetry-collector/exporter/graylogexporter => ../exporter/graylogexporter
+  - github.com/Netcracker/qubership-open-telemetry-collector/exporter/logtcpexporter => ../exporter/logtcpexporter
+  - github.com/Netcracker/qubership-open-telemetry-collector/receiver/sentryreceiver => ../receiver/sentryreceiver
