@@ -1,12 +1,12 @@
 # hadolint global ignore=DL3018
 # Stage 1: Build
-FROM --platform=$BUILDPLATFORM golang:1.25.1-alpine3.22 AS builder
+FROM --platform=$BUILDPLATFORM golang:1.25.5-alpine3.22 AS builder
 
 ARG BUILDPLATFORM
 ARG TARGETOS
 ARG TARGETARCH
 
-ARG OTEL_VERSION=0.131.0
+ARG OTEL_VERSION=0.141.0
 
 ENV GO111MODULE=on
 
