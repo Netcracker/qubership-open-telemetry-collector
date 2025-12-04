@@ -58,12 +58,25 @@ type Breadcrumb struct {
 }
 
 func (d *StrongString) UnmarshalJSON(data []byte) error {
-	var maxAllowedLength = 50 * 1024 * 1024 // Limit Message to 50 MB
-	if len(data) > maxAllowedLength {
-		return fmt.Errorf("StrongString: data length %d is more than allowed length %d", len(data), maxAllowedLength)
+	if len(data) == 0 {
+		return fmt.Errorf("empty input")
 	}
-	// formattedData := StrongString(string(data))
-	*d = StrongString(string(data))
+
+	switch data[0] {
+	case '"':
+		var str string
+		if err := json.Unmarshal(data, &str); err != nil {
+			return fmt.Errorf("invalid string: %v", err)
+		}
+		*d = StrongString(str)
+
+	case '[':
+		*d = StrongString(string(data))
+
+	default:
+		return fmt.Errorf("message must be a string or JSON array, got: %s", string(data))
+	}
+
 	return nil
 }
 
@@ -93,6 +106,7 @@ type Event struct {
 	Sdk            SdkInfo                     `json:"sdk,omitempty"`
 	Exception      EventException              `json:"exception,omitempty"`
 	Logger         string                      `json:"logger,omitempty"`
+	Namespace      string                      `json:"namespace,omitempty"`
 }
 
 type SessionEvent struct {
@@ -127,7 +141,9 @@ type EventUser struct {
 }
 
 type EventContexts struct {
-	Trace struct {
+	Page    map[string]interface{} `json:"page,omitempty"`
+	Request map[string]interface{} `json:"request,omitempty"`
+	Trace   struct {
 		Op      string `json:"op,omitempty"`
 		SpanID  string `json:"span_id,omitempty"`
 		TraceID string `json:"trace_id,omitempty"`

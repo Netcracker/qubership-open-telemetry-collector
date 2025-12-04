@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -93,10 +92,8 @@ func newReceiver(config *Config, nextConsumer consumer.Traces, settings receiver
 	}
 	return sr, nil
 }
-
-func (sr *sentrytraceReceiver) Start(_ context.Context, host component.Host) error {
+func (sr *sentrytraceReceiver) Start(ctx context.Context, host component.Host) error {
 	sr.host = host
-	var ctx = context.Background()
 	ctx, sr.cancel = context.WithCancel(ctx)
 
 	sr.logger.Info("SentryReceiver started")
@@ -105,20 +102,21 @@ func (sr *sentrytraceReceiver) Start(_ context.Context, host component.Host) err
 	}
 
 	var err error
-	sr.server, err = sr.config.ToServer(ctx, host.GetExtensions(), sr.settings.TelemetrySettings, sr)
+	cfg := sr.config.ServerConfig
+
+	sr.server, err = cfg.ToServer(ctx, host.GetExtensions(), sr.settings.TelemetrySettings, sr)
 	if err != nil {
 		return err
 	}
 
-	var listener net.Listener
-	listener, err = sr.config.ToListener(ctx)
+	listener, err := cfg.ToListener(ctx)
 	if err != nil {
 		return err
 	}
+
 	sr.shutdownWG.Add(1)
 	go func() {
 		defer sr.shutdownWG.Done()
-
 		if errHTTP := sr.server.Serve(listener); !errors.Is(errHTTP, http.ErrServerClosed) && errHTTP != nil {
 			sr.logger.Sugar().Fatal(errHTTP)
 		}
@@ -127,67 +125,77 @@ func (sr *sentrytraceReceiver) Start(_ context.Context, host component.Host) err
 	return nil
 }
 
-func (sr *sentrytraceReceiver) Shutdown(_ context.Context) error {
+func (sr *sentrytraceReceiver) Shutdown(ctx context.Context) error {
 	sr.logger.Info("SentryReceiver is shutdown")
-
 	return nil
 }
-
 func (sr *sentrytraceReceiver) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-
 	ctx = sr.obsrecvr.StartTracesOp(ctx)
 
+	w.Header().Set("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload")
+
 	pr := processBodyIfNecessary(r)
-	slurp, _ := io.ReadAll(pr)
+	slurp, readErr := io.ReadAll(pr)
+	if readErr != nil {
+		sr.logger.Sugar().Errorf("Failed to read request body: %+v", readErr)
+		http.Error(w, "failed to read body", http.StatusBadRequest)
+		return
+	}
+
 	if c, ok := pr.(io.Closer); ok {
 		_ = c.Close()
 	}
 	_ = r.Body.Close()
 
 	var td ptrace.Traces
-	var err error
 	envlp, err := sr.ParseEnvelopEvent(string(slurp))
 	if err != nil {
-		sr.logger.Sugar().Errorf("SentryReceiver : Error parsing envelop : %+v", err)
+		sr.logger.Sugar().Errorf("Error parsing envelop: %+v", err)
 		w.WriteHeader(http.StatusNotAcceptable)
-		if _, writeErr := w.Write([]byte("{}")); writeErr != nil {
-			sr.logger.Sugar().Errorf("SentryReceiver : Error writing response: %+v", writeErr)
+		if _, wErr := w.Write([]byte("{}")); wErr != nil {
+			sr.logger.Sugar().Errorf("Failed to write response: %+v", wErr)
 		}
 		return
 	}
-	td, err = sr.toTraceSpans(envlp, r)
 
+	td, err = sr.toTraceSpans(envlp, r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	sr.logger.Sugar().Debugf("SentryReceiver : For %v got trace with %v SpanCount() : %+v", envlp.Type, td.SpanCount(), td)
+	sr.logger.Sugar().Debugf("For %v got trace with %v SpanCount(): %+v", envlp.Type, td.SpanCount(), td)
 
 	consumerErr := sr.nextConsumer.ConsumeTraces(ctx, td)
-
 	sr.obsrecvr.EndTracesOp(ctx, "sentryReceiverTagValue", td.SpanCount(), consumerErr)
+
 	if consumerErr == nil {
+		var resp []byte
+
 		if envlp.EnvelopType == models.ENVELOP_TYPE_SESSION {
-			if _, writeErr := w.Write([]byte("{}")); writeErr != nil {
-				sr.logger.Sugar().Errorf("SentryReceiver : Error writing response: %+v", writeErr)
-			}
+			resp = []byte("{}")
 		} else {
-			if err := json.NewEncoder(w).Encode(map[string]string{"id": envlp.EventID}); err != nil {
-				sr.logger.Sugar().Errorf("SentryReceiver : Error writing response: %+v", err)
-			}
+			resp = []byte(fmt.Sprintf("{\"id\": \"%v\"}", envlp.EventID))
+		}
+		if _, wErr := w.Write(resp); wErr != nil {
+			sr.logger.Sugar().Errorf("Failed to write response: %+v", wErr)
 		}
 		return
 	}
-	sr.logger.Sugar().Errorf("SentryReceiver : Consumer error : %+v", consumerErr)
+
+	sr.logger.Sugar().Errorf("Consumer error: %+v", consumerErr)
 
 	if consumererror.IsPermanent(consumerErr) {
 		w.WriteHeader(http.StatusBadRequest)
-		_, _ = w.Write(errBadRequestRespBody)
+		if _, wErr := w.Write(errBadRequestRespBody); wErr != nil {
+			sr.logger.Sugar().Errorf("Failed to write error response: %+v", wErr)
+		}
 	} else {
 		w.WriteHeader(http.StatusInternalServerError)
-		_, _ = w.Write(errNextConsumerRespBody)
+		if _, wErr := w.Write(errNextConsumerRespBody); wErr != nil {
+			sr.logger.Sugar().Errorf("Failed to write error response: %+v", wErr)
+		}
 	}
 }
 
@@ -218,17 +226,22 @@ func zlibUncompressedbody(r io.Reader) io.Reader {
 	return zr
 }
 
-func (sr *sentrytraceReceiver) toTraceSpans(envlp *models.EnvelopEventParseResult, r *http.Request) (reqs ptrace.Traces, err error) {
+func (sr *sentrytraceReceiver) toTraceSpans(envlp *models.EnvelopEventParseResult, r *http.Request) (ptrace.Traces, error) {
 	traces := ptrace.NewTraces()
 	resourceSpan := traces.ResourceSpans().AppendEmpty()
 	resource := resourceSpan.Resource()
 	sr.fillResource(&resource, envlp, r)
 	scopeSpans := resourceSpan.ScopeSpans().AppendEmpty()
-	if envlp.EnvelopType == models.ENVELOP_TYPE_SESSION {
+
+	switch envlp.EnvelopType {
+	case models.ENVELOP_TYPE_SESSION:
 		sr.appendScopeSpansForSessionEvent(&scopeSpans, envlp, r)
-	} else {
+	case models.ENVELOP_TYPE_TRANSACTION, models.ENVELOP_TYPE_EVENT:
 		sr.appendScopeSpans(&scopeSpans, envlp, r)
+	default:
+		sr.logger.Sugar().Warnf("Unknown EnvelopType: %v", envlp.EnvelopType)
 	}
+
 	return traces, nil
 }
 
@@ -243,23 +256,26 @@ func (sr *sentrytraceReceiver) appendScopeSpans(scopeSpans *ptrace.ScopeSpans, e
 	for _, event := range envlp.Events {
 		rootSpan := scopeSpans.Spans().AppendEmpty()
 		var startTime, endTime time.Time
+
 		rootSpan.SetTraceID(sr.GenerateTraceID(event.Contexts.Trace.TraceID))
 		eventTransaction := event.Transaction
 		eventTransactionPath := sr.removeIdFromURL(eventTransaction)
+
 		switch envlp.EnvelopType {
 		case models.ENVELOP_TYPE_TRANSACTION:
 			rootSpan.SetName(eventTransactionPath + " " + event.Contexts.Trace.Op)
 			rootSpan.SetSpanID(sr.GenerateSpanId(event.Contexts.Trace.SpanID))
 			startTime = GetUnixTimeFromFloat64(event.StartTimestamp)
 			endTime = GetUnixTimeFromFloat64(event.Timestamp)
+
 		case models.ENVELOP_TYPE_EVENT:
 			endTime = GetUnixTimeFromFloat64(event.Timestamp)
 			startTime = endTime
 			rootSpan.SetSpanID(sr.GenerateSpanId(event.EventId[0:16]))
 			rootSpan.SetParentSpanID(sr.GenerateSpanId(event.Contexts.Trace.SpanID))
-			rootSpan.SetName("Event") //+ event.EventId)
+			rootSpan.SetName("Event")
 
-			level := sr.evaluateLevel(event)
+			level := event.Level
 			if level != "" {
 				rootSpan.Attributes().PutStr("level", level)
 			}
@@ -267,101 +283,104 @@ func (sr *sentrytraceReceiver) appendScopeSpans(scopeSpans *ptrace.ScopeSpans, e
 				rootSpan.Status().SetCode(ptrace.StatusCodeError)
 			}
 
-			sdk := event.Sdk.Name + "@" + event.Sdk.Version
-			if sdk != "@" {
-				rootSpan.Attributes().PutStr("sdk", sdk)
+			sdkName := ""
+			if event.Sdk.Name != "" {
+				sdkName = event.Sdk.Name
 			}
-			message := event.Message
-			if message != "" {
-				rootSpan.Attributes().PutStr("message", string(message))
+			sdkVersion := ""
+			if event.Sdk.Version != "" {
+				sdkVersion = event.Sdk.Version
 			}
-			exceptionValues := event.Exception.Values
-			if len(exceptionValues) > 0 {
-				rootSpan.Attributes().PutStr("exception.values", fmt.Sprintf("%+v", exceptionValues))
+			if sdkName != "" || sdkVersion != "" {
+				rootSpan.Attributes().PutStr("sdk", sdkName+"@"+sdkVersion)
 			}
-			contextError := event.Contexts.Error
-			if contextError.Message != "" || contextError.Name != "" || contextError.Stack != "" {
-				rootSpan.Attributes().PutStr("context.error", fmt.Sprintf("%+v", contextError))
+
+			if msg := event.Message; msg != "" {
+				rootSpan.Attributes().PutStr("message", string(msg))
 			}
-			timestamp := event.Timestamp
-			if timestamp != 0 {
-				rootSpan.Attributes().PutDouble("timestamp", timestamp)
+			if ns := event.Namespace; ns != "" {
+				rootSpan.Attributes().PutStr("namespace", ns)
 			}
-			eventId := event.EventId
-			if eventId != "" {
-				rootSpan.Attributes().PutStr("event_id", eventId)
+			if exc := event.Exception.Values; len(exc) > 0 {
+				rootSpan.Attributes().PutStr("exception.values", fmt.Sprintf("%+v", exc))
 			}
-			release := event.Release
-			if release != "" {
-				rootSpan.Attributes().PutStr("version", release)
+
+			if ctxJSON, err := json.Marshal(event.Contexts); err == nil && string(ctxJSON) != "" {
+				rootSpan.Attributes().PutStr("contexts", string(ctxJSON))
 			}
-			platform := event.Platform
-			if platform != "" {
+
+			if ctxErr := event.Contexts.Error; ctxErr.Message != "" || ctxErr.Name != "" || ctxErr.Stack != "" {
+				rootSpan.Attributes().PutStr("context.error", fmt.Sprintf("%+v", ctxErr))
+			}
+
+			if ts := event.Timestamp; ts != 0 {
+				rootSpan.Attributes().PutDouble("timestamp", ts)
+			}
+			if eid := event.EventId; eid != "" {
+				rootSpan.Attributes().PutStr("event_id", eid)
+			}
+			if rel := event.Release; rel != "" {
+				rootSpan.Attributes().PutStr("version", rel)
+			}
+			if platform := event.Platform; platform != "" {
 				rootSpan.Attributes().PutStr("platform", platform)
 			}
-			userId := event.User.Id
-			if userId != "" {
-				rootSpan.Attributes().PutStr("user_id", userId)
+			if uid := event.User.Id; uid != "" {
+				rootSpan.Attributes().PutStr("user_id", uid)
 			}
-			transaction, ok := event.Tags["transaction"].(string)
-			if ok && transaction != "" {
-				rootSpan.Attributes().PutStr("tags.transaction", transaction)
+			if trx, ok := event.Tags["transaction"].(string); ok && trx != "" {
+				rootSpan.Attributes().PutStr("tags.transaction", trx)
 			}
-			logger := event.Logger
-			if logger != "" {
+			if logger := event.Logger; logger != "" {
 				rootSpan.Attributes().PutStr("category", logger)
 			} else {
 				rootSpan.Attributes().PutStr("category", "frontend-event")
 			}
-			userAgent := event.Request.Headers["User-Agent"]
-			if userAgent != "" {
-				rootSpan.Attributes().PutStr("browser", userAgent)
+			if ua := event.Request.Headers["User-Agent"]; ua != "" {
+				rootSpan.Attributes().PutStr("browser", ua)
 			}
+		default:
+			sr.logger.Sugar().Warnf("Unknown EnvelopType: %v", envlp.EnvelopType)
 		}
+
 		rootSpan.SetStartTimestamp(pcommon.NewTimestampFromTime(startTime))
 		rootSpan.SetEndTimestamp(pcommon.NewTimestampFromTime(endTime))
-
 		rootSpan.Attributes().PutInt("sentry.envelop.type.int", int64(envlp.EnvelopType))
-		name := sr.GetServiceName(r)
-		if name != "" {
+
+		if name := sr.GetServiceName(r); name != "" {
 			rootSpan.Attributes().PutStr("name", name)
 		}
-		serviceName := r.Header.Get("x-service-name")
-		if serviceName != "" {
+		if serviceName := r.Header.Get("x-service-name"); serviceName != "" {
 			rootSpan.Attributes().PutStr("service.name", serviceName)
 		}
-		spanId := event.Contexts.Trace.SpanID
-		if spanId != "" {
+		if spanId := event.Contexts.Trace.SpanID; spanId != "" {
 			rootSpan.Attributes().PutStr("contexts.trace.span_id", spanId)
 		}
-		traceId := event.Contexts.Trace.TraceID
-		if traceId != "" {
+		if traceId := event.Contexts.Trace.TraceID; traceId != "" {
 			rootSpan.Attributes().PutStr("contexts.trace.trace_id", traceId)
 		}
 		if eventTransaction != "" {
 			rootSpan.Attributes().PutStr("transaction", eventTransaction)
 			rootSpan.Attributes().PutStr("transaction_path", eventTransactionPath)
 		}
-
-		if event.Contexts.Trace.Op != "" {
-			rootSpan.Attributes().PutStr("operation", event.Contexts.Trace.Op)
+		if op := event.Contexts.Trace.Op; op != "" {
+			rootSpan.Attributes().PutStr("operation", op)
 		}
-
-		if event.Request.URL != "" {
-			rootSpan.Attributes().PutStr("url", event.Request.URL)
+		if url := event.Request.URL; url != "" {
+			rootSpan.Attributes().PutStr("url", url)
 		}
-		if event.Dist != "" {
-			rootSpan.Attributes().PutStr("dist", event.Dist)
+		if dist := event.Dist; dist != "" {
+			rootSpan.Attributes().PutStr("dist", dist)
 		}
-		if event.Environment != "" {
-			rootSpan.Attributes().PutStr("environment", event.Environment)
+		if env := event.Environment; env != "" {
+			rootSpan.Attributes().PutStr("environment", env)
 		}
 
 		measurements := rootSpan.Attributes().PutEmptyMap("measurements")
 		for k, m := range event.Measurements {
-			measurementMapInstance := measurements.PutEmptyMap(k)
-			measurementMapInstance.PutDouble("value", m.Value)
-			measurementMapInstance.PutStr("unit", m.Unit)
+			mMap := measurements.PutEmptyMap(k)
+			mMap.PutDouble("value", m.Value)
+			mMap.PutStr("unit", m.Unit)
 		}
 		rootSpan.SetKind(ptrace.SpanKindClient)
 
@@ -369,28 +388,26 @@ func (sr *sentrytraceReceiver) appendScopeSpans(scopeSpans *ptrace.ScopeSpans, e
 			rootSpan.Attributes().PutStr("tags."+k, fmt.Sprintf("%v", v))
 		}
 
-		requestUrlStr := event.Request.URL
-		if requestUrlStr != "" {
-			urlParsed, err := url.Parse(requestUrlStr)
-			if err != nil {
-				sr.logger.Sugar().Errorf("Error parsing url request %v : %+v", requestUrlStr, err)
-			} else {
+		if reqURL := event.Request.URL; reqURL != "" {
+			if urlParsed, err := url.Parse(reqURL); err == nil {
 				for _, qParam := range sr.config.HttpQueryParamValuesToAttrs {
 					qValue := urlParsed.Query().Get(qParam)
 					rootSpan.Attributes().PutStr("http.qparam."+qParam, qValue)
 					sr.logger.Sugar().Debugf("Value QParam %v with value %v is found", qParam, qValue)
 				}
 				for _, qParam := range sr.config.HttpQueryParamExistenceToAttrs {
-					qValue := urlParsed.Query().Get(qParam)
-					if qValue != "" {
-						qValue = "true"
+					val := urlParsed.Query().Get(qParam)
+					if val != "" {
+						val = "true"
 					} else {
-						qValue = "false"
+						val = "false"
 					}
-					sr.logger.Sugar().Debugf("Existence QParam %v with value %v is found", qParam, qValue)
-					rootSpan.Attributes().PutStr("http.qparam."+qParam, qValue)
+					rootSpan.Attributes().PutStr("http.qparam."+qParam, val)
+					sr.logger.Sugar().Debugf("Existence QParam %v with value %v is found", qParam, val)
 				}
 				rootSpan.Attributes().PutStr("url_path", sr.removeIdFromURL(urlParsed.Path))
+			} else {
+				sr.logger.Sugar().Errorf("Error parsing url request %v : %+v", reqURL, err)
 			}
 		}
 
@@ -411,33 +428,18 @@ func (sr *sentrytraceReceiver) appendScopeSpans(scopeSpans *ptrace.ScopeSpans, e
 
 		breadcrumbs := rootSpan.Attributes().PutEmptySlice("breadcrumbs")
 		for _, envBr := range event.Breadcrumbs {
-			if envBr.Type == "http" {
-				breadcrumb := breadcrumbs.AppendEmpty()
-				breadcrumbMap := breadcrumb.SetEmptyMap()
-				breadcrumbMap.PutStr("level", envBr.Level)
-				breadcrumbMap.PutDouble("timestamp", envBr.Timestamp)
-				breadcrumbMap.PutStr("category", envBr.Category)
-				breadcrumbMap.PutStr("message", fmt.Sprintf("%v %v", envBr.Data["method"], envBr.Data["url"]))
-				breadcrumbMap.PutStr("status", fmt.Sprintf("%v", envBr.Data["status_code"]))
-			} else if envBr.Category == "navigation" {
-				breadcrumb := breadcrumbs.AppendEmpty()
-				breadcrumbMap := breadcrumb.SetEmptyMap()
-				breadcrumbMap.PutDouble("timestamp", envBr.Timestamp)
-				breadcrumbMap.PutStr("category", "navigation")
-				breadcrumbMap.PutStr("message", fmt.Sprintf("Browser navigation from: %v to: %v", envBr.Data["from"], envBr.Data["to"]))
-			} else if envBr.Category == "console" {
-				breadcrumb := breadcrumbs.AppendEmpty()
-				breadcrumbMap := breadcrumb.SetEmptyMap()
-				breadcrumbMap.PutStr("level", envBr.Level)
-				breadcrumbMap.PutDouble("timestamp", envBr.Timestamp)
-				breadcrumbMap.PutStr("category", "console")
-				breadcrumbMap.PutStr("message", string(envBr.Message))
-			} else {
-				breadcrumb := breadcrumbs.AppendEmpty()
-				breadcrumbMap := breadcrumb.SetEmptyMap()
-				breadcrumbMap.PutStr("category", "console")
-				breadcrumbMap.PutStr("message", string(envBr.Message))
+			dataJson, err := json.Marshal(envBr.Data)
+			if err != nil {
+				dataJson = []byte(fmt.Sprintf("%v", envBr.Data))
 			}
+			dataStr := string(dataJson)
+			bc := breadcrumbs.AppendEmpty()
+			bcMap := bc.SetEmptyMap()
+			bcMap.PutStr("level", envBr.Level)
+			bcMap.PutDouble("timestamp", envBr.Timestamp)
+			bcMap.PutStr("category", envBr.Category)
+			bcMap.PutStr("message", string(envBr.Message))
+			bcMap.PutStr("data", dataStr)
 		}
 
 		rootSpan.Attributes().PutStr(conventions.AttributeEnduserID, event.User.Id)
@@ -458,28 +460,21 @@ func (sr *sentrytraceReceiver) appendScopeSpans(scopeSpans *ptrace.ScopeSpans, e
 				httpStatusCode = fmt.Sprintf("%v", sentrySpan.Data["http.response.status_code"])
 			}
 			if httpStatusCode != "" {
-				httpStatusCodeInt, err := strconv.ParseInt(httpStatusCode, 10, 64)
-				if err != nil {
-					span.Status().SetCode(ptrace.StatusCodeUnset)
-				} else {
-					if httpStatusCodeInt < 400 {
+				if code, err := strconv.ParseInt(httpStatusCode, 10, 64); err == nil {
+					if code < 400 {
 						span.Status().SetCode(ptrace.StatusCodeOk)
 					} else {
 						span.Status().SetCode(ptrace.StatusCodeError)
 					}
+				} else {
+					span.Status().SetCode(ptrace.StatusCodeUnset)
 				}
 			} else {
 				span.Status().SetCode(ptrace.StatusCodeUnset)
 			}
 
-			url := sentrySpan.Data["url"]
-			if url != nil {
-				switch urlTyped := url.(type) {
-				case string:
-					span.Attributes().PutStr("url_path", sr.removeIdFromURL(urlTyped))
-				default:
-					span.Attributes().PutStr("url_path", sr.removeIdFromURL(fmt.Sprintf("%v", urlTyped)))
-				}
+			if url := sentrySpan.Data["url"]; url != nil {
+				span.Attributes().PutStr("url_path", fmt.Sprintf("%v", url))
 			}
 
 			for k, v := range sentrySpan.Data {
@@ -492,11 +487,9 @@ func (sr *sentrytraceReceiver) appendScopeSpans(scopeSpans *ptrace.ScopeSpans, e
 				}
 				switch valTyped := v.(type) {
 				case float64:
-					const epsilon = 1e-9
 					_, frac := math.Modf(valTyped)
-					frac = math.Abs(frac)
-					if frac < epsilon || frac > 1.0-epsilon {
-						span.Attributes().PutInt(k, int64(math.Round(valTyped)))
+					if frac == 0 {
+						span.Attributes().PutInt(k, int64(valTyped))
 					} else {
 						span.Attributes().PutDouble(k, valTyped)
 					}
@@ -506,53 +499,18 @@ func (sr *sentrytraceReceiver) appendScopeSpans(scopeSpans *ptrace.ScopeSpans, e
 					span.Attributes().PutStr(k, fmt.Sprintf("%v", v))
 				}
 			}
-
 			for k, v := range sentrySpan.Tags {
 				span.Attributes().PutStr("tags."+k, fmt.Sprintf("%v", v))
 			}
-
 			if sentrySpan.Origin != "" {
 				span.Attributes().PutStr("origin", sentrySpan.Origin)
 			}
 			if sentrySpan.Description != "" {
 				span.Attributes().PutStr("description", sentrySpan.Description)
 			}
-
 			span.SetKind(ptrace.SpanKindClient)
 		}
 	}
-}
-
-var levelRating = map[string]int{
-	"fatal":   6,
-	"error":   5,
-	"warning": 4,
-	"log":     3,
-	"info":    2,
-	"debug":   1,
-}
-
-var ratingLevel = map[int]string{
-	6: "fatal",
-	5: "error",
-	4: "warning",
-	3: "log",
-	2: "info",
-	1: "debug",
-}
-
-func (sr *sentrytraceReceiver) evaluateLevel(event models.Event) string {
-	if sr.config.LevelEvaluationStrategy == "" {
-		return event.Level
-	}
-	maxLevel := levelRating[event.Level]
-	for _, envBr := range event.Breadcrumbs {
-		brLevel := levelRating[envBr.Level]
-		if brLevel > maxLevel {
-			maxLevel = brLevel
-		}
-	}
-	return ratingLevel[maxLevel]
 }
 
 func (sr *sentrytraceReceiver) appendScopeSpansForSessionEvent(scopeSpans *ptrace.ScopeSpans, envlp *models.EnvelopEventParseResult, r *http.Request) {

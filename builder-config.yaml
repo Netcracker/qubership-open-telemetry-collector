@@ -50,3 +50,5 @@ replaces:
   - github.com/Netcracker/qubership-open-telemetry-collector/exporter/graylogexporter => ../exporter/graylogexporter
   - github.com/Netcracker/qubership-open-telemetry-collector/exporter/logtcpexporter => ../exporter/logtcpexporter
   - github.com/Netcracker/qubership-open-telemetry-collector/receiver/sentryreceiver => ../receiver/sentryreceiver
+  - github.com/Netcracker/qubership-open-telemetry-collector/common/graylog => ../common/graylog
+  - github.com/Netcracker/qubership-open-telemetry-collector/utils => ../utils

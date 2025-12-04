@@ -71,7 +71,7 @@ func (h *CustomHistogram) ObserveSingle(val float64, bucketList []float64, label
 	}
 }
 
-func (h *CustomHistogram) UpdateDataPoints(metric pmetric.Metric) {
+func (h *CustomHistogram) UpdateDataPoints(metric pmetric.Metric, namespaceStr string) {
 	h.Lock()
 	defer h.Unlock()
 	metric.SetName("sentry_measurements_statistic")
@@ -83,6 +83,7 @@ func (h *CustomHistogram) UpdateDataPoints(metric pmetric.Metric) {
 
 	for _, v := range h.stateMap {
 		dataPoint := dataPoints.AppendEmpty()
+		dataPoint.Attributes().PutStr("namespace", namespaceStr)
 		dataPoint.SetSum(v.Sum)
 		dataPoint.SetCount(v.Cnt)
 		dataPoint.ExplicitBounds().FromRaw(v.BucketList)
