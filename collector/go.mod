@@ -7,7 +7,7 @@ go 1.24.2
 require (
 	github.com/Netcracker/qubership-open-telemetry-collector/connector/sentrymetricsconnector v0.0.0-20251204092309-212c86b3e480
 	github.com/Netcracker/qubership-open-telemetry-collector/exporter/graylogexporter v0.0.0-20251204092309-212c86b3e480
-	github.com/Netcracker/qubership-open-telemetry-collector/exporter/logtcpexporter v0.0.0-20251204090658-35fc4068a003
+	github.com/Netcracker/qubership-open-telemetry-collector/exporter/logtcpexporter v0.0.0-20251204092309-212c86b3e480
 	github.com/Netcracker/qubership-open-telemetry-collector/receiver/sentryreceiver v0.0.0-20251204092309-212c86b3e480
 	github.com/open-telemetry/opentelemetry-collector-contrib/connector/spanmetricsconnector v0.141.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/exporter/prometheusexporter v0.141.0
@@ -54,8 +54,8 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.11.2 // indirect
 	github.com/AzureAD/microsoft-authentication-library-for-go v1.5.0 // indirect
 	github.com/Jeffail/gabs v1.4.0 // indirect
-	github.com/Netcracker/qubership-open-telemetry-collector/common/graylog v0.0.0-20251103103630-9d3bcf1a215a // indirect
-	github.com/Netcracker/qubership-open-telemetry-collector/utils v0.0.0-20251103103630-9d3bcf1a215a // indirect
+	github.com/Netcracker/qubership-open-telemetry-collector/common/graylog v0.0.0-20251204092309-212c86b3e480 // indirect
+	github.com/Netcracker/qubership-open-telemetry-collector/utils v0.0.0-20251204090658-35fc4068a003 // indirect
 	github.com/alecthomas/participle/v2 v2.1.4 // indirect
 	github.com/alecthomas/units v0.0.0-20240927000941-0f3dac36c52b // indirect
 	github.com/antchfx/xmlquery v1.5.0 // indirect
@@ -285,3 +285,7 @@ replace github.com/Netcracker/qubership-open-telemetry-collector/exporter/graylo
 replace github.com/Netcracker/qubership-open-telemetry-collector/exporter/logtcpexporter => ../exporter/logtcpexporter
 
 replace github.com/Netcracker/qubership-open-telemetry-collector/receiver/sentryreceiver => ../receiver/sentryreceiver
+
+replace github.com/Netcracker/qubership-open-telemetry-collector/common/graylog => ../common/graylog
+
+replace github.com/Netcracker/qubership-open-telemetry-collector/utils => ../utils

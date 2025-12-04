@@ -55,3 +55,7 @@ require (
 	google.golang.org/protobuf v1.36.10 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+replace github.com/Netcracker/qubership-open-telemetry-collector/common/graylog/graylog => ../../common/graylog
+
+replace github.com/Netcracker/qubership-open-telemetry-collector/utils/utils => ../utils
