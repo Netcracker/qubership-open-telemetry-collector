@@ -102,7 +102,9 @@ func (sr *sentrytraceReceiver) Start(ctx context.Context, host component.Host) e
 	}
 
 	var err error
-	sr.server, err = sr.config.ToServer(ctx, host.GetExtensions(), sr.settings.TelemetrySettings, sr)
+	cfg := sr.config.ServerConfig
+
+	sr.server, err = cfg.ToServer(ctx, host.GetExtensions(), sr.settings.TelemetrySettings, sr)
 	if err != nil {
 		return err
 	}
@@ -513,7 +515,7 @@ func (sr *sentrytraceReceiver) appendScopeSpans(scopeSpans *ptrace.ScopeSpans, e
 
 func (sr *sentrytraceReceiver) appendScopeSpansForSessionEvent(scopeSpans *ptrace.ScopeSpans, envlp *models.EnvelopEventParseResult, r *http.Request) {
 	for _, event := range envlp.SessionEvents {
-		sr.logger.Sugar().Debugf("Recieved session event event.Sid = %v", event.Sid)
+		sr.logger.Sugar().Debugf("Received session event event.Sid = %v", event.Sid)
 		rootSpan := scopeSpans.Spans().AppendEmpty()
 		rootSpan.SetTraceID(sr.GenerateTraceID(removeHyphens(event.Sid)))
 		rootSpan.SetName("Session " + event.Sid)

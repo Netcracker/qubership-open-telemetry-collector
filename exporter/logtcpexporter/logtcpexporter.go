@@ -87,7 +87,7 @@ func (lte *logTcpExporter) start(_ context.Context, host component.Host) (err er
 	}
 	freezeTime, err := time.ParseDuration(lte.config.SuccessiveSendErrFreezeTime)
 	if err != nil {
-		errMsg := fmt.Sprintf("lte.config.successiveSendErrFreezeTime is not parseable : %+v", err)
+		errMsg := fmt.Sprintf("lte.config.successiveSendErrFreezeTime is not parsable : %+v", err)
 		lte.logger.Error(errMsg)
 		return errors.New(errMsg)
 	}
@@ -605,10 +605,10 @@ func (lte *logTcpExporter) sendSentrySpan(span ptrace.Span) error {
 				}
 
 				// Convert breadcrumbMap to JSON string
-				breadcrumbJSON, errorbreadcrumb := json.Marshal(breadcrumbMap)
-				if errorbreadcrumb != nil {
-					lte.logger.Sugar().Errorf("Failed to marshal breadcrumb: %v", errorbreadcrumb)
-					return errorbreadcrumb
+				breadcrumbJSON, errorBreadcrumb := json.Marshal(breadcrumbMap)
+				if errorBreadcrumb != nil {
+					lte.logger.Sugar().Errorf("Failed to marshal breadcrumb: %v", errorBreadcrumb)
+					return errorBreadcrumb
 				}
 				breadcrumbStr := string(breadcrumbJSON)
 
