@@ -3,8 +3,8 @@ module github.com/Netcracker/qubership-open-telemetry-collector/connector/sentry
 go 1.24.0
 
 require (
-	github.com/Netcracker/qubership-open-telemetry-collector/receiver/sentryreceiver v0.0.0-20251103103630-9d3bcf1a215a
-	github.com/Netcracker/qubership-open-telemetry-collector/utils v0.0.0-20251103103630-9d3bcf1a215a
+	github.com/Netcracker/qubership-open-telemetry-collector/receiver/sentryreceiver v0.0.0-20251204092309-212c86b3e480
+	github.com/Netcracker/qubership-open-telemetry-collector/utils v0.0.0-20251204090658-35fc4068a003
 	go.opentelemetry.io/collector/component v1.47.0
 	go.opentelemetry.io/collector/connector v0.141.0
 	go.opentelemetry.io/collector/consumer v1.47.0
@@ -17,7 +17,6 @@ require (
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.3-0.20250322232337-35a7c28c31ee // indirect
-	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/collector/consumer/xconsumer v0.141.0 // indirect
 	go.opentelemetry.io/collector/featuregate v1.47.0 // indirect
 	go.opentelemetry.io/collector/internal/fanoutconsumer v0.141.0 // indirect

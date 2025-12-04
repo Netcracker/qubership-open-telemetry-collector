@@ -1,9 +1,9 @@
 github.com/Jeffail/gabs v1.4.0 h1://5fYRRTq1edjfIrQGvdkcd22pkYUrHZ5YC/H2GJVAo=
 github.com/Jeffail/gabs v1.4.0/go.mod h1:6xMvQMK4k33lb7GUUpaAPh6nKMmemQeg5d4gn7/bOXc=
-github.com/Netcracker/qubership-open-telemetry-collector/common/graylog v0.0.0-20251103103630-9d3bcf1a215a h1:nbGFTdG3UCXIhos6jFeTTcdTI74FVI6PLSPgtdADiG0=
-github.com/Netcracker/qubership-open-telemetry-collector/common/graylog v0.0.0-20251103103630-9d3bcf1a215a/go.mod h1:M5a59GqLwpm7NqJcQ24YO+ArNFfyKjSMye4m8E7CoRA=
-github.com/Netcracker/qubership-open-telemetry-collector/utils v0.0.0-20251103103630-9d3bcf1a215a h1:IGevErUkc2ZK18wWJerpt6Fa0K9NeCbmnZhUjW26a/0=
-github.com/Netcracker/qubership-open-telemetry-collector/utils v0.0.0-20251103103630-9d3bcf1a215a/go.mod h1:8prUuZcLidFC2mKsZPqIiaSK65WWZEda7aQxPNq7Dn4=
+github.com/Netcracker/qubership-open-telemetry-collector/common/graylog v0.0.0-20251204092309-212c86b3e480 h1:0Bkedfu+DTAZf3+1AZXaJAtanME4dQW4sKt78RvM73c=
+github.com/Netcracker/qubership-open-telemetry-collector/common/graylog v0.0.0-20251204092309-212c86b3e480/go.mod h1:KYU2OXv6BEt4jxhgxvUOGosWKx87/jWZgDMiEy1xYj0=
+github.com/Netcracker/qubership-open-telemetry-collector/utils v0.0.0-20251204090658-35fc4068a003 h1:NI2wn2WYc2uliolgCh4gO7+0EzTODcsIhvFP+bdm8Ss=
+github.com/Netcracker/qubership-open-telemetry-collector/utils v0.0.0-20251204090658-35fc4068a003/go.mod h1:8prUuZcLidFC2mKsZPqIiaSK65WWZEda7aQxPNq7Dn4=
 github.com/cenkalti/backoff/v5 v5.0.3 h1:ZN+IMa753KfX5hd8vVaMixjnqRZ3y8CuJKRKj1xcsSM=
 github.com/cenkalti/backoff/v5 v5.0.3/go.mod h1:rkhZdG3JZukswDf7f0cwqPNk4K0sa+F97BxZthm/crw=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=

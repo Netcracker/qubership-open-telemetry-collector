@@ -1,5 +1,5 @@
-github.com/Netcracker/qubership-open-telemetry-collector/utils v0.0.0-20251103103630-9d3bcf1a215a h1:IGevErUkc2ZK18wWJerpt6Fa0K9NeCbmnZhUjW26a/0=
-github.com/Netcracker/qubership-open-telemetry-collector/utils v0.0.0-20251103103630-9d3bcf1a215a/go.mod h1:8prUuZcLidFC2mKsZPqIiaSK65WWZEda7aQxPNq7Dn4=
+github.com/Netcracker/qubership-open-telemetry-collector/utils v0.0.0-20251204090658-35fc4068a003 h1:NI2wn2WYc2uliolgCh4gO7+0EzTODcsIhvFP+bdm8Ss=
+github.com/Netcracker/qubership-open-telemetry-collector/utils v0.0.0-20251204090658-35fc4068a003/go.mod h1:8prUuZcLidFC2mKsZPqIiaSK65WWZEda7aQxPNq7Dn4=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
