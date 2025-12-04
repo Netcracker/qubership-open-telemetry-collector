@@ -102,8 +102,7 @@ func (sr *sentrytraceReceiver) Start(ctx context.Context, host component.Host) e
 	}
 
 	var err error
-	cfg := sr.config.ServerConfig
-	sr.server, err = cfg.ToServer(ctx, host.GetExtensions(), sr.settings.TelemetrySettings, sr)
+	sr.server, err = sr.config.ToServer(ctx, host.GetExtensions(), sr.settings.TelemetrySettings, sr)
 	if err != nil {
 		return err
 	}
