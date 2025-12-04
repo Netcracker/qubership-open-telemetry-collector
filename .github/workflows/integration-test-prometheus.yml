@@ -18,7 +18,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout code otel-collector
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6.0.1
         with:
           path: qubership-open-telemetry-collector
 
