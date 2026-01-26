@@ -6,6 +6,13 @@ on:
   pull_request:
     branches:
     - '**'
+    paths:
+      - '**'
+      - '!.github/**'
+      - '.github/workflows/build.yml'
+      - '.github/workflows/integration_test.yaml'
+      - '!docs/**'
+      - '!*.md'
 
 env:
   kind_name: kind-cluster
@@ -86,7 +93,7 @@ jobs:
       - name: Install k8ssandra operator
         run: |
           helm repo add k8ssandra https://helm.k8ssandra.io/stable --force-update
-          helm upgrade --install k8ssandra-operator k8ssandra/k8ssandra-operator -n ${{ env.cassandra_namespace }} --create-namespace
+          helm upgrade --install k8ssandra-operator k8ssandra/k8ssandra-operator -n ${{ env.cassandra_namespace }} --create-namespace --version 1.29.0
           kubectl wait --for=condition=Ready pod --all -n ${{ env.cassandra_namespace }} --timeout=120s
 
       - name: Deploy k8ssandra cluster
@@ -98,7 +105,7 @@ jobs:
                 name: cassandra
               spec:
                 cassandra:
-                  serverVersion: "4.0.1"
+                  serverVersion: "4.0.4"
                   datacenters:
                     - metadata:
                         name: dc1
