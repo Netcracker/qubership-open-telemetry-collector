@@ -2,5 +2,5 @@ apiVersion: v2
 description: A Helm chart for qubership-open-telemetry-collector
 name: qubership-open-telemetry-collector
 
-appVersion: 1.2.0
+appVersion: 1.4.0
 version: 0.0.2
