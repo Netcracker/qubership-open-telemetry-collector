@@ -87,7 +87,7 @@ jobs:
         run: |
           helm repo add k8ssandra https://helm.k8ssandra.io/stable --force-update
           helm upgrade --install k8ssandra-operator k8ssandra/k8ssandra-operator -n ${{ env.cassandra_namespace }} --create-namespace
-          kubectl wait --for=condition=Ready pod --all -n ${{ env.cassandra_namespace }} --timeout=120s
+          kubectl wait --for=condition=Ready pod --all -n ${{ env.cassandra_namespace }} --timeout=120s --version 1.29.0
 
       - name: Deploy k8ssandra cluster
         run: |
