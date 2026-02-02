@@ -63,6 +63,15 @@ data:
       batch:
         send_batch_max_size: 10000
         timeout: 0s
+      transform:
+        error_mode: ignore
+        trace_statements:
+          - context: span
+            statements:
+              - limit(span.attributes, 56, ["name", "kind", "operation.name", "error", "component"])
+              - limit(resource.attributes, 32, ["service.name", "service.namespace", "service.version", "host.name"])
+              - truncate_all(span.attributes, 1024)
+              - truncate_all(resource.attributes, 256)
     {{- if .Values.OTEC_TAILBASED_GENERAL_PARAMETERS}}
       {{- toYaml (.Values.OTEC_TAILBASED_GENERAL_PARAMETERS) | nindent 6 }}
     {{- end }}
@@ -100,9 +109,9 @@ data:
           receivers: [jaeger, otlp]
           {{- end }}
           {{- if .Values.OTEC_TAILBASED_GENERAL_PARAMETERS }}
-          processors: [batch, tail_sampling]
+          processors: [transform, batch, tail_sampling]
           {{- else }}
-          processors: [batch]
+          processors: [transform, batch]
           {{- end }}
           {{- if .Values.OTEC_ENABLE_ARBITRARY_TRACES_LOGGING | default false }}
           exporters: [otlp, spanmetrics, logtcpexporter]
@@ -158,6 +167,15 @@ data:
         {{- toYaml .Values.OTEC_GELF_FIELD_MAPPING | nindent 10 }}
     processors:
       batch:
+      transform:
+        error_mode: ignore
+        trace_statements:
+          - context: span
+            statements:
+              - limit(span.attributes, 56, ["name", "kind", "operation.name", "error", "component"])
+              - limit(resource.attributes, 32, ["service.name", "service.namespace", "service.version", "host.name"])
+              - truncate_all(span.attributes, 1024)
+              - truncate_all(resource.attributes, 256)      
       filter/removesessiontraces:
         error_mode: ignore
         traces:
@@ -210,7 +228,7 @@ data:
           exporters: [prometheus]
         traces/tojaegerandgraylog:
           receivers: [sentryreceiver]
-          processors: [filter/removesessiontraces]
+          processors: [transform, filter/removesessiontraces]
           exporters: [otlp, logtcpexporter]
       telemetry:
         logs:
