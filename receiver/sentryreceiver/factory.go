@@ -39,13 +39,13 @@ func NewFactory() receiver.Factory {
 }
 
 func createDefaultConfig() component.Config {
+	sc := confighttp.NewDefaultServerConfig()
+	sc.NetAddr = confignet.AddrConfig{
+		Endpoint:  defaultBindEndpoint,
+		Transport: confignet.TransportTypeTCP,
+	}
 	return &Config{
-		ServerConfig: confighttp.ServerConfig{
-			NetAddr: confignet.AddrConfig{
-				Endpoint:  defaultBindEndpoint,
-				Transport: confignet.TransportTypeTCP,
-			},
-		},
+		ServerConfig: sc,
 	}
 }
 
