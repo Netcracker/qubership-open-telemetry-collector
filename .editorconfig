@@ -28,6 +28,9 @@ indent_style = tab
 [Dockerfile]
 indent_size = 4
 
+[{Makefile,**.mk}]
+indent_style = tab
+
 [*.py]
 profile = black
 

@@ -82,7 +82,7 @@ data:
             default: UNKNOWN
           - name: spanStatus
             default: UNKNOWN
-        dimensions_cache_size: 5000
+        aggregation_cardinality_limit: 5000
         aggregation_temporality: "AGGREGATION_TEMPORALITY_CUMULATIVE"
         metrics_flush_interval: 15s
     extensions:
