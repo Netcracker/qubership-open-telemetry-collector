@@ -334,7 +334,7 @@ OTEC_ARBITRARY_TRACES_LOGGING_CONFIG: {}
 #
 CLOUD_TOPOLOGY_KEY: kubernetes.io/hostname
 
-# Defines fields and condtions for log deduplication processor.
+# Defines fields and conditions for log deduplication processor.
 OTEC_LOGDEDUP_PROCESSOR_PARAMETERS:
   exclude_fields:
     - attributes.time
