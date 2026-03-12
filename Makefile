@@ -10,12 +10,26 @@ OTEL_STABLE_VERSION := 1.$(shell expr $(OTEL_CORE_MINOR) - 94).0
 OTEL_CURRENT_VERSION := $(shell grep -oP 'OTEL_VERSION=\K[0-9]+\.[0-9]+\.[0-9]+' Dockerfile)
 OTEL_CURRENT_STABLE_VERSION := $(shell grep -oP 'confmap/provider/envprovider v\K[0-9]+\.[0-9]+\.[0-9]+' builder-config.yaml)
 
-.PHONY: update-otel update-versions install-builder build-collector help
+# Semconv spec version is embedded in Go import paths (e.g. go.opentelemetry.io/otel/semconv/v1.40.0)
+SEMCONV_CURRENT_VERSION := $(shell find connector exporter receiver common -name '*.go' 2>/dev/null \
+                              | xargs grep -h 'go.opentelemetry.io/otel/semconv' 2>/dev/null \
+                              | grep -oP 'semconv/v\K[0-9]+\.[0-9]+\.[0-9]+' | sort -V | tail -1)
+# go.opentelemetry.io/otel SDK version (distinct from the collector stable version)
+# - detected from direct (non-indirect) dependencies across all local go.mod files
+OTEL_SDK_VERSION := $(shell find connector exporter receiver common -name 'go.mod' 2>/dev/null \
+                      | xargs grep -h '^	go.opentelemetry.io/otel v' 2>/dev/null \
+                      | grep -oP '\botel v\K[0-9]+\.[0-9]+\.[0-9]+' | sort -V | tail -1)
+# Fetch the latest semconv spec version available in the target OTel SDK from the opentelemetry-go repo
+SEMCONV_NEW_VERSION ?= $(shell curl -fsSL \
+                          'https://api.github.com/repos/open-telemetry/opentelemetry-go/contents/semconv?ref=v$(OTEL_SDK_VERSION)' \
+                          | grep -oP '"name":\s*"v\K[0-9]+\.[0-9]+\.[0-9]+' | sort -V | tail -1)
+
+.PHONY: update-otel update-versions update-semconv install-builder build-collector help
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-20s %s\n", $$1, $$2}'
 
-update-otel: update-versions install-builder build-collector ## Fetch latest OTEL release, update files, and rebuild collector
+update-otel: update-versions update-semconv install-builder build-collector ## Fetch latest OTEL release, update files, and rebuild collector
 
 LOCAL_GOMODS := $(shell find connector exporter receiver common -name 'go.mod' 2>/dev/null)
 
@@ -31,6 +45,18 @@ update-versions: ## Update version references in Dockerfile, builder-config.yaml
 	  sed -i 's|v$(OTEL_CURRENT_STABLE_VERSION)|v$(OTEL_STABLE_VERSION)|g' "$$f"; \
 	done
 	@echo "Done. Updated Dockerfile, builder-config.yaml, and $(words $(LOCAL_GOMODS)) local go.mod files."
+
+update-semconv: ## Update go.opentelemetry.io/otel/semconv import version in all Go source files
+	@if [ -z "$(SEMCONV_CURRENT_VERSION)" ]; then echo "ERROR: could not detect current semconv version in Go source files" >&2; exit 1; fi
+	@if [ -z "$(SEMCONV_NEW_VERSION)" ]; then echo "ERROR: could not determine new semconv version for OTel SDK v$(OTEL_STABLE_VERSION)" >&2; exit 1; fi
+	@if [ "$(SEMCONV_CURRENT_VERSION)" = "$(SEMCONV_NEW_VERSION)" ]; then \
+	  echo "semconv already at v$(SEMCONV_NEW_VERSION), nothing to do"; \
+	else \
+	  echo "Updating semconv: v$(SEMCONV_CURRENT_VERSION) -> v$(SEMCONV_NEW_VERSION)"; \
+	  find connector exporter receiver common -name '*.go' 2>/dev/null \
+	    -exec sed -i 's|go\.opentelemetry\.io/otel/semconv/v$(SEMCONV_CURRENT_VERSION)|go.opentelemetry.io/otel/semconv/v$(SEMCONV_NEW_VERSION)|g' {} +; \
+	  echo "Done. Updated semconv imports in Go source files."; \
+	fi
 
 install-builder: ## Install ocb (otelcol-builder) at the target OTEL_VERSION
 	@echo "Installing go.opentelemetry.io/collector/cmd/builder@v$(OTEL_VERSION)"
