@@ -20,6 +20,7 @@ import (
 
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/config/confighttp"
+	"go.opentelemetry.io/collector/config/confignet"
 	"go.opentelemetry.io/collector/consumer"
 	"go.opentelemetry.io/collector/receiver"
 )
@@ -38,10 +39,13 @@ func NewFactory() receiver.Factory {
 }
 
 func createDefaultConfig() component.Config {
+	sc := confighttp.NewDefaultServerConfig()
+	sc.NetAddr = confignet.AddrConfig{
+		Endpoint:  defaultBindEndpoint,
+		Transport: confignet.TransportTypeTCP,
+	}
 	return &Config{
-		ServerConfig: confighttp.ServerConfig{
-			Endpoint: defaultBindEndpoint,
-		},
+		ServerConfig: sc,
 	}
 }
 

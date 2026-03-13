@@ -230,14 +230,14 @@ ZIPKIN_RECEIVER_PORT: "9411"
 # Mandatory: no
 # Default:
 #
-CONFIG_MAP: ''
+CONFIG_MAP: {}
 
 # SERVICE_PORTS is the customization for service.ports. If it is not set, the default ones are used.
 # Type: Object
 # Mandatory: no
 # Default:
 #
-SERVICE_PORTS: ''
+SERVICE_PORTS: {}
 
 # SERVICE_MONITOR_PORT_NAME is the customization for ServiceMonitor port. If it is not set, the default one is used.
 # Type: string
@@ -334,7 +334,7 @@ OTEC_ARBITRARY_TRACES_LOGGING_CONFIG: {}
 #
 CLOUD_TOPOLOGY_KEY: kubernetes.io/hostname
 
-# Defines fields and condtions for log deduplication processor.
+# Defines fields and conditions for log deduplication processor.
 OTEC_LOGDEDUP_PROCESSOR_PARAMETERS:
   exclude_fields:
     - attributes.time

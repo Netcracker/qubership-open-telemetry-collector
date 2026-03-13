@@ -40,7 +40,7 @@ import (
 	"go.opentelemetry.io/collector/pdata/ptrace"
 	"go.opentelemetry.io/collector/receiver"
 	"go.opentelemetry.io/collector/receiver/receiverhelper"
-	conventions "go.opentelemetry.io/collector/semconv/v1.9.0"
+	conventions "go.opentelemetry.io/otel/semconv/v1.40.0"
 	"go.uber.org/zap"
 )
 
@@ -234,8 +234,8 @@ func (sr *sentrytraceReceiver) toTraceSpans(envlp *models.EnvelopEventParseResul
 
 func (sr *sentrytraceReceiver) fillResource(resource *pcommon.Resource, envlp *models.EnvelopEventParseResult, r *http.Request) {
 	attrs := resource.Attributes()
-	attrs.PutStr(conventions.AttributeTelemetrySDKName, envlp.Name)
-	attrs.PutStr(conventions.AttributeServiceName, sr.GetServiceName(r))
+	attrs.PutStr(string(conventions.TelemetrySDKNameKey), envlp.Name)
+	attrs.PutStr(string(conventions.ServiceNameKey), sr.GetServiceName(r))
 	attrs.PutStr("trace.source.type", "sentry")
 }
 
@@ -440,7 +440,7 @@ func (sr *sentrytraceReceiver) appendScopeSpans(scopeSpans *ptrace.ScopeSpans, e
 			}
 		}
 
-		rootSpan.Attributes().PutStr(conventions.AttributeEnduserID, event.User.Id)
+		rootSpan.Attributes().PutStr(string(conventions.EnduserIDKey), event.User.Id)
 
 		for _, sentrySpan := range event.Spans {
 			span := scopeSpans.Spans().AppendEmpty()
