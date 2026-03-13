@@ -20,9 +20,12 @@ OTEL_SDK_VERSION := $(shell find connector exporter receiver common -name 'go.mo
                       | xargs grep -h '^	go.opentelemetry.io/otel v' 2>/dev/null \
                       | grep -oP '\botel v\K[0-9]+\.[0-9]+\.[0-9]+' | sort -V | tail -1)
 # Fetch the latest semconv spec version available in the target OTel SDK from the opentelemetry-go repo
-SEMCONV_NEW_VERSION ?= $(shell curl -fsSL \
+# Use ifndef + := so the curl runs exactly once at parse time (not once per reference)
+ifndef SEMCONV_NEW_VERSION
+SEMCONV_NEW_VERSION := $(shell curl -fsSL \
                           'https://api.github.com/repos/open-telemetry/opentelemetry-go/contents/semconv?ref=v$(OTEL_SDK_VERSION)' \
                           | grep -oP '"name":\s*"v\K[0-9]+\.[0-9]+\.[0-9]+' | sort -V | tail -1)
+endif
 
 .PHONY: update-otel update-versions update-semconv install-builder build-collector help
 
@@ -48,7 +51,7 @@ update-versions: ## Update version references in Dockerfile, builder-config.yaml
 
 update-semconv: ## Update go.opentelemetry.io/otel/semconv import version in all Go source files
 	@if [ -z "$(SEMCONV_CURRENT_VERSION)" ]; then echo "ERROR: could not detect current semconv version in Go source files" >&2; exit 1; fi
-	@if [ -z "$(SEMCONV_NEW_VERSION)" ]; then echo "ERROR: could not determine new semconv version for OTel SDK v$(OTEL_STABLE_VERSION)" >&2; exit 1; fi
+	@if [ -z "$(SEMCONV_NEW_VERSION)" ]; then echo "ERROR: could not determine new semconv version for OTel SDK v$(OTEL_SDK_VERSION)" >&2; exit 1; fi
 	@if [ "$(SEMCONV_CURRENT_VERSION)" = "$(SEMCONV_NEW_VERSION)" ]; then \
 	  echo "semconv already at v$(SEMCONV_NEW_VERSION), nothing to do"; \
 	else \
