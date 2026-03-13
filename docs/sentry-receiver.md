@@ -80,7 +80,7 @@ In the table below you can find mapping of Sentry **spans** fields to the attrib
 
 ## Sentry Envelope to Logs records (Graylog mapping)
 
-LogTCP Exporter allows to log certain data from sentry envelopes to the Graylog. For now only sentry envelopes of event type can be logged:  
+LogTCP Exporter allows to log certain data from sentry envelopes to the Graylog. For now only sentry envelopes of event type can be logged:
 
 ### `type: "event"`
 
@@ -150,7 +150,7 @@ Envelopes with type `session` are not logged to the logging system.
 
 ## Sentry Envelope to Metrics
 
-SentryMetrics Connector allows to generate metrics for each type of sentry envelopes below:  
+SentryMetrics Connector allows to generate metrics for each type of sentry envelopes below:
 
 ### `type: "session"` (Metrics)
 
