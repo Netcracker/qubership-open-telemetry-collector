@@ -47,18 +47,18 @@ In the table below you can find mapping for fields of Sentry envelopes of types 
 to the opentelemetry trace attributes.
 
 <!-- markdownlint-disable line-length -->
-| Event or Transaction field/HTTP     | Otel Trace                                             | Description                   | Envelope Event | Comment                                                              |
-| ----------------------------------- | ------------------------------------------------------ | ----------------------------- | -------------- | -------------------------------------------------------------------- |
-| `{transaction} {context.trace.op}`  | `rootSpan.name`                                        | The trace name                | `transaction`  |                                                                      |
-| `request.headers['x-service-name']` | `"service.name"`                                       | Service name                  | any            | supposed that `x-service-id` will contain a name of the microservice |
-| `environment`                       | `environment`                                          | The name of the telemetry SDK | any            |                                                                      |
+| Event or Transaction field/HTTP     | Otel Trace                                              | Description                   | Envelope Event | Comment                                                              |
+| ----------------------------------- | ------------------------------------------------------- | ----------------------------- | -------------- | -------------------------------------------------------------------- |
+| `{transaction} {context.trace.op}`  | `rootSpan.name`                                         | The trace name                | `transaction`  |                                                                      |
+| `request.headers['x-service-name']` | `"service.name"`                                        | Service name                  | any            | supposed that `x-service-id` will contain a name of the microservice |
+| `environment`                       | `environment`                                           | The name of the telemetry SDK | any            |                                                                      |
 | `measurements.*`                    | `measurements.{measurements.value} {measurements.unit}` | -                             | any            |                                                                      |
-| `start_timestamp`                   | `rootSpan.start_time_unix_nano`                        | -                             | `transaction`  |                                                                      |
-| `timestamp`                         | `end_time_unix_nano`                                   | -                             | any            |                                                                      |
-| `context.trace.trace_id`            | `trace_id`                                             | -                             | any            |                                                                      |
-| `context.trace.span_id`             | `span_id`                                              | -                             | any            |                                                                      |
-| `transaction`                       | `transaction`                                          | -                             | any            |                                                                      |
-| `dist`                              | `dist`                                                 | -                             | any            |                                                                      |
+| `start_timestamp`                   | `rootSpan.start_time_unix_nano`                         | -                             | `transaction`  |                                                                      |
+| `timestamp`                         | `end_time_unix_nano`                                    | -                             | any            |                                                                      |
+| `context.trace.trace_id`            | `trace_id`                                              | -                             | any            |                                                                      |
+| `context.trace.span_id`             | `span_id`                                               | -                             | any            |                                                                      |
+| `transaction`                       | `transaction`                                           | -                             | any            |                                                                      |
+| `dist`                              | `dist`                                                  | -                             | any            |                                                                      |
 <!-- markdownlint-enable line-length -->
 
 In the table below you can find mapping of Sentry **spans** fields to the attributes of opentelemetry spans:
@@ -80,7 +80,8 @@ In the table below you can find mapping of Sentry **spans** fields to the attrib
 
 ## Sentry Envelope to Logs records (Graylog mapping)
 
-LogTCP Exporter allows to log certain data from sentry envelopes to the Graylog. For now only sentry envelopes of event type can be logged:  
+LogTCP Exporter allows to log certain data from sentry envelopes to the Graylog.
+For now only sentry envelopes of event type can be logged:
 
 ### `type: "event"`
 
@@ -150,7 +151,7 @@ Envelopes with type `session` are not logged to the logging system.
 
 ## Sentry Envelope to Metrics
 
-SentryMetrics Connector allows to generate metrics for each type of sentry envelopes below:  
+SentryMetrics Connector allows to generate metrics for each type of sentry envelopes below:
 
 ### `type: "session"` (Metrics)
 
@@ -158,7 +159,8 @@ SentryMetrics Connector allows to generate metrics for each type of sentry envel
 
 ### `type: "transaction"` (Metrics)
 
-- sentry_measurements_statistic - allows to monitor Browser Web Vitals - measurements and duration of transactions - for each `{transaction} {context.trace.op}`.
+- sentry_measurements_statistic - allows to monitor Browser Web Vitals - measurements and duration of transactions -
+  for each `{transaction} {context.trace.op}`.
 
 ### `type: "event"` (Metrics)
 
