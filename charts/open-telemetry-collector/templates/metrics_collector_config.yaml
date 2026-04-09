@@ -175,7 +175,7 @@ data:
               - limit(span.attributes, 56, ["name", "kind", "operation.name", "error", "component"])
               - limit(resource.attributes, 32, ["service.name", "service.namespace", "service.version", "host.name"])
               - truncate_all(span.attributes, 1024)
-              - truncate_all(resource.attributes, 256)      
+              - truncate_all(resource.attributes, 256)
       filter/removesessiontraces:
         error_mode: ignore
         traces:
