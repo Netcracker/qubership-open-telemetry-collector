@@ -3,18 +3,14 @@ apiVersion: apps/v1
 metadata:
   name: {{ .Values.SERVICE_NAME }}
   labels:
+    {{- include "otec.labels" . | nindent 4 }}
+    app: open-telemetry-collector
+    app.kubernetes.io/instance: '{{ cat (coalesce .Values.DEPLOYMENT_RESOURCE_NAME .Values.SERVICE_NAME) "-" .Values.NAMESPACE | nospace | trunc 63 | trimSuffix "-" }}'
+    app.kubernetes.io/version: '{{ .Values.ARTIFACT_DESCRIPTOR_VERSION }}'
+    app.kubernetes.io/technology: 'go'
     {{- if .Values.labels }}
     {{- toYaml (.Values.labels | default dict) | nindent 4 }}
     {{- end }}
-    name: '{{ .Values.SERVICE_NAME }}'
-    app: open-telemetry-collector
-    app.kubernetes.io/instance: '{{ cat (coalesce .Values.DEPLOYMENT_RESOURCE_NAME .Values.SERVICE_NAME) "-" .Values.NAMESPACE | nospace | trunc 63 | trimSuffix "-" }}'
-    app.kubernetes.io/name: '{{ .Values.SERVICE_NAME }}'
-    app.kubernetes.io/component: backend
-    app.kubernetes.io/version: '{{ .Values.ARTIFACT_DESCRIPTOR_VERSION }}'
-    app.kubernetes.io/managed-by: saasDeployer
-    app.kubernetes.io/part-of: open-telemetry-collector
-    app.kubernetes.io/technology: 'go'
 spec:
   strategy:
     {{- if eq (default "" .Values.DEPLOYMENT_STRATEGY_TYPE) "recreate" }}
@@ -48,14 +44,11 @@ spec:
     metadata:
       creationTimestamp: null
       labels:
-        name: '{{ coalesce .Values.DEPLOYMENT_RESOURCE_NAME .Values.SERVICE_NAME }}'
+        {{- include "otec.labels" (dict "ctx" . "name" (coalesce .Values.DEPLOYMENT_RESOURCE_NAME .Values.SERVICE_NAME)) | nindent 8 }}
         app: open-telemetry-collector
         app.kubernetes.io/instance: '{{ cat (coalesce .Values.DEPLOYMENT_RESOURCE_NAME .Values.SERVICE_NAME) "-" .Values.NAMESPACE | nospace | trunc 63 | trimSuffix "-" }}'
-        app.kubernetes.io/name: '{{ coalesce .Values.DEPLOYMENT_RESOURCE_NAME .Values.SERVICE_NAME }}'
-        app.kubernetes.io/component: backend
         app.kubernetes.io/version: '{{ .Values.ARTIFACT_DESCRIPTOR_VERSION }}'
-        app.kubernetes.io/managed-by: saasDeployer
-        app.kubernetes.io/part-of: open-telemetry-collector
+        app.kubernetes.io/technology: 'go'
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/metrics_collector_config.yaml") . | sha256sum }}
     spec:
@@ -103,7 +96,7 @@ spec:
       containers:
         - name: opentelemetry-collector
           command: ["{{ .Values.entrypoint }}","--config", "/conf/otel.yaml"]
-          image: {{ template "otec.image" }}
+          image: {{ template "otec.image" . }}
           ports:
             - name: jaeger-compact
               containerPort: 6831
