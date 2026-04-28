@@ -36,7 +36,11 @@ func startGraylogCapture(t *testing.T) (string, <-chan map[string]any, func()) {
 				return
 			}
 			go func(c net.Conn) {
-				defer c.Close()
+				defer func() {
+					if closeErr := c.Close(); closeErr != nil {
+						t.Errorf("failed to close captured connection: %v", closeErr)
+					}
+				}()
 				reader := bufio.NewReader(c)
 				for {
 					payload, err := reader.ReadBytes(0)
