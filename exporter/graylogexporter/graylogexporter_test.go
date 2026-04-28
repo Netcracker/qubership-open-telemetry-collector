@@ -12,7 +12,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func TestGraylogExporterHelpers(t *testing.T) {
+func TestParseEndpoint(t *testing.T) {
 	host, port, err := parseEndpoint("graylog:12202")
 	if err != nil || host != "graylog" || port != 12202 {
 		t.Fatalf("unexpected parsed endpoint: %q %d %v", host, port, err)
@@ -24,7 +24,9 @@ func TestGraylogExporterHelpers(t *testing.T) {
 	if _, _, err := parseEndpoint("graylog:bad"); err == nil {
 		t.Fatal("expected invalid port error")
 	}
+}
 
+func TestExtractAttributes(t *testing.T) {
 	if attrs, msg, err := extractAttributes(pcommon.NewValueStr(`{"message":"hello"}{"service":"frontend"}`)); err != nil || msg != "hello" || attrs["service"] != "frontend" {
 		t.Fatalf("unexpected string body parsing: %#v %q %v", attrs, msg, err)
 	}
@@ -44,7 +46,9 @@ func TestGraylogExporterHelpers(t *testing.T) {
 	if attrs, msg, err := extractAttributes(bytesVal); err != nil || msg != defaultNoMessage || string(attrs["bytes"].([]byte)) != "raw" {
 		t.Fatalf("unexpected bytes body parsing: %#v %q %v", attrs, msg, err)
 	}
+}
 
+func TestDecodeConcatenatedJSONAndPcommonConversions(t *testing.T) {
 	if _, err := decodeConcatenatedJSON("{bad json}"); err == nil {
 		t.Fatal("expected JSON decoding error")
 	}
@@ -57,7 +61,9 @@ func TestGraylogExporterHelpers(t *testing.T) {
 	if got, ok := getStringFromPcommonValue(doubleVal); !ok || got != "1.500000" {
 		t.Fatalf("unexpected double conversion: %q %v", got, ok)
 	}
+}
 
+func TestMergeHelpers(t *testing.T) {
 	merged := mergeAttributes(map[string]interface{}{"count": 5})
 	if merged["count"] != "5" {
 		t.Fatalf("unexpected merged attributes: %#v", merged)
@@ -70,7 +76,9 @@ func TestGraylogExporterHelpers(t *testing.T) {
 	if dest["service.name"] != "frontend" || dest["retries"] != "2" {
 		t.Fatalf("unexpected merged map attributes: %#v", dest)
 	}
+}
 
+func TestDefaultIfEmpty(t *testing.T) {
 	if got := defaultIfEmpty("   ", "fallback"); got != "fallback" {
 		t.Fatalf("unexpected default fallback: %q", got)
 	}
