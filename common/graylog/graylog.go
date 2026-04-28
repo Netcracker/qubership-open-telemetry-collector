@@ -109,7 +109,7 @@ func (gs *GraylogSender) tcpConnGoroutine(connNumber int) {
 		}
 	}()
 
-	tcpAddress := fmt.Sprintf("%s:%d", gs.endpoint.Address, gs.endpoint.Port)
+	tcpAddress := net.JoinHostPort(gs.endpoint.Address, fmt.Sprintf("%d", gs.endpoint.Port))
 	gs.logger.Sugar().Infof("GraylogTcpConnection : Goroutine #%d for %s started", connNumber, tcpAddress)
 
 	var (
