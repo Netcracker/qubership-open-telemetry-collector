@@ -1,8 +1,12 @@
 package graylog
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
+	"io"
+	"net"
 	"testing"
 	"time"
 
@@ -87,4 +91,84 @@ func TestNewGraylogSenderStop(t *testing.T) {
 	default:
 		t.Fatal("expected sender context to be canceled")
 	}
+}
+
+func TestNewGraylogSenderSendsMessageOverTCP(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("failed to create TCP listener: %v", err)
+	}
+	defer func() {
+		if closeErr := listener.Close(); closeErr != nil && !errors.Is(closeErr, net.ErrClosed) {
+			t.Fatalf("failed to close listener: %v", closeErr)
+		}
+	}()
+
+	payloadCh := make(chan map[string]any, 1)
+	serverDone := make(chan struct{})
+	go func() {
+		defer close(serverDone)
+		conn, err := listener.Accept()
+		if err != nil {
+			return
+		}
+		defer func() {
+			if closeErr := conn.Close(); closeErr != nil {
+				t.Errorf("failed to close accepted connection: %v", closeErr)
+			}
+		}()
+
+		data, err := bufio.NewReader(conn).ReadBytes(0)
+		if err != nil && !errors.Is(err, io.EOF) {
+			t.Errorf("failed reading graylog payload: %v", err)
+			return
+		}
+
+		var payload map[string]any
+		if err := json.Unmarshal(data[:len(data)-1], &payload); err != nil {
+			t.Errorf("failed to unmarshal payload: %v", err)
+			return
+		}
+		payloadCh <- payload
+	}()
+
+	tcpAddr := listener.Addr().(*net.TCPAddr)
+	sender := NewGraylogSender(
+		Endpoint{Transport: TCP, Address: tcpAddr.IP.String(), Port: uint(tcpAddr.Port)},
+		zap.NewNop(),
+		1,
+		1,
+		1,
+		1,
+		time.Millisecond,
+	)
+	defer sender.Stop()
+
+	if err := sender.SendToQueue(&Message{
+		Version:      "1.1",
+		Host:         "frontend",
+		ShortMessage: "hello tcp",
+		Extra: map[string]string{
+			"trace_id": "abc123",
+		},
+	}); err != nil {
+		t.Fatalf("SendToQueue returned error: %v", err)
+	}
+
+	select {
+	case payload := <-payloadCh:
+		if payload["short_message"] != "hello tcp" {
+			t.Fatalf("unexpected short_message: %#v", payload)
+		}
+		if payload["_trace_id"] != "abc123" {
+			t.Fatalf("unexpected trace_id: %#v", payload)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("timed out waiting for payload")
+	}
+
+	if err := listener.Close(); err != nil && !errors.Is(err, net.ErrClosed) {
+		t.Fatalf("failed to close listener: %v", err)
+	}
+	<-serverDone
 }
