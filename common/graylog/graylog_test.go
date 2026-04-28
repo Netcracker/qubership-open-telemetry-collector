@@ -13,6 +13,68 @@ import (
 	"go.uber.org/zap"
 )
 
+func closeListener(t *testing.T, listener net.Listener) {
+	t.Helper()
+
+	if err := listener.Close(); err != nil && !errors.Is(err, net.ErrClosed) {
+		t.Fatalf("failed to close listener: %v", err)
+	}
+}
+
+func startTCPPayloadServer(t *testing.T, listener net.Listener) (<-chan map[string]any, <-chan struct{}) {
+	t.Helper()
+
+	payloadCh := make(chan map[string]any, 1)
+	serverDone := make(chan struct{})
+
+	go func() {
+		defer close(serverDone)
+		conn, err := listener.Accept()
+		if err != nil {
+			return
+		}
+		defer func() {
+			if closeErr := conn.Close(); closeErr != nil {
+				t.Errorf("failed to close accepted connection: %v", closeErr)
+			}
+		}()
+
+		payload, err := readPayload(conn)
+		if err != nil {
+			t.Errorf("failed to read payload: %v", err)
+			return
+		}
+		payloadCh <- payload
+	}()
+
+	return payloadCh, serverDone
+}
+
+func readPayload(conn net.Conn) (map[string]any, error) {
+	data, err := bufio.NewReader(conn).ReadBytes(0)
+	if err != nil && !errors.Is(err, io.EOF) {
+		return nil, err
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(data[:len(data)-1], &payload); err != nil {
+		return nil, err
+	}
+	return payload, nil
+}
+
+func waitForPayload(t *testing.T, payloadCh <-chan map[string]any) map[string]any {
+	t.Helper()
+
+	select {
+	case payload := <-payloadCh:
+		return payload
+	case <-time.After(3 * time.Second):
+		t.Fatal("timed out waiting for payload")
+		return nil
+	}
+}
+
 func TestPrepareMessageAddsExtrasAndNullTerminator(t *testing.T) {
 	data, err := prepareMessage(&Message{
 		Version:      "1.1",
@@ -98,39 +160,9 @@ func TestNewGraylogSenderSendsMessageOverTCP(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create TCP listener: %v", err)
 	}
-	defer func() {
-		if closeErr := listener.Close(); closeErr != nil && !errors.Is(closeErr, net.ErrClosed) {
-			t.Fatalf("failed to close listener: %v", closeErr)
-		}
-	}()
+	defer closeListener(t, listener)
 
-	payloadCh := make(chan map[string]any, 1)
-	serverDone := make(chan struct{})
-	go func() {
-		defer close(serverDone)
-		conn, err := listener.Accept()
-		if err != nil {
-			return
-		}
-		defer func() {
-			if closeErr := conn.Close(); closeErr != nil {
-				t.Errorf("failed to close accepted connection: %v", closeErr)
-			}
-		}()
-
-		data, err := bufio.NewReader(conn).ReadBytes(0)
-		if err != nil && !errors.Is(err, io.EOF) {
-			t.Errorf("failed reading graylog payload: %v", err)
-			return
-		}
-
-		var payload map[string]any
-		if err := json.Unmarshal(data[:len(data)-1], &payload); err != nil {
-			t.Errorf("failed to unmarshal payload: %v", err)
-			return
-		}
-		payloadCh <- payload
-	}()
+	payloadCh, serverDone := startTCPPayloadServer(t, listener)
 
 	tcpAddr := listener.Addr().(*net.TCPAddr)
 	sender := NewGraylogSender(
@@ -155,20 +187,14 @@ func TestNewGraylogSenderSendsMessageOverTCP(t *testing.T) {
 		t.Fatalf("SendToQueue returned error: %v", err)
 	}
 
-	select {
-	case payload := <-payloadCh:
-		if payload["short_message"] != "hello tcp" {
-			t.Fatalf("unexpected short_message: %#v", payload)
-		}
-		if payload["_trace_id"] != "abc123" {
-			t.Fatalf("unexpected trace_id: %#v", payload)
-		}
-	case <-time.After(3 * time.Second):
-		t.Fatal("timed out waiting for payload")
+	payload := waitForPayload(t, payloadCh)
+	if payload["short_message"] != "hello tcp" {
+		t.Fatalf("unexpected short_message: %#v", payload)
+	}
+	if payload["_trace_id"] != "abc123" {
+		t.Fatalf("unexpected trace_id: %#v", payload)
 	}
 
-	if err := listener.Close(); err != nil && !errors.Is(err, net.ErrClosed) {
-		t.Fatalf("failed to close listener: %v", err)
-	}
+	closeListener(t, listener)
 	<-serverDone
 }

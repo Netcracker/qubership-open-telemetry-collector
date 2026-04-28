@@ -17,6 +17,60 @@ import (
 	"go.uber.org/zap"
 )
 
+func closeCapturedConn(t *testing.T, c net.Conn) {
+	t.Helper()
+
+	if err := c.Close(); err != nil {
+		t.Errorf("failed to close captured connection: %v", err)
+	}
+}
+
+func decodeCapturedPayload(payload []byte) (map[string]any, error) {
+	var msg map[string]any
+	if err := json.Unmarshal(payload[:len(payload)-1], &msg); err != nil {
+		return nil, err
+	}
+	return msg, nil
+}
+
+func readCapturedConn(t *testing.T, c net.Conn, messages chan<- map[string]any) {
+	t.Helper()
+
+	defer closeCapturedConn(t, c)
+
+	reader := bufio.NewReader(c)
+	for {
+		payload, err := reader.ReadBytes(0)
+		if len(payload) > 1 {
+			msg, decodeErr := decodeCapturedPayload(payload)
+			if decodeErr != nil {
+				t.Errorf("failed to decode captured GELF payload: %v", decodeErr)
+				return
+			}
+			messages <- msg
+		}
+		if err != nil {
+			if !errors.Is(err, io.EOF) {
+				t.Errorf("failed to read captured GELF payload: %v", err)
+			}
+			return
+		}
+	}
+}
+
+func acceptCapturedConns(t *testing.T, listener net.Listener, messages chan<- map[string]any, acceptDone chan<- struct{}) {
+	t.Helper()
+
+	defer close(acceptDone)
+	for {
+		conn, err := listener.Accept()
+		if err != nil {
+			return
+		}
+		go readCapturedConn(t, conn, messages)
+	}
+}
+
 func startGraylogCapture(t *testing.T) (string, <-chan map[string]any, func()) {
 	t.Helper()
 
@@ -28,40 +82,7 @@ func startGraylogCapture(t *testing.T) (string, <-chan map[string]any, func()) {
 	messages := make(chan map[string]any, 16)
 	acceptDone := make(chan struct{})
 
-	go func() {
-		defer close(acceptDone)
-		for {
-			conn, err := listener.Accept()
-			if err != nil {
-				return
-			}
-			go func(c net.Conn) {
-				defer func() {
-					if closeErr := c.Close(); closeErr != nil {
-						t.Errorf("failed to close captured connection: %v", closeErr)
-					}
-				}()
-				reader := bufio.NewReader(c)
-				for {
-					payload, err := reader.ReadBytes(0)
-					if len(payload) > 1 {
-						var msg map[string]any
-						if unmarshalErr := json.Unmarshal(payload[:len(payload)-1], &msg); unmarshalErr != nil {
-							t.Errorf("failed to decode captured GELF payload: %v", unmarshalErr)
-							return
-						}
-						messages <- msg
-					}
-					if err != nil {
-						if !errors.Is(err, io.EOF) {
-							t.Errorf("failed to read captured GELF payload: %v", err)
-						}
-						return
-					}
-				}
-			}(conn)
-		}
-	}()
+	go acceptCapturedConns(t, listener, messages, acceptDone)
 
 	cleanup := func() {
 		_ = listener.Close()
