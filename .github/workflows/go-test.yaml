@@ -34,33 +34,34 @@ jobs:
   test:
     needs: prepare
     name: Build and test with coverage
-    uses: Beauline/qubership-core-infra/.github/workflows/generic-go-build.yaml@869db629f9f5fcb03d83c59b78709458fa6cade9 # main, temporary
+    uses: Beauline/qubership-core-infra/.github/workflows/generic-go-build.yaml@d20ca9fb4ecc62c1cb17e1b3cf95ab1b313d8a95 # main, temporary
     with:
       sonar-project-key: ${{ needs.prepare.outputs.sonar-project-key }}
-      go-module-configs: >-
-        [
-          {
-            "dir": "collector"
-          },
-          {
-            "dir": "common/graylog"
-          },
-          {
-            "dir": "connector/sentrymetricsconnector"
-          },
-          {
-            "dir": "exporter/graylogexporter"
-          },
-          {
-            "dir": "exporter/logtcpexporter"
-          },
-          {
-            "dir": "receiver/sentryreceiver"
-          },
-          {
-            "dir": "utils"
-          }
-        ]
+      # commented to test modules discovery
+      # go-module-configs: >-
+      #   [
+      #     {
+      #       "dir": "collector"
+      #     },
+      #     {
+      #       "dir": "common/graylog"
+      #     },
+      #     {
+      #       "dir": "connector/sentrymetricsconnector"
+      #     },
+      #     {
+      #       "dir": "exporter/graylogexporter"
+      #     },
+      #     {
+      #       "dir": "exporter/logtcpexporter"
+      #     },
+      #     {
+      #       "dir": "receiver/sentryreceiver"
+      #     },
+      #     {
+      #       "dir": "utils"
+      #     }
+      #   ]
       skip-docker: true
     secrets:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
