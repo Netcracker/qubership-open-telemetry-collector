@@ -1,0 +1,34 @@
+{{- if .Values.OTEC_SENTRY_ENVELOPES_INGRESS_ENABLED }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: '{{ .Values.SERVICE_NAME }}'
+  namespace: '{{ .Values.NAMESPACE }}'
+  labels:
+    application: '{{ .Values.SERVICE_NAME }}'
+    name: '{{ .Values.SERVICE_NAME }}'
+    tier: backend
+    app.kubernetes.io/name: '{{ .Values.SERVICE_NAME }}'
+    app.kubernetes.io/instance: '{{ cat .Values.SERVICE_NAME .Values.DELIMITER .Values.NAMESPACE | nospace | trunc 63 }}'
+    app.kubernetes.io/version: '{{ .Values.ARTIFACT_DESCRIPTOR_VERSION }}'
+    app.kubernetes.io/component: monitoring
+    app.kubernetes.io/part-of: open-telemetry-collector
+    app.kubernetes.io/managed-by: saasDeployer
+  {{- if .Values.OTEC_SENTRY_ENVELOPES_INGRESS_ANNOTATIONS }}
+  annotations:
+    {{- toYaml (.Values.OTEC_SENTRY_ENVELOPES_INGRESS_ANNOTATIONS) | nindent 4 }}
+  {{- end }}
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: "{{ .Values.SERVICE_NAME}}-{{ .Values.NAMESPACE}}.{{ .Values.CLOUD_PUBLIC_HOST}}"
+      http:
+        paths:
+          - path: /
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: '{{ .Values.SERVICE_NAME }}'
+                port:
+                  name: sentry-receiver
+{{- end }}

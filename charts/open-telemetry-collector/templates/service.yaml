@@ -1,0 +1,64 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: {{ .Values.SERVICE_NAME }}
+  labels:
+    name: {{ .Values.SERVICE_NAME }}
+    app.kubernetes.io/name: {{ .Values.SERVICE_NAME }}
+    app.kubernetes.io/part-of: open-telemetry-collector
+    app.kubernetes.io/managed-by: saasDeployer
+    app: open-telemetry-collector
+spec:
+  ports:
+  {{- if .Values.SERVICE_PORTS }}
+    {{- toYaml (.Values.SERVICE_PORTS) | nindent 4 }}
+  {{- else }}
+    - name: jaeger-compact
+      protocol: UDP
+      port: 6831
+      targetPort: jaeger-compact
+    - name: http-zipkin
+      protocol: TCP
+      port: 9411
+      targetPort: zipkin
+    - name: grpc
+      protocol: TCP
+      port: 14250
+      targetPort: jaeger-grpc
+    - name: c-tchan-trft
+      protocol: TCP
+      port: 14267
+      targetPort: c-tchan-trft
+    - name: http-c-binary-trft
+      protocol: TCP
+      port: 14268
+      targetPort: jaeger-thrift
+    - name: otlp
+      protocol: TCP
+      port: 4317
+      targetPort: otlp
+    - name: otlp-http
+      protocol: TCP
+      port: 4318
+      targetPort: otlp-http
+    - name: exporter-prom
+      protocol: TCP
+      port: 8889
+      targetPort: exporter-prom
+    - name: sentry-receiver
+      protocol: TCP
+      port: 8080
+      targetPort: sentry-receiver
+    - name: pprof
+      protocol: TCP
+      port: 1777
+      targetPort: pprof
+    - name: self-telemetry
+      protocol: TCP
+      port: 8888
+      targetPort: self-telemetry
+  {{- end }}
+  selector:
+    app: open-telemetry-collector
+  sessionAffinity: None
+  type: ClusterIP

@@ -1,0 +1,112 @@
+name: Build Artifacts
+
+on:
+  release:
+    types: [created]
+  push:
+    branches:
+    - '**'
+    paths:
+      - '**'
+      - '!.github/**'
+      - '.github/workflows/build.yml'
+      - '!docs/**'
+      - '!*.md'
+  pull_request:
+    branches:
+    - '**'
+    paths:
+      - '**'
+      - '!.github/**'
+      - '.github/workflows/build.yml'
+      - '!docs/**'
+      - '!*.md'
+
+permissions:
+  contents: read
+
+concurrency:
+  # On main/release, we don't want any jobs cancelled so the sha is used to name the group
+  # On PR branches, we cancel the job if new commits are pushed
+  # More info: https://stackoverflow.com/a/68422069/253468
+  group: ${{ github.ref == 'refs/heads/main' && format('ci-main-{0}', github.sha) || format('ci-main-{0}', github.ref) }}
+  cancel-in-progress: true
+
+jobs:
+  multiplatform_build:
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      pull-requests: write
+      security-events: write
+    # Build PRs only if the event comes from Dependabot. Skip branch pushes
+    if: github.event.pull_request.user.login != 'dependabot[bot]' || github.event_name == 'pull_request'
+    strategy:
+      fail-fast: false
+      matrix:
+        component:
+        - name: qubership-open-telemetry-collector
+          file: Dockerfile
+          context: .
+        - name: qubership-open-telemetry-collector-transfer
+          file: docker-transfer/Dockerfile
+          context: .
+    runs-on: ubuntu-latest
+    name: ${{ matrix.component.name }}
+    steps:
+    - name: Checkout
+      uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+    - name: Docker meta
+      id: meta
+      uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
+      with:
+        images: |
+          ghcr.io/${{ github.repository_owner }}/${{ matrix.component.name }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=tag
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+    - name: Login to Docker Hub
+      uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    - name: Build and push
+      id: build
+      uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7.0.0
+      with:
+        no-cache: true
+        context: ${{ matrix.component.context }}
+        file: ${{ matrix.component.file }}
+        platforms: linux/amd64
+        # See https://docs.github.com/en/code-security/dependabot/working-with-dependabot/automating-dependabot-with-github-actions#fetching-metadata-about-a-pull-request
+        push: ${{ github.event_name != 'pull_request' && github.actor != 'dependabot[bot]' }}
+        provenance: false
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+
+    - name: Analyze for critical and high CVEs
+      if: ${{ steps.meta.outputs.tags != '' }}
+      id: docker-scout-cves
+      uses: docker/scout-action@f8c776824083494ab0d56b8105ba2ca85c86e4de # v1.18.2
+      continue-on-error: true
+      with:
+        command: cves,recommendations
+        image: ${{ steps.meta.outputs.tags }}
+        sarif-file: sarif.output.json
+        summary: true
+        ignore-base: false
+        dockerhub-user: ${{ secrets.DOCKERHUB_USER }}
+        dockerhub-password: ${{ secrets.DOCKERHUB_RW_TOKEN }}
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Upload SARIF result
+      continue-on-error: true
+      uses: github/codeql-action/upload-sarif@c10b8064de6f491fea524254123dbe5e09572f13 # v4.35.1
+      with:
+        sarif_file: sarif.output.json

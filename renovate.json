@@ -1,0 +1,123 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    "schedule:weekly"
+  ],
+  "labels": [
+    "dependencies"
+  ],
+  "prConcurrentLimit": 20,
+  "ignorePaths": [
+    "collector/**"
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Track OTEL release version from Dockerfile ARG via the Go module proxy (cmd/builder version == collector release version). Consistent with builder-config.yaml tracking and avoids GitHub API rate limits.",
+      "managerFilePatterns": [
+        "/Dockerfile/"
+      ],
+      "matchStrings": [
+        "ARG OTEL_VERSION=(?<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)"
+      ],
+      "depNameTemplate": "go.opentelemetry.io/collector/cmd/builder",
+      "datasourceTemplate": "go",
+      "extractVersionTemplate": "^v?(?<version>.+)$"
+    },
+    {
+      "customType": "regex",
+      "description": "Update gomod entries in builder-config.yaml directly via the Go module proxy. Covers both the 0.x.y (contrib/core-unstable) and 1.x.y (core-stable) versions since each module is looked up independently.",
+      "managerFilePatterns": [
+        "/builder-config\\.yaml/"
+      ],
+      "matchStrings": [
+        "gomod:\\s+(?<depName>[^\\s]+)\\s+v(?<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)"
+      ],
+      "datasourceTemplate": "go",
+      "extractVersionTemplate": "^v?(?<version>.+)$"
+    },
+    {
+      "customType": "regex",
+      "description": "Update go.opentelemetry.io/otel/semconv version embedded in Go import paths (e.g. semconv/v1.40.0). Tracks semconv/* tags from the opentelemetry-go repo.",
+      "managerFilePatterns": [
+        "/(connector|exporter|receiver|common)/.+\\.go$/"
+      ],
+      "matchStrings": [
+        "go\\.opentelemetry\\.io/otel/semconv/v(?<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)"
+      ],
+      "depNameTemplate": "open-telemetry/opentelemetry-go",
+      "datasourceTemplate": "github-tags",
+      "extractVersionTemplate": "^semconv/v?(?<version>.+)$"
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "Disable direct Renovate updates for the auto-generated collector directory.",
+      "matchManagers": [
+        "gomod"
+      ],
+      "matchFileNames": [
+        "collector/go.mod"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "Disable digest/version updates for intra-repo cross-references. These are local modules in this monorepo referenced via pseudo-versions and must not be updated as external dependencies.",
+      "matchPackageNames": [
+        "github.com/Netcracker/qubership-open-telemetry-collector/{/,}**"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "Group all OpenTelemetry updates (Dockerfile ARG, builder-config.yaml gomod entries, plugin go.mod deps, semconv imports) into a single PR so the coupled 0.x.y / 1.x.y versions always move together.",
+      "matchManagers": [
+        "custom.regex",
+        "gomod"
+      ],
+      "matchPackageNames": [
+        "open-telemetry/opentelemetry-go",
+        "go.opentelemetry.io/{/,}**",
+        "github.com/open-telemetry/{/,}**"
+      ],
+      "groupName": "otel-collector",
+      "separateMajorMinor": false
+    },
+    {
+      "matchManagers": [
+        "github-actions"
+      ],
+      "groupName": "actions-deps",
+      "matchPackageNames": [
+        "*"
+      ]
+    },
+    {
+      "matchManagers": [
+        "dockerfile"
+      ],
+      "groupName": "docker-deps",
+      "matchPackageNames": [
+        "*"
+      ]
+    },
+    {
+      "matchManagers": [
+        "gomod"
+      ],
+      "matchPackageNames": [
+        "k8s.io/{/,}**"
+      ],
+      "groupName": "k8s.io"
+    },
+    {
+      "matchManagers": [
+        "gomod"
+      ],
+      "matchPackageNames": [
+        "google.golang.org/{/,}**"
+      ],
+      "groupName": "google.golang.org"
+    }
+  ]
+}

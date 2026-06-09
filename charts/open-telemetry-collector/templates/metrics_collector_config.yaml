@@ -1,0 +1,244 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: opentelemetry-collector-config
+  labels:
+    app.kubernetes.io/instance: '{{ cat .Values.SERVICE_NAME .Values.DELIMITER .Values.NAMESPACE | nospace | trunc 63 }}'
+    app.kubernetes.io/name: '{{ .Values.SERVICE_NAME }}'
+    app.kubernetes.io/part-of: open-telemetry-collector
+    app.kubernetes.io/managed-by: saasDeployer
+data:
+  otel.yaml: |
+  {{- if .Values.CONFIG_MAP }}
+    {{- toYaml (.Values.CONFIG_MAP) | nindent 4 }}
+  {{- else }}
+    {{- if eq .Values.OTEC_INSTALLATION_MODE "SPAN_METRICS_PROCESSOR" }}
+    receivers:
+      jaeger:
+        protocols:
+          thrift_http:
+            endpoint: ":14268"
+          grpc:
+            endpoint: ":14250"
+      otlp:
+        protocols:
+          grpc:
+            endpoint: ":4317"
+          http:
+            endpoint: ":4318"
+      {{- if .Values.ZIPKIN_RECEIVER_PORT }}
+      zipkin:
+        endpoint: ":{{.Values.ZIPKIN_RECEIVER_PORT }}"
+      {{- end }}
+    exporters:
+      prometheus:
+        endpoint: ":8889"
+      otlp:
+        endpoint: {{- if .Values.JAEGER_COLLECTOR_HOST }} "{{ .Values.JAEGER_COLLECTOR_HOST }}:{{ .Values.JAEGER_COLLECTOR_OTLP_PORT }}" {{- else if .Values.TRACING_HOST }} "{{ .Values.TRACING_HOST }}:{{ .Values.JAEGER_COLLECTOR_OTLP_PORT }}" {{- else }} "jaeger-app-collector.jaeger:{{ .Values.JAEGER_COLLECTOR_OTLP_PORT }}" {{- end }}
+        tls:
+          insecure: true
+    {{- if .Values.OTEC_ENABLE_ARBITRARY_TRACES_LOGGING | default false }}
+      logtcpexporter:
+        endpoint: {{- if .Values.GRAYLOG_COLLECTOR_HOST }} {{ printf "%s:%s" ( .Values.GRAYLOG_COLLECTOR_HOST | replace "https://" "" | replace "http://" "") ( .Values.GRAYLOG_COLLECTOR_PORT | toString ) }} {{- else }} {{ printf "%s:%s" ( .Values.GRAYLOG_UI_URL | replace "https://" "" | replace "http://" "") ( .Values.GRAYLOG_COLLECTOR_PORT | toString ) }} {{- end }}
+        {{- toYaml (.Values.OTEC_LOGTCPEXPORTER_PARAMETERS) | nindent 8 }}
+        arbitrary-traces-logging:
+          {{- toYaml (.Values.OTEC_ARBITRARY_TRACES_LOGGING_CONFIG) | nindent 10 }}
+    {{- end }}
+    {{- if .Values.OTEC_ENABLE_LOGGING | default false }}
+      graylogexporter:
+        endpoint: {{ .Values.GRAYLOG_COLLECTOR_HOST }}:{{ .Values.GRAYLOG_COLLECTOR_PORT }}
+        {{- toYaml (.Values.OTEC_GRAYLOGEXPORTER_PARAMETERS) | nindent 8 }}
+        field_mapping:
+        {{- toYaml .Values.OTEC_GELF_FIELD_MAPPING | nindent 10 }}
+    {{- end }}
+      debug:
+        verbosity: detailed
+        sampling_initial: 10
+        sampling_thereafter: 200
+    processors:
+      logdedup:
+        {{- if .Values.OTEC_LOGDEDUP_PROCESSOR_PARAMETERS }}
+          {{- toYaml .Values.OTEC_LOGDEDUP_PROCESSOR_PARAMETERS | nindent 8 }}
+        {{- end }}
+      batch:
+        send_batch_max_size: 10000
+        timeout: 0s
+      transform:
+        error_mode: ignore
+        trace_statements:
+          - context: span
+            statements:
+              - limit(span.attributes, 56, ["name", "kind", "operation.name", "error", "component"])
+              - limit(resource.attributes, 32, ["service.name", "service.namespace", "service.version", "host.name"])
+              - truncate_all(span.attributes, 1024)
+              - truncate_all(resource.attributes, 256)
+    {{- if .Values.OTEC_TAILBASED_GENERAL_PARAMETERS}}
+      {{- toYaml (.Values.OTEC_TAILBASED_GENERAL_PARAMETERS) | nindent 6 }}
+    {{- end }}
+    {{- if .Values.OTEC_TAILBASED_POLICIES_PARAMETERS}}
+      {{- toYaml (.Values.OTEC_TAILBASED_POLICIES_PARAMETERS) | nindent 8 }}
+    {{- end }}
+    connectors:
+      spanmetrics:
+        histogram:
+          explicit:
+            buckets:
+              {{- toYaml (.Values.LATENCY_HISTOGRAM_BUCKETS) | nindent 14 }}
+        dimensions:
+          - name: destinationPageUrl
+            default: UNKNOWN
+          - name: error
+            default: UNKNOWN
+          - name: spanStatus
+            default: UNKNOWN
+        aggregation_cardinality_limit: 5000
+        aggregation_temporality: "AGGREGATION_TEMPORALITY_CUMULATIVE"
+        metrics_flush_interval: 15s
+    extensions:
+      health_check:
+        endpoint: "0.0.0.0:{{ .Values.OTEC_HEALTH_CHECK_PORT }}"
+      pprof:
+        endpoint: ":1777"
+    service:
+      extensions: [health_check, pprof]
+      pipelines:
+        traces:
+          {{- if .Values.ZIPKIN_RECEIVER_PORT}}
+          receivers: [jaeger, otlp, zipkin]
+          {{- else }}
+          receivers: [jaeger, otlp]
+          {{- end }}
+          {{- if .Values.OTEC_TAILBASED_GENERAL_PARAMETERS }}
+          processors: [transform, batch, tail_sampling]
+          {{- else }}
+          processors: [transform, batch]
+          {{- end }}
+          {{- if .Values.OTEC_ENABLE_ARBITRARY_TRACES_LOGGING | default false }}
+          exporters: [otlp, spanmetrics, logtcpexporter]
+          {{- else }}
+          exporters: [otlp, spanmetrics]
+          {{- end }}
+        metrics:
+          receivers: [spanmetrics]
+          exporters: [prometheus]
+        logs:
+          {{- if .Values.OTEC_ENABLE_LOGDEDUP_PROCESSOR }}
+          receivers: [otlp]
+          processors: [logdedup, batch]
+          exporters: [graylogexporter]
+          {{- else if .Values.OTEC_ENABLE_LOGGING | default false }}
+          receivers: [otlp]
+          processors: [batch]
+          exporters: [graylogexporter]
+          {{- end }}
+      telemetry:
+        logs:
+          level: "{{ .Values.LOG_LEVEL }}"
+        metrics:
+          readers:
+          - pull:
+              exporter:
+                 prometheus:
+                   host: '0.0.0.0'
+                   port: 8888
+    {{- else if eq .Values.OTEC_INSTALLATION_MODE "SENTRY_ENVELOPES_PROCESSING" }}
+    receivers:
+      sentryreceiver:
+      {{- if .Values.OTEC_SENTRY_RECEIVER_PARAMETERS }}
+        {{- toYaml (.Values.OTEC_SENTRY_RECEIVER_PARAMETERS) | nindent 8 }}
+      {{- else }}
+        endpoint: ":8080"
+      {{- end }}
+    exporters:
+      prometheus:
+        endpoint: ":8889"
+        metric_expiration: 336h
+      otlp:
+        endpoint: {{- if .Values.JAEGER_COLLECTOR_HOST }} "{{ .Values.JAEGER_COLLECTOR_HOST }}:{{ .Values.JAEGER_COLLECTOR_OTLP_PORT }}" {{- else if .Values.TRACING_HOST }} "{{ .Values.TRACING_HOST }}:{{ .Values.JAEGER_COLLECTOR_OTLP_PORT }}" {{- else }} "jaeger-app-collector.jaeger:{{ .Values.JAEGER_COLLECTOR_OTLP_PORT }}" {{- end }}
+        tls:
+          insecure: true
+      logtcpexporter:
+        endpoint: {{- if .Values.GRAYLOG_COLLECTOR_HOST }} {{ printf "%s:%s" ( .Values.GRAYLOG_COLLECTOR_HOST | replace "https://" "" | replace "http://" "") ( .Values.GRAYLOG_COLLECTOR_PORT | toString ) }} {{- else }} {{ printf "%s:%s" ( .Values.GRAYLOG_UI_URL | replace "https://" "" | replace "http://" "") ( .Values.GRAYLOG_COLLECTOR_PORT | toString ) }} {{- end }}
+        {{- toYaml (.Values.OTEC_LOGTCPEXPORTER_PARAMETERS) | nindent 8 }}
+      graylogexporter:
+        endpoint: {{ .Values.GRAYLOG_COLLECTOR_HOST }}:{{ .Values.GRAYLOG_COLLECTOR_PORT }}
+        {{- toYaml (.Values.OTEC_LOGTCPEXPORTER_PARAMETERS) | nindent 8 }}
+        field_mapping:
+        {{- toYaml .Values.OTEC_GELF_FIELD_MAPPING | nindent 10 }}
+    processors:
+      batch:
+      transform:
+        error_mode: ignore
+        trace_statements:
+          - context: span
+            statements:
+              - limit(span.attributes, 56, ["name", "kind", "operation.name", "error", "component"])
+              - limit(resource.attributes, 32, ["service.name", "service.namespace", "service.version", "host.name"])
+              - truncate_all(span.attributes, 1024)
+              - truncate_all(resource.attributes, 256)
+      filter/removesessiontraces:
+        error_mode: ignore
+        traces:
+          span:
+            - attributes["sentry.envelop.type"] == "session"
+    connectors:
+      sentrymetrics:
+        sentry_events:
+        {{- if .Values.OTEC_SENTRY_EVENT_METRICS_PARAMETERS }}
+          {{- toYaml (.Values.OTEC_SENTRY_EVENT_METRICS_PARAMETERS) | nindent 10 }}
+        {{- else }}
+          labels:
+            level: level
+            service_name: service.name
+        {{- end }}
+        sentry_measurements:
+        {{- if .Values.OTEC_SENTRY_MEASUREMENTS_METRICS_PARAMETERS }}
+          {{- toYaml (.Values.OTEC_SENTRY_MEASUREMENTS_METRICS_PARAMETERS) | nindent 10 }}
+        {{- else }}
+          default_buckets: [100, 1000, 10000]
+          default_labels:
+            operation: operation
+            transaction: transaction_path
+            service_name: service.name
+          custom:
+            transaction_duration:
+              buckets: [1000, 10000, 100000]
+            ttfb:
+              buckets: [100, 1000]
+            ttfb.requestTime:
+              buckets: [100, 1000]
+            fp:
+              buckets: [1000, 3000]
+            fcp:
+              buckets: [1000, 3000]
+        {{- end }}
+    extensions:
+      health_check:
+        endpoint: "0.0.0.0:{{ .Values.OTEC_HEALTH_CHECK_PORT }}"
+      pprof:
+        endpoint: ":1777"
+    service:
+      extensions: [health_check, pprof]
+      pipelines:
+        traces/tometrics:
+          receivers: [sentryreceiver]
+          exporters: [sentrymetrics]
+        metrics:
+          receivers: [sentrymetrics]
+          exporters: [prometheus]
+        traces/tojaegerandgraylog:
+          receivers: [sentryreceiver]
+          processors: [transform, filter/removesessiontraces]
+          exporters: [otlp, logtcpexporter]
+      telemetry:
+        logs:
+          level: "{{ .Values.LOG_LEVEL }}"
+        metrics:
+          readers:
+          - pull:
+              exporter:
+                 prometheus:
+                   host: '0.0.0.0'
+                   port: 8888
+    {{- end }}
+  {{- end }}
