@@ -42,3 +42,17 @@ Find an image in various places. Image can be found from:
     {{- printf "qubership-open-telemetry-collector:latest" -}}
   {{- end -}}
 {{- end -}}
+
+{{/* Base resource labels: pass full chart context as ., or dict with "ctx" and optional "name" / "component".
+     Defaults: name from SERVICE_NAME; component "backend". Override component for monitoring-facing resources (Ingress, ServiceMonitor). */}}
+{{- define "otec.labels" -}}
+{{- $ctx := index . "ctx" | default . -}}
+{{- $vals := $ctx.Values -}}
+{{- $name := .name | default $vals.SERVICE_NAME -}}
+{{- $component := .component | default "backend" -}}
+name: '{{ $name }}'
+app.kubernetes.io/name: '{{ $name }}'
+app.kubernetes.io/component: '{{ $component }}'
+app.kubernetes.io/part-of: open-telemetry-collector
+app.kubernetes.io/managed-by: {{ $ctx.Release.Service }}
+{{- end -}}

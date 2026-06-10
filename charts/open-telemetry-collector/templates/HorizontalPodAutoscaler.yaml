@@ -3,9 +3,7 @@ kind: HorizontalPodAutoscaler
 metadata:
   name: '{{ coalesce .Values.DEPLOYMENT_RESOURCE_NAME .Values.SERVICE_NAME }}'
   labels:
-    app.kubernetes.io/name: '{{ .Values.SERVICE_NAME }}'
-    app.kubernetes.io/part-of: open-telemetry-collector
-    app.kubernetes.io/managed-by: saasDeployer
+    {{- include "otec.labels" . | nindent 4 }}
 spec:
   scaleTargetRef:
     {{- if eq .Values.PAAS_PLATFORM "KUBERNETES" }}
