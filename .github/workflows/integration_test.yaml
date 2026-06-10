@@ -150,7 +150,8 @@ jobs:
                 ./qubership-open-telemetry-collector/charts/open-telemetry-collector/ \
                 --set JAEGER_COLLECTOR_HOST=jaeger-collector.${{ env.jaeger_namespace }}.svc.cluster.local \
                 --set JAEGER_COLLECTOR_OTLP_PORT=4317 \
-                --set imageRepository=qubership-open-telemetry-collector:latest
+                --set imageRepository=qubership-open-telemetry-collector \
+                --set imageTag=latest
               sleep 20
               echo "============ Pods"
               kubectl get pods -n ${{ env.collector_namespace }}
