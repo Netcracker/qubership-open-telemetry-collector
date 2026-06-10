@@ -3,6 +3,7 @@
 module github.com/Netcracker/qubership-open-telemetry-collector
 
 go 1.25.0
+toolchain go1.26.4
 
 require (
 	github.com/Netcracker/qubership-open-telemetry-collector/connector/sentrymetricsconnector v0.0.0-20260409080500-8c195cdf1906
