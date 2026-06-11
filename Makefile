@@ -1,14 +1,20 @@
-# Fetch the latest release tag from opentelemetry-collector-contrib (strips the leading 'v')
-OTEL_VERSION ?= $(shell curl -fsSL https://api.github.com/repos/open-telemetry/opentelemetry-collector-contrib/releases/latest \
-                  | grep '"tag_name"' | grep -oP 'v\K[0-9]+\.[0-9]+\.[0-9]+')
-
-# Derive the stable API version from the core version (stable = 1.(core_minor - 94).patch)
-OTEL_CORE_MINOR := $(word 2, $(subst ., ,$(OTEL_VERSION)))
-OTEL_STABLE_VERSION := 1.$(shell expr $(OTEL_CORE_MINOR) - 94).0
-
 # Current versions in the codebase (auto-detected from Dockerfile)
 OTEL_CURRENT_VERSION := $(shell grep -oP 'OTEL_VERSION=\K[0-9]+\.[0-9]+\.[0-9]+' Dockerfile)
 OTEL_CURRENT_STABLE_VERSION := $(shell grep -oP 'confmap/provider/envprovider v\K[0-9]+\.[0-9]+\.[0-9]+' builder-config.yaml)
+
+# Builder/install operations should default to the version already pinned in this repo.
+OTEL_VERSION ?= $(OTEL_CURRENT_VERSION)
+
+# Fetch the latest release tag from opentelemetry-collector-contrib (strips the leading 'v')
+OTEL_LATEST_VERSION := $(shell curl -fsSL https://api.github.com/repos/open-telemetry/opentelemetry-collector-contrib/releases/latest \
+                         | grep '"tag_name"' | grep -oP 'v\K[0-9]+\.[0-9]+\.[0-9]+')
+
+# update-versions upgrades to the latest upstream release unless explicitly overridden.
+OTEL_UPDATE_VERSION ?= $(OTEL_LATEST_VERSION)
+
+# Derive the stable API version from the target core version (stable = 1.(core_minor - 94).patch)
+OTEL_CORE_MINOR := $(word 2, $(subst ., ,$(OTEL_UPDATE_VERSION)))
+OTEL_STABLE_VERSION := 1.$(shell expr $(OTEL_CORE_MINOR) - 94).0
 
 # Semconv spec version is embedded in Go import paths (e.g. go.opentelemetry.io/otel/semconv/v1.40.0)
 SEMCONV_CURRENT_VERSION := $(shell find connector exporter receiver common -name '*.go' 2>/dev/null \
@@ -37,14 +43,14 @@ update-otel: update-versions update-semconv install-builder build-collector ## F
 LOCAL_GOMODS := $(shell find connector exporter receiver common -name 'go.mod' 2>/dev/null)
 
 update-versions: ## Update version references in Dockerfile, builder-config.yaml, and local go.mod files to latest release
-	@if [ -z "$(OTEL_VERSION)" ]; then echo "ERROR: could not determine latest OTEL version" >&2; exit 1; fi
-	@echo "Updating OTEL version: $(OTEL_CURRENT_VERSION) -> $(OTEL_VERSION)"
+	@if [ -z "$(OTEL_UPDATE_VERSION)" ]; then echo "ERROR: could not determine latest OTEL version" >&2; exit 1; fi
+	@echo "Updating OTEL version: $(OTEL_CURRENT_VERSION) -> $(OTEL_UPDATE_VERSION)"
 	@echo "Updating stable API version: $(OTEL_CURRENT_STABLE_VERSION) -> $(OTEL_STABLE_VERSION)"
-	@sed -i 's/OTEL_VERSION=$(OTEL_CURRENT_VERSION)/OTEL_VERSION=$(OTEL_VERSION)/' Dockerfile
-	@sed -i 's/v$(OTEL_CURRENT_VERSION)/v$(OTEL_VERSION)/g' builder-config.yaml
+	@sed -i 's/OTEL_VERSION=$(OTEL_CURRENT_VERSION)/OTEL_VERSION=$(OTEL_UPDATE_VERSION)/' Dockerfile
+	@sed -i 's/v$(OTEL_CURRENT_VERSION)/v$(OTEL_UPDATE_VERSION)/g' builder-config.yaml
 	@sed -i 's/v$(OTEL_CURRENT_STABLE_VERSION)/v$(OTEL_STABLE_VERSION)/g' builder-config.yaml
 	@for f in $(LOCAL_GOMODS); do \
-	  sed -i 's|v$(OTEL_CURRENT_VERSION)|v$(OTEL_VERSION)|g' "$$f"; \
+	  sed -i 's|v$(OTEL_CURRENT_VERSION)|v$(OTEL_UPDATE_VERSION)|g' "$$f"; \
 	  sed -i 's|v$(OTEL_CURRENT_STABLE_VERSION)|v$(OTEL_STABLE_VERSION)|g' "$$f"; \
 	done
 	@echo "Done. Updated Dockerfile, builder-config.yaml, and $(words $(LOCAL_GOMODS)) local go.mod files."
