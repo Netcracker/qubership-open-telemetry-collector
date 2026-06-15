@@ -102,24 +102,58 @@ type SessionEvent struct {
 }
 
 type EventException struct {
-	Values []struct {
-		Type       string       `json:"type,omitempty"`
-		Value      StrongString `json:"value,omitempty"`
-		Stacktrace struct {
-			Frames []struct {
-				Filename string `json:"filename,omitempty"`
-				Function string `json:"function,omitempty"`
-				InApp    bool   `json:"in_app,omitempty"`
-				Lineno   int    `json:"lineno,omitempty"`
-				Colno    int    `json:"colno,omitempty"`
-			} `json:"frames,omitempty"`
-		} `json:"stacktrace,omitempty"`
-		Mechanism struct {
-			Type      string `json:"type,omitempty"`
-			Handled   bool   `json:"handled,omitempty"`
-			Synthetic bool   `json:"synthetic,omitempty"`
-		} `json:"mechanism,omitempty"`
-	} `json:"values,omitempty"`
+	Values []ExceptionValue `json:"values,omitempty"`
+}
+
+func (e *EventException) UnmarshalJSON(data []byte) error {
+	var values []ExceptionValue
+	if err := json.Unmarshal(data, &values); err == nil {
+		e.Values = values
+		return nil
+	}
+
+	type eventException EventException
+	var exception eventException
+	if err := json.Unmarshal(data, &exception); err != nil {
+		return err
+	}
+	e.Values = exception.Values
+	return nil
+}
+
+type ExceptionValue struct {
+	Type       string              `json:"type,omitempty"`
+	Value      StrongString        `json:"value,omitempty"`
+	Module     string              `json:"module,omitempty"`
+	ThreadID   interface{}         `json:"thread_id,omitempty"`
+	Stacktrace ExceptionStacktrace `json:"stacktrace,omitempty"`
+	Mechanism  ExceptionMechanism  `json:"mechanism,omitempty"`
+}
+
+type ExceptionStacktrace struct {
+	Frames []ExceptionFrame `json:"frames,omitempty"`
+}
+
+type ExceptionFrame struct {
+	Filename string `json:"filename,omitempty"`
+	Function string `json:"function,omitempty"`
+	InApp    bool   `json:"in_app,omitempty"`
+	Lineno   int    `json:"lineno,omitempty"`
+	Colno    int    `json:"colno,omitempty"`
+}
+
+type ExceptionMechanism struct {
+	Type             string                 `json:"type,omitempty"`
+	Handled          bool                   `json:"handled,omitempty"`
+	Description      string                 `json:"description,omitempty"`
+	HelpLink         string                 `json:"help_link,omitempty"`
+	Synthetic        bool                   `json:"synthetic,omitempty"`
+	ExceptionID      *int                   `json:"exception_id,omitempty"`
+	ParentID         *int                   `json:"parent_id,omitempty"`
+	IsExceptionGroup bool                   `json:"is_exception_group,omitempty"`
+	Source           string                 `json:"source,omitempty"`
+	Data             map[string]interface{} `json:"data,omitempty"`
+	Meta             map[string]interface{} `json:"meta,omitempty"`
 }
 
 type EventUser struct {
