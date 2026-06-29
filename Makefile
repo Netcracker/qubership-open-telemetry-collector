@@ -1,20 +1,23 @@
 # Current versions in the codebase (auto-detected from Dockerfile)
 OTEL_CURRENT_VERSION := $(shell grep -oP 'OTEL_VERSION=\K[0-9]+\.[0-9]+\.[0-9]+' Dockerfile)
 OTEL_CURRENT_STABLE_VERSION := $(shell grep -oP 'confmap/provider/envprovider v\K[0-9]+\.[0-9]+\.[0-9]+' builder-config.yaml)
+DIST_CURRENT_VERSION := $(shell awk '/^dist:$$/{in_dist=1; next} in_dist && /^  version: /{print $$2; exit}' builder-config.yaml)
+CHART_APP_VERSION := $(shell grep -oP '^appVersion:\s*\K\S+' charts/open-telemetry-collector/Chart.yaml)
 
 # Builder/install operations should default to the version already pinned in this repo.
 OTEL_VERSION ?= $(OTEL_CURRENT_VERSION)
 
 # Fetch the latest release tag from opentelemetry-collector-contrib (strips the leading 'v')
-OTEL_LATEST_VERSION := $(shell curl -fsSL https://api.github.com/repos/open-telemetry/opentelemetry-collector-contrib/releases/latest \
+OTEL_LATEST_VERSION = $(shell curl -fsSL https://api.github.com/repos/open-telemetry/opentelemetry-collector-contrib/releases/latest \
                          | grep '"tag_name"' | grep -oP 'v\K[0-9]+\.[0-9]+\.[0-9]+')
 
 # update-versions upgrades to the latest upstream release unless explicitly overridden.
 OTEL_UPDATE_VERSION ?= $(OTEL_LATEST_VERSION)
+DIST_VERSION ?= $(CHART_APP_VERSION)
 
 # Derive the stable API version from the target core version (stable = 1.(core_minor - 94).patch)
-OTEL_CORE_MINOR := $(word 2, $(subst ., ,$(OTEL_UPDATE_VERSION)))
-OTEL_STABLE_VERSION := 1.$(shell expr $(OTEL_CORE_MINOR) - 94).0
+OTEL_CORE_MINOR = $(word 2, $(subst ., ,$(OTEL_UPDATE_VERSION)))
+OTEL_STABLE_VERSION = 1.$(shell expr $(OTEL_CORE_MINOR) - 94).0
 
 # Semconv spec version is embedded in Go import paths (e.g. go.opentelemetry.io/otel/semconv/v1.40.0)
 SEMCONV_CURRENT_VERSION := $(shell find connector exporter receiver common -name '*.go' 2>/dev/null \
@@ -26,12 +29,9 @@ OTEL_SDK_VERSION := $(shell find connector exporter receiver common -name 'go.mo
                       | xargs grep -h '^	go.opentelemetry.io/otel v' 2>/dev/null \
                       | grep -oP '\botel v\K[0-9]+\.[0-9]+\.[0-9]+' | sort -V | tail -1)
 # Fetch the latest semconv spec version available in the target OTel SDK from the opentelemetry-go repo
-# Use ifndef + := so the curl runs exactly once at parse time (not once per reference)
-ifndef SEMCONV_NEW_VERSION
-SEMCONV_NEW_VERSION := $(shell curl -fsSL \
+SEMCONV_NEW_VERSION ?= $(shell curl -fsSL \
                           'https://api.github.com/repos/open-telemetry/opentelemetry-go/contents/semconv?ref=v$(OTEL_SDK_VERSION)' \
                           | grep -oP '"name":\s*"v\K[0-9]+\.[0-9]+\.[0-9]+' | sort -V | tail -1)
-endif
 
 .PHONY: update-otel update-versions update-semconv install-builder build-collector help
 
@@ -44,9 +44,12 @@ LOCAL_GOMODS := $(shell find connector exporter receiver common -name 'go.mod' 2
 
 update-versions: ## Update version references in Dockerfile, builder-config.yaml, and local go.mod files to latest release
 	@if [ -z "$(OTEL_UPDATE_VERSION)" ]; then echo "ERROR: could not determine latest OTEL version" >&2; exit 1; fi
+	@if [ -z "$(DIST_VERSION)" ]; then echo "ERROR: could not determine collector distribution version" >&2; exit 1; fi
 	@echo "Updating OTEL version: $(OTEL_CURRENT_VERSION) -> $(OTEL_UPDATE_VERSION)"
 	@echo "Updating stable API version: $(OTEL_CURRENT_STABLE_VERSION) -> $(OTEL_STABLE_VERSION)"
+	@echo "Updating collector distribution version: $(DIST_CURRENT_VERSION) -> $(DIST_VERSION)"
 	@sed -i 's/OTEL_VERSION=$(OTEL_CURRENT_VERSION)/OTEL_VERSION=$(OTEL_UPDATE_VERSION)/' Dockerfile
+	@sed -i '0,/^  version: .*/s//  version: $(DIST_VERSION)/' builder-config.yaml
 	@sed -i 's/v$(OTEL_CURRENT_VERSION)/v$(OTEL_UPDATE_VERSION)/g' builder-config.yaml
 	@sed -i 's/v$(OTEL_CURRENT_STABLE_VERSION)/v$(OTEL_STABLE_VERSION)/g' builder-config.yaml
 	@for f in $(LOCAL_GOMODS); do \
