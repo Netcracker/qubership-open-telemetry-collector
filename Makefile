@@ -1,11 +1,8 @@
-# Current versions in the codebase (auto-detected from Dockerfile)
-OTEL_CURRENT_VERSION := $(shell grep -oP 'OTEL_VERSION=\K[0-9]+\.[0-9]+\.[0-9]+' Dockerfile)
+# Current versions in the codebase (auto-detected from tools/go.mod)
+OTEL_CURRENT_VERSION := $(shell grep -oP 'go.opentelemetry.io/collector/cmd/builder v\K[0-9]+\.[0-9]+\.[0-9]+' tools/go.mod)
 OTEL_CURRENT_STABLE_VERSION := $(shell grep -oP 'confmap/provider/envprovider v\K[0-9]+\.[0-9]+\.[0-9]+' builder-config.yaml)
 DIST_CURRENT_VERSION := $(shell awk '/^dist:$$/{in_dist=1; next} in_dist && /^  version: /{print $$2; exit}' builder-config.yaml)
 CHART_APP_VERSION := $(shell grep -oP '^appVersion:\s*\K\S+' charts/open-telemetry-collector/Chart.yaml)
-
-# Builder/install operations should default to the version already pinned in this repo.
-OTEL_VERSION ?= $(OTEL_CURRENT_VERSION)
 
 # Fetch the latest release tag from opentelemetry-collector-contrib (strips the leading 'v')
 OTEL_LATEST_VERSION = $(shell curl -fsSL https://api.github.com/repos/open-telemetry/opentelemetry-collector-contrib/releases/latest \
@@ -48,15 +45,15 @@ update-versions: ## Update version references in Dockerfile, builder-config.yaml
 	@echo "Updating OTEL version: $(OTEL_CURRENT_VERSION) -> $(OTEL_UPDATE_VERSION)"
 	@echo "Updating stable API version: $(OTEL_CURRENT_STABLE_VERSION) -> $(OTEL_STABLE_VERSION)"
 	@echo "Updating collector distribution version: $(DIST_CURRENT_VERSION) -> $(DIST_VERSION)"
-	@sed -i 's/OTEL_VERSION=$(OTEL_CURRENT_VERSION)/OTEL_VERSION=$(OTEL_UPDATE_VERSION)/' Dockerfile
 	@sed -i '0,/^  version: .*/s//  version: $(DIST_VERSION)/' builder-config.yaml
 	@sed -i 's/v$(OTEL_CURRENT_VERSION)/v$(OTEL_UPDATE_VERSION)/g' builder-config.yaml
 	@sed -i 's/v$(OTEL_CURRENT_STABLE_VERSION)/v$(OTEL_STABLE_VERSION)/g' builder-config.yaml
+	@cd tools && go get go.opentelemetry.io/collector/cmd/builder@v$(OTEL_UPDATE_VERSION) && go mod tidy
 	@for f in $(LOCAL_GOMODS); do \
 	  sed -i 's|v$(OTEL_CURRENT_VERSION)|v$(OTEL_UPDATE_VERSION)|g' "$$f"; \
 	  sed -i 's|v$(OTEL_CURRENT_STABLE_VERSION)|v$(OTEL_STABLE_VERSION)|g' "$$f"; \
 	done
-	@echo "Done. Updated Dockerfile, builder-config.yaml, and $(words $(LOCAL_GOMODS)) local go.mod files."
+	@echo "Done. Updated tools/go.mod, builder-config.yaml, and $(words $(LOCAL_GOMODS)) local go.mod files."
 
 update-semconv: ## Update go.opentelemetry.io/otel/semconv import version in all Go source files
 	@if [ -z "$(SEMCONV_CURRENT_VERSION)" ]; then echo "ERROR: could not detect current semconv version in Go source files" >&2; exit 1; fi
@@ -70,9 +67,9 @@ update-semconv: ## Update go.opentelemetry.io/otel/semconv import version in all
 	  echo "Done. Updated semconv imports in Go source files."; \
 	fi
 
-install-builder: ## Install ocb (otelcol-builder) at the target OTEL_VERSION
-	@echo "Installing go.opentelemetry.io/collector/cmd/builder@v$(OTEL_VERSION)"
-	go install go.opentelemetry.io/collector/cmd/builder@v$(OTEL_VERSION)
+install-builder: ## Install ocb (otelcol-builder) from tools/go.mod
+	@echo "Installing go.opentelemetry.io/collector/cmd/builder@v$(OTEL_CURRENT_VERSION)"
+	cd tools && go install -mod=readonly go.opentelemetry.io/collector/cmd/builder
 
 build-collector: ## Run builder to regenerate collector/go.mod and collector source
 	@echo "Running builder --config=builder-config.yaml"

@@ -14,19 +14,6 @@
   "customManagers": [
     {
       "customType": "regex",
-      "description": "Track OTEL release version from Dockerfile ARG via the Go module proxy (cmd/builder version == collector release version). Consistent with builder-config.yaml tracking and avoids GitHub API rate limits.",
-      "managerFilePatterns": [
-        "/Dockerfile/"
-      ],
-      "matchStrings": [
-        "ARG OTEL_VERSION=(?<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)"
-      ],
-      "depNameTemplate": "go.opentelemetry.io/collector/cmd/builder",
-      "datasourceTemplate": "go",
-      "extractVersionTemplate": "^v?(?<version>.+)$"
-    },
-    {
-      "customType": "regex",
       "description": "Track digest-pinned Dockerfile base images while keeping the human-readable tag comment synchronized.",
       "managerFilePatterns": [
         "/Dockerfile/"
@@ -94,7 +81,7 @@
       "enabled": false
     },
     {
-      "description": "Group all OpenTelemetry updates (Dockerfile ARG, builder-config.yaml gomod entries, plugin go.mod deps, semconv imports) into a single PR so the coupled 0.x.y / 1.x.y versions always move together.",
+      "description": "Group all OpenTelemetry updates (tools/go.mod builder version, builder-config.yaml gomod entries, plugin go.mod deps, semconv imports) into a single PR so the coupled 0.x.y / 1.x.y versions always move together.",
       "matchManagers": [
         "custom.regex",
         "gomod"

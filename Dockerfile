@@ -7,8 +7,6 @@ ARG BUILDPLATFORM
 ARG TARGETOS
 ARG TARGETARCH
 
-ARG OTEL_VERSION=0.155.0
-
 ENV GO111MODULE=on
 
 WORKDIR /build
@@ -21,11 +19,14 @@ COPY ./exporter ./exporter
 COPY ./receiver ./receiver
 COPY ./common ./common
 COPY ./utils ./utils
+COPY ./tools ./tools
 
 # Install the builder tool and dependencies
 RUN apk add --no-cache git \
-    && go install go.opentelemetry.io/collector/cmd/builder@v"${OTEL_VERSION}" \
+    && cd tools \
+    && go install -mod=readonly go.opentelemetry.io/collector/cmd/builder \
     # Build the collector
+    && cd /build \
     && CGO_ENABLED=0 builder --config=builder-config.yaml
 
 # Base image: alpine:3.24
