@@ -27,6 +27,20 @@
     },
     {
       "customType": "regex",
+      "description": "Track digest-pinned Dockerfile base images while keeping the human-readable tag comment synchronized.",
+      "managerFilePatterns": [
+        "/Dockerfile/"
+      ],
+      "matchStrings": [
+        "# Base image: (?<depName>[^:\\s]+):(?<currentValue>[^\\s]+)\\nFROM (?<fromPrefix>(?:--platform=\\$BUILDPLATFORM\\s+)?)(?<imageName>[^@\\s]+)@(?<currentDigest>sha256:[a-f0-9]+)(?<fromSuffix>[^\\n]*)"
+      ],
+      "datasourceTemplate": "docker",
+      "packageNameTemplate": "{{{depName}}}",
+      "versioningTemplate": "docker",
+      "autoReplaceStringTemplate": "# Base image: {{{depName}}}:{{{newValue}}}\nFROM {{{fromPrefix}}}{{{imageName}}}@{{{newDigest}}}{{{fromSuffix}}}"
+    },
+    {
+      "customType": "regex",
       "description": "Update gomod entries in builder-config.yaml directly via the Go module proxy. Covers both the 0.x.y (contrib/core-unstable) and 1.x.y (core-stable) versions since each module is looked up independently.",
       "managerFilePatterns": [
         "/builder-config\\.yaml/"
@@ -52,6 +66,16 @@
     }
   ],
   "packageRules": [
+    {
+      "description": "Use the custom regex manager for Dockerfile base images so digest-only FROM lines and tag comments stay synchronized.",
+      "matchManagers": [
+        "dockerfile"
+      ],
+      "matchFileNames": [
+        "Dockerfile"
+      ],
+      "enabled": false
+    },
     {
       "description": "Disable direct Renovate updates for the auto-generated collector directory.",
       "matchManagers": [
@@ -94,11 +118,13 @@
     },
     {
       "matchManagers": [
-        "dockerfile"
+        "dockerfile",
+        "custom.regex"
       ],
       "groupName": "docker-deps",
       "matchPackageNames": [
-        "*"
+        "alpine",
+        "golang"
       ]
     },
     {
