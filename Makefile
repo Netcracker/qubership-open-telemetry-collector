@@ -69,7 +69,7 @@ update-semconv: ## Update go.opentelemetry.io/otel/semconv import version in all
 
 install-builder: ## Install ocb (otelcol-builder) from tools/go.mod
 	@echo "Installing go.opentelemetry.io/collector/cmd/builder@v$(OTEL_CURRENT_VERSION)"
-	cd tools && go install -mod=readonly go.opentelemetry.io/collector/cmd/builder
+	cd tools && go install -mod=readonly go.opentelemetry.io/collector/cmd/builder@v$(OTEL_CURRENT_VERSION)
 
 build-collector: ## Run builder to regenerate collector/go.mod and collector source
 	@echo "Running builder --config=builder-config.yaml"

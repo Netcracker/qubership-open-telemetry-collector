@@ -2,7 +2,9 @@ module github.com/Netcracker/qubership-open-telemetry-collector/tools
 
 go 1.25.0
 
-require go.opentelemetry.io/collector/cmd/builder v0.155.0
+tool go.opentelemetry.io/collector/cmd/builder
+
+require go.opentelemetry.io/collector/cmd/builder v0.155.0 // indirect
 
 require (
 	github.com/fsnotify/fsnotify v1.9.0 // indirect

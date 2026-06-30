@@ -21,13 +21,14 @@ COPY ./common ./common
 COPY ./utils ./utils
 COPY ./tools ./tools
 
+WORKDIR /build/tools
+
 # Install the builder tool and dependencies
 RUN apk add --no-cache git \
-    && cd tools \
-    && go install -mod=readonly go.opentelemetry.io/collector/cmd/builder \
-    # Build the collector
-    && cd /build \
-    && CGO_ENABLED=0 builder --config=builder-config.yaml
+    && go install -mod=readonly "go.opentelemetry.io/collector/cmd/builder@$(go list -m -f '{{.Version}}' go.opentelemetry.io/collector/cmd/builder)"
+
+WORKDIR /build
+RUN CGO_ENABLED=0 builder --config=builder-config.yaml
 
 # Base image: alpine:3.24
 FROM alpine@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
