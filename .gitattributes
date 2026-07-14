@@ -48,6 +48,11 @@ Dockerfile text
 # gofmt defaults to LF for all the platforms: https://github.com/golang/go/issues/16355
 *.go text eol=lf
 
+# OpenTelemetry Collector builder output.
+/collector/*.go text eol=lf linguist-generated=true
+/collector/go.mod text linguist-generated=true
+/collector/go.sum text linguist-generated=true
+
 ##########################################
 # Basic .gitattributes for a Java repo.#
 ##########################################

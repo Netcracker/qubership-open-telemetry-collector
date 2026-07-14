@@ -1,12 +1,11 @@
 # hadolint global ignore=DL3018
 # Stage 1: Build
-FROM --platform=$BUILDPLATFORM golang:1.26.4-alpine3.23@sha256:18b460dd17542c2ba43299a633cf6ebfc1115101509531471d7cfce1019af083 AS builder
+# Base image: golang:1.26.4-alpine3.24
+FROM --platform=$BUILDPLATFORM golang@sha256:3ad57304ad93bbec8548a0437ad9e06a455660655d9af011d58b993f6f615648 AS builder
 
 ARG BUILDPLATFORM
 ARG TARGETOS
 ARG TARGETARCH
-
-ARG OTEL_VERSION=0.154.0
 
 ENV GO111MODULE=on
 
@@ -20,14 +19,19 @@ COPY ./exporter ./exporter
 COPY ./receiver ./receiver
 COPY ./common ./common
 COPY ./utils ./utils
+COPY ./tools ./tools
+
+WORKDIR /build/tools
 
 # Install the builder tool and dependencies
 RUN apk add --no-cache git \
-    && go install go.opentelemetry.io/collector/cmd/builder@v${OTEL_VERSION} \
-    # Build the collector
-    && CGO_ENABLED=0 builder --config=builder-config.yaml
+    && go install -mod=readonly "go.opentelemetry.io/collector/cmd/builder@$(go list -m -f '{{.Version}}' go.opentelemetry.io/collector/cmd/builder)"
 
-FROM alpine:3.24@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
+WORKDIR /build
+RUN CGO_ENABLED=0 builder --config=builder-config.yaml
+
+# Base image: alpine:3.24
+FROM alpine@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
 
 ENV USER_ID=65534
 
