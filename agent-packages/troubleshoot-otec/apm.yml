@@ -1,0 +1,4 @@
+name: troubleshoot-otec
+version: 1.0.0
+description: Diagnose failures of Qubership OpenTelemetry Collector (collector startup and configuration, Helm chart and Kubernetes deployment, trace pipeline and tail sampling, span metrics and Prometheus, Sentry envelope receiver, Graylog log export) from a pasted problem description and logs, with no live system access.
+author: Qubership
