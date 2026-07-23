@@ -4,7 +4,7 @@ go 1.25.0
 
 tool go.opentelemetry.io/collector/cmd/builder
 
-require go.opentelemetry.io/collector/cmd/builder v0.155.0 // indirect
+require go.opentelemetry.io/collector/cmd/builder v0.156.0 // indirect
 
 require (
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
