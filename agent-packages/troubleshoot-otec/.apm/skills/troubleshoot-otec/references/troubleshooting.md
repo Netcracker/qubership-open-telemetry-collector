@@ -917,7 +917,7 @@ Keep identifiers out of span names at the instrumentation layer, and treat the a
 <!-- markdownlint-disable line-length -->
 **Sources:**
 
-* [spanmetricsconnector README at v0.154.0](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/v0.154.0/connector/spanmetricsconnector/README.md)
+* [spanmetricsconnector documentation at v0.154.0](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/v0.154.0/connector/spanmetricsconnector/README.md)
 
 * Code analysis: `charts/open-telemetry-collector/templates/metrics_collector_config.yaml:79-93`.
 <!-- markdownlint-enable line-length -->
@@ -985,7 +985,7 @@ over long expirations, since every retained series costs collector memory.
 <!-- markdownlint-disable line-length -->
 **Sources:**
 
-* [prometheusexporter README at v0.154.0](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/v0.154.0/exporter/prometheusexporter/README.md)
+* [prometheusexporter documentation at v0.154.0](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/v0.154.0/exporter/prometheusexporter/README.md)
 
 * Code analysis: `charts/open-telemetry-collector/templates/metrics_collector_config.yaml:31-32`, `:150-152`.
 <!-- markdownlint-enable line-length -->
@@ -1229,9 +1229,9 @@ Every parse failure in the envelope parser is funneled into a single 406 respons
 (`receiver/sentryreceiver/trace-receiver.go:152-157`):
 
 ```go
-		sr.logger.Sugar().Errorf("SentryReceiver : Error parsing envelop : %+v", err)
-		w.WriteHeader(http.StatusNotAcceptable)
-		if _, writeErr := w.Write([]byte("{}")); writeErr != nil {
+        sr.logger.Sugar().Errorf("SentryReceiver : Error parsing envelop : %+v", err)
+        w.WriteHeader(http.StatusNotAcceptable)
+        if _, writeErr := w.Write([]byte("{}")); writeErr != nil {
 ```
 
 Five distinct causes produce that identical response, and only the collector-side log line distinguishes them. From
@@ -1317,7 +1317,7 @@ collector telemetry at `charts/open-telemetry-collector/templates/metrics_collec
 the parser dumps every envelope body it receives (`receiver/sentryreceiver/envelop_parser.go:27`):
 
 ```go
-	logger.Sugar().Debugf("SentryReceiver : Start parsing envelop :\n---START---\n%+v\n---END---\n", body)
+    logger.Sugar().Debugf("SentryReceiver : Start parsing envelop :\n---START---\n%+v\n---END---\n", body)
 ```
 
 Because Sentry envelopes carry whatever the browser application put in them, this writes user-facing data (request
@@ -1405,13 +1405,13 @@ The Graylog sender dials in an unbounded retry loop and treats a dial failure as
 (`common/graylog/graylog.go:121-135`):
 
 ```go
-		gs.logger.Sugar().Infof("GraylogTcpConnection : Creating TCP connection #%d to Graylog", connNumber)
-		tcpConn, err := net.Dial(string(gs.endpoint.Transport), tcpAddress)
-		if err != nil {
-			gs.logger.Sugar().Errorf("GraylogTcpConnection : Error creating TCP connection #%d to Graylog: %+v", connNumber, err)
-			time.Sleep(gs.successiveSendErrFreezeTime)
-			continue
-		}
+        gs.logger.Sugar().Infof("GraylogTcpConnection : Creating TCP connection #%d to Graylog", connNumber)
+        tcpConn, err := net.Dial(string(gs.endpoint.Transport), tcpAddress)
+        if err != nil {
+            gs.logger.Sugar().Errorf("GraylogTcpConnection : Error creating TCP connection #%d to Graylog: %+v", connNumber, err)
+            time.Sleep(gs.successiveSendErrFreezeTime)
+            continue
+        }
 ```
 
 The sleep uses `successive_send_error_freeze_time`, default `"1m"`, which is why the pair repeats once a minute.
@@ -1523,14 +1523,14 @@ Endpoint parsing splits the whole endpoint string on `:` and treats the second f
 
 ```go
 func parseEndpoint(endpoint string) (string, uint, error) {
-	parts := strings.Split(endpoint, ":")
-	if len(parts) == 1 {
-		return parts[0], defaultGraylogPort, nil
-	}
-	port, err := strconv.ParseUint(parts[1], 10, 32)
-	if err != nil || port < 1 || port > 65535 {
-		return "", 0, fmt.Errorf("invalid port in endpoint: %w", err)
-	}
+    parts := strings.Split(endpoint, ":")
+    if len(parts) == 1 {
+        return parts[0], defaultGraylogPort, nil
+    }
+    port, err := strconv.ParseUint(parts[1], 10, 32)
+    if err != nil || port < 1 || port > 65535 {
+        return "", 0, fmt.Errorf("invalid port in endpoint: %w", err)
+    }
 ```
 
 When `GRAYLOG_COLLECTOR_HOST` carries a URL scheme, the rendered endpoint becomes something like
@@ -1618,14 +1618,14 @@ First, the queue drops on overflow rather than applying back pressure
 
 ```go
 func (gs *GraylogSender) SendToQueue(m *Message) error {
-	select {
-	case gs.msgQueue <- m:
-		return nil
-	case <-gs.ctx.Done():
-		return fmt.Errorf("sender stopped")
-	default:
-		return fmt.Errorf("message queue is full")
-	}
+    select {
+    case gs.msgQueue <- m:
+        return nil
+    case <-gs.ctx.Done():
+        return fmt.Errorf("sender stopped")
+    default:
+        return fmt.Errorf("message queue is full")
+    }
 }
 ```
 
@@ -1635,11 +1635,11 @@ Second, the sender freezes on repeated send errors (`common/graylog/graylog.go:1
 
 <!-- markdownlint-disable line-length -->
 ```go
-				if successiveGraylogErrCnt > gs.maxSuccessiveSendErrCnt {
-					gs.logger.Sugar().Errorf("GraylogTcpConnection : %d successive errors in goroutine #%d, freezing for %s", successiveGraylogErrCnt, connNumber, gs.successiveSendErrFreezeTime)
-					time.Sleep(gs.successiveSendErrFreezeTime)
-					successiveGraylogErrCnt = 0
-				}
+                if successiveGraylogErrCnt > gs.maxSuccessiveSendErrCnt {
+                    gs.logger.Sugar().Errorf("GraylogTcpConnection : %d successive errors in goroutine #%d, freezing for %s", successiveGraylogErrCnt, connNumber, gs.successiveSendErrFreezeTime)
+                    time.Sleep(gs.successiveSendErrFreezeTime)
+                    successiveGraylogErrCnt = 0
+                }
 ```
 <!-- markdownlint-enable line-length -->
 
