@@ -3,7 +3,7 @@ module github.com/Netcracker/qubership-open-telemetry-collector/common/graylog
 go 1.24.2
 
 require (
-	github.com/Jeffail/gabs v1.4.0
+	github.com/Jeffail/gabs/v2 v2.7.0
 	github.com/Jeffail/gabs/v2 v2.7.0
 	go.uber.org/zap v1.28.0
 )
