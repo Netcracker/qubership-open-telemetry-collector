@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"net"
 	"runtime/debug"
+	"strconv"
 	"time"
 	"unicode/utf8"
 
@@ -218,28 +219,32 @@ func prepareMessage(m *Message) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal message to JSON: %w", err)
 	}
-	payload := make(map[string]json.RawMessage)
-	if err := json.Unmarshal(jsonMessage, &payload); err != nil {
-		return nil, fmt.Errorf("failed to decode marshaled message: %w", err)
-	}
-
-	for key, value := range m.Extra {
-		encodedValue, err := json.Marshal(value)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal extra field %s: %w", key, err)
-		}
-		payload["_"+key] = encodedValue
-	}
-
-	data, err := json.Marshal(payload)
+	data, err := addExtraFields(jsonMessage, m.Extra)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal final message: %w", err)
+		return nil, err
 	}
 	if len(data) == 0 || data[len(data)-1] != 0 {
 		data = append(data, 0)
 	}
 	if !utf8.Valid(data) {
 		return nil, fmt.Errorf("final message contains invalid UTF-8 characters")
+	}
+	return data, nil
+}
+
+func addExtraFields(jsonMessage []byte, extra map[string]string) ([]byte, error) {
+	payload := make(map[string]json.RawMessage)
+	if err := json.Unmarshal(jsonMessage, &payload); err != nil {
+		return nil, fmt.Errorf("failed to decode message JSON: %w", err)
+	}
+
+	for key, value := range extra {
+		payload["_"+key] = json.RawMessage(strconv.AppendQuote(nil, value))
+	}
+
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal final message: %w", err)
 	}
 	return data, nil
 }

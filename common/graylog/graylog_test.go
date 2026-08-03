@@ -129,6 +129,12 @@ func TestPrepareMessagePreservesLargeTimestamp(t *testing.T) {
 	}
 }
 
+func TestAddExtraFieldsRejectsInvalidJSON(t *testing.T) {
+	if _, err := addExtraFields([]byte("{"), nil); err == nil {
+		t.Fatal("expected error for invalid JSON")
+	}
+}
+
 func TestSendToQueueStates(t *testing.T) {
 	logger := zap.NewNop()
 	sender := &GraylogSender{
