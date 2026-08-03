@@ -237,7 +237,7 @@ func addExtraFields(jsonMessage []byte, extra map[string]string) ([]byte, error)
 		return nil, fmt.Errorf("failed to decode message JSON: %w", err)
 	}
 
-	payload := make(map[string]any, len(rawPayload)+len(extra))
+	payload := make(map[string]any)
 	for key, value := range rawPayload {
 		payload[key] = value
 	}
