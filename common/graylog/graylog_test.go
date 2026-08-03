@@ -103,6 +103,49 @@ func TestPrepareMessageAddsExtrasAndNullTerminator(t *testing.T) {
 	}
 }
 
+func TestPrepareMessageEncodesExtraStringsAsJSON(t *testing.T) {
+	tests := []struct {
+		name  string
+		value string
+		want  string
+	}{
+		{name: "null byte", value: "before\x00after", want: "before\x00after"},
+		{name: "vertical tab", value: "before\vafter", want: "before\vafter"},
+		{name: "invalid UTF-8", value: string([]byte{0xff, 'a'}), want: "\ufffda"},
+		{name: "Unicode", value: "\u041f\u0440\u0438\u0432\u0435\u0442", want: "\u041f\u0440\u0438\u0432\u0435\u0442"},
+		{name: "quotes and backslashes", value: `quote " and slash \`, want: `quote " and slash \`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			data, err := prepareMessage(&Message{
+				Version:      "1.1",
+				Host:         "host-a",
+				ShortMessage: "hello",
+				Extra:        map[string]string{"value": tt.value},
+			})
+			if err != nil {
+				t.Fatalf("prepareMessage returned error: %v", err)
+			}
+			if len(data) == 0 || data[len(data)-1] != 0 {
+				t.Fatalf("expected GELF payload to end with null byte, got %v", data)
+			}
+
+			var payload map[string]json.RawMessage
+			if err := json.Unmarshal(data[:len(data)-1], &payload); err != nil {
+				t.Fatalf("failed to decode payload: %v", err)
+			}
+			var got string
+			if err := json.Unmarshal(payload["_value"], &got); err != nil {
+				t.Fatalf("failed to decode extra value: %v", err)
+			}
+			if got != tt.want {
+				t.Fatalf("expected extra value %q, got %q", tt.want, got)
+			}
+		})
+	}
+}
+
 func TestPrepareMessageRejectsNil(t *testing.T) {
 	if _, err := prepareMessage(nil); err == nil {
 		t.Fatal("expected error for nil message")

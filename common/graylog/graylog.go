@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"net"
 	"runtime/debug"
-	"strconv"
 	"time"
 	"unicode/utf8"
 
@@ -233,13 +232,17 @@ func prepareMessage(m *Message) ([]byte, error) {
 }
 
 func addExtraFields(jsonMessage []byte, extra map[string]string) ([]byte, error) {
-	payload := make(map[string]json.RawMessage)
-	if err := json.Unmarshal(jsonMessage, &payload); err != nil {
+	rawPayload := make(map[string]json.RawMessage)
+	if err := json.Unmarshal(jsonMessage, &rawPayload); err != nil {
 		return nil, fmt.Errorf("failed to decode message JSON: %w", err)
 	}
 
+	payload := make(map[string]any, len(rawPayload)+len(extra))
+	for key, value := range rawPayload {
+		payload[key] = value
+	}
 	for key, value := range extra {
-		payload["_"+key] = json.RawMessage(strconv.AppendQuote(nil, value))
+		payload["_"+key] = value
 	}
 
 	data, err := json.Marshal(payload)
