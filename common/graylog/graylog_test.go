@@ -109,6 +109,26 @@ func TestPrepareMessageRejectsNil(t *testing.T) {
 	}
 }
 
+func TestPrepareMessagePreservesLargeTimestamp(t *testing.T) {
+	data, err := prepareMessage(&Message{
+		Version:      "1.1",
+		Host:         "host-a",
+		ShortMessage: "hello",
+		Timestamp:    9223372036854775807,
+	})
+	if err != nil {
+		t.Fatalf("prepareMessage returned error: %v", err)
+	}
+
+	var payload map[string]json.RawMessage
+	if err := json.Unmarshal(data[:len(data)-1], &payload); err != nil {
+		t.Fatalf("failed to decode payload: %v", err)
+	}
+	if got := string(payload["timestamp"]); got != "9223372036854775807" {
+		t.Fatalf("expected timestamp to retain int64 precision, got %s", got)
+	}
+}
+
 func TestSendToQueueStates(t *testing.T) {
 	logger := zap.NewNop()
 	sender := &GraylogSender{

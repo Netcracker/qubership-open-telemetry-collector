@@ -23,7 +23,6 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/Jeffail/gabs"
 	"go.uber.org/zap"
 )
 
@@ -219,18 +218,23 @@ func prepareMessage(m *Message) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal message to JSON: %w", err)
 	}
-	c, err := gabs.ParseJSON(jsonMessage)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse JSON with gabs: %w", err)
+	payload := make(map[string]json.RawMessage)
+	if err := json.Unmarshal(jsonMessage, &payload); err != nil {
+		return nil, fmt.Errorf("failed to decode marshaled message: %w", err)
 	}
 
 	for key, value := range m.Extra {
-		if _, err := c.Set(value, "_"+key); err != nil {
-			return nil, fmt.Errorf("failed to set extra field %s: %w", key, err)
+		encodedValue, err := json.Marshal(value)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal extra field %s: %w", key, err)
 		}
+		payload["_"+key] = encodedValue
 	}
 
-	data := c.Bytes()
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal final message: %w", err)
+	}
 	if len(data) == 0 || data[len(data)-1] != 0 {
 		data = append(data, 0)
 	}
