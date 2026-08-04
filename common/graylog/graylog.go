@@ -23,7 +23,6 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/Jeffail/gabs"
 	"go.uber.org/zap"
 )
 
@@ -219,23 +218,36 @@ func prepareMessage(m *Message) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal message to JSON: %w", err)
 	}
-	c, err := gabs.ParseJSON(jsonMessage)
+	data, err := addExtraFields(jsonMessage, m.Extra)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse JSON with gabs: %w", err)
+		return nil, err
 	}
-
-	for key, value := range m.Extra {
-		if _, err := c.Set(value, "_"+key); err != nil {
-			return nil, fmt.Errorf("failed to set extra field %s: %w", key, err)
-		}
-	}
-
-	data := c.Bytes()
 	if len(data) == 0 || data[len(data)-1] != 0 {
 		data = append(data, 0)
 	}
 	if !utf8.Valid(data) {
 		return nil, fmt.Errorf("final message contains invalid UTF-8 characters")
+	}
+	return data, nil
+}
+
+func addExtraFields(jsonMessage []byte, extra map[string]string) ([]byte, error) {
+	rawPayload := make(map[string]json.RawMessage)
+	if err := json.Unmarshal(jsonMessage, &rawPayload); err != nil {
+		return nil, fmt.Errorf("failed to decode message JSON: %w", err)
+	}
+
+	payload := make(map[string]any)
+	for key, value := range rawPayload {
+		payload[key] = value
+	}
+	for key, value := range extra {
+		payload["_"+key] = value
+	}
+
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal final message: %w", err)
 	}
 	return data, nil
 }
