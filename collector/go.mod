@@ -32,7 +32,7 @@ require (
 	go.opentelemetry.io/collector/connector v0.157.0
 	go.opentelemetry.io/collector/exporter v1.63.0
 	go.opentelemetry.io/collector/exporter/debugexporter v0.157.0
-	go.opentelemetry.io/collector/exporter/otlpexporter v0.155.0
+	go.opentelemetry.io/collector/exporter/otlpexporter v0.157.0
 	go.opentelemetry.io/collector/exporter/otlphttpexporter v0.157.0
 	go.opentelemetry.io/collector/extension v1.63.0
 	go.opentelemetry.io/collector/extension/memorylimiterextension v0.157.0
