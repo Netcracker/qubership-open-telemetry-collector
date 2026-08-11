@@ -5,10 +5,10 @@ module github.com/Netcracker/qubership-open-telemetry-collector
 go 1.25.0
 
 require (
-	github.com/Netcracker/qubership-open-telemetry-collector/connector/sentrymetricsconnector v0.0.0-20260629091226-c9e3e61675ed
-	github.com/Netcracker/qubership-open-telemetry-collector/exporter/graylogexporter v0.0.0-20260629091226-c9e3e61675ed
-	github.com/Netcracker/qubership-open-telemetry-collector/exporter/logtcpexporter v0.0.0-20260629091226-c9e3e61675ed
-	github.com/Netcracker/qubership-open-telemetry-collector/receiver/sentryreceiver v0.0.0-20260629091226-c9e3e61675ed
+	github.com/Netcracker/qubership-open-telemetry-collector/connector/sentrymetricsconnector v0.0.0-20260811073159-c4a1d77c11db
+	github.com/Netcracker/qubership-open-telemetry-collector/exporter/graylogexporter v0.0.0-20260811073159-c4a1d77c11db
+	github.com/Netcracker/qubership-open-telemetry-collector/exporter/logtcpexporter v0.0.0-20260811073159-c4a1d77c11db
+	github.com/Netcracker/qubership-open-telemetry-collector/receiver/sentryreceiver v0.0.0-20260811073159-c4a1d77c11db
 	github.com/open-telemetry/opentelemetry-collector-contrib/connector/spanmetricsconnector v0.155.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/exporter/prometheusexporter v0.155.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/exporter/prometheusremotewriteexporter v0.155.0
@@ -120,7 +120,7 @@ require (
 	github.com/jonboulle/clockwork v0.5.0 // indirect
 	github.com/jpillora/backoff v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/klauspost/compress v1.18.6 // indirect
+	github.com/klauspost/compress v1.18.7 // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
 	github.com/knadh/koanf/maps v0.1.2 // indirect
 	github.com/knadh/koanf/providers/confmap v1.0.0 // indirect
