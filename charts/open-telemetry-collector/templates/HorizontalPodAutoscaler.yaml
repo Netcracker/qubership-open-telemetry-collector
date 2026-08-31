@@ -6,13 +6,8 @@ metadata:
     {{- include "otec.labels" . | nindent 4 }}
 spec:
   scaleTargetRef:
-    {{- if eq .Values.PAAS_PLATFORM "KUBERNETES" }}
     apiVersion: apps/v1
     kind: Deployment
-    {{- else if eq .Values.PAAS_PLATFORM "OPENSHIFT" }}
-    apiVersion: apps.openshift.io/v1
-    kind: DeploymentConfig
-    {{- end }}
     name: '{{ coalesce .Values.DEPLOYMENT_RESOURCE_NAME .Values.SERVICE_NAME }}'
 {{- if .Values.HPA_ENABLED }}
   minReplicas: {{ coalesce .Values.HPA_MIN_REPLICAS .Values.REPLICAS }}
