@@ -43,6 +43,8 @@ render_and_check() {
     assert_contains '^[[:space:]]*- ALL$' 'all container capabilities must be dropped'
     assert_contains 'name: tmp' 'the pod must define and mount temporary storage'
     assert_contains 'sizeLimit: 100Mi' 'temporary storage must have a size limit'
+    assert_contains 'ephemeral-storage: 100Mi' 'the container must request ephemeral storage'
+    assert_contains 'ephemeral-storage: 200Mi' 'the container must limit ephemeral storage'
     assert_absent 'hostNetwork: true|hostPID: true|hostIPC: true|hostPath:' 'host namespaces and paths are forbidden'
 
     if [[ ${platform} == KUBERNETES ]]; then
