@@ -137,9 +137,11 @@ resources:
   requests:
     cpu: 100m
     memory: 100Mi
+    ephemeral-storage: 100Mi
   limits:
     cpu: 2000m
     memory: 2000Mi
+    ephemeral-storage: 200Mi
 
 # The name of type cloud environment
 # Type: String
