@@ -131,6 +131,7 @@ data:
       telemetry:
         logs:
           level: "{{ .Values.LOG_LEVEL }}"
+          encoding: "{{ include "otec.logEncoding" . }}"
         metrics:
           readers:
           - pull:
@@ -230,6 +231,7 @@ data:
       telemetry:
         logs:
           level: "{{ .Values.LOG_LEVEL }}"
+          encoding: "{{ include "otec.logEncoding" . }}"
         metrics:
           readers:
           - pull:

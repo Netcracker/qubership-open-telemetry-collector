@@ -89,7 +89,7 @@ func newReceiver(config *Config, nextConsumer consumer.Traces, settings receiver
 		config:       config,
 		settings:     settings,
 		obsrecvr:     obsrecvr,
-		logger:       settings.Logger,
+		logger:       settings.Logger.Named("sentryreceiver"),
 	}
 	return sr, nil
 }
@@ -99,7 +99,7 @@ func (sr *sentrytraceReceiver) Start(_ context.Context, host component.Host) err
 	var ctx = context.Background()
 	ctx, sr.cancel = context.WithCancel(ctx)
 
-	sr.logger.Info("SentryReceiver started")
+	sr.logger.Info("Receiver started")
 	if host == nil {
 		return errors.New("nil host")
 	}
@@ -120,7 +120,7 @@ func (sr *sentrytraceReceiver) Start(_ context.Context, host component.Host) err
 		defer sr.shutdownWG.Done()
 
 		if errHTTP := sr.server.Serve(listener); !errors.Is(errHTTP, http.ErrServerClosed) && errHTTP != nil {
-			sr.logger.Sugar().Fatal(errHTTP)
+			sr.logger.Fatal("HTTP server failed", zap.Error(errHTTP))
 		}
 	}()
 
@@ -128,7 +128,7 @@ func (sr *sentrytraceReceiver) Start(_ context.Context, host component.Host) err
 }
 
 func (sr *sentrytraceReceiver) Shutdown(_ context.Context) error {
-	sr.logger.Info("SentryReceiver is shutdown")
+	sr.logger.Info("Receiver is shutdown")
 
 	return nil
 }
@@ -149,10 +149,10 @@ func (sr *sentrytraceReceiver) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	var err error
 	envlp, err := sr.ParseEnvelopEvent(string(slurp))
 	if err != nil {
-		sr.logger.Sugar().Errorf("SentryReceiver : Error parsing envelop : %+v", err)
+		sr.logger.Error("Error parsing envelop", zap.Error(err))
 		w.WriteHeader(http.StatusNotAcceptable)
 		if _, writeErr := w.Write([]byte("{}")); writeErr != nil {
-			sr.logger.Sugar().Errorf("SentryReceiver : Error writing response: %+v", writeErr)
+			sr.logger.Error("Error writing response", zap.Error(writeErr))
 		}
 		return
 	}
@@ -171,16 +171,16 @@ func (sr *sentrytraceReceiver) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	if consumerErr == nil {
 		if envlp.EnvelopType == models.ENVELOP_TYPE_SESSION {
 			if _, writeErr := w.Write([]byte("{}")); writeErr != nil {
-				sr.logger.Sugar().Errorf("SentryReceiver : Error writing response: %+v", writeErr)
+				sr.logger.Error("Error writing response", zap.Error(writeErr))
 			}
 		} else {
 			if err := json.NewEncoder(w).Encode(map[string]string{"id": envlp.EventID}); err != nil {
-				sr.logger.Sugar().Errorf("SentryReceiver : Error writing response: %+v", err)
+				sr.logger.Error("Error writing response", zap.Error(err))
 			}
 		}
 		return
 	}
-	sr.logger.Sugar().Errorf("SentryReceiver : Consumer error : %+v", consumerErr)
+	sr.logger.Error("Consumer error", zap.Error(consumerErr))
 
 	if consumererror.IsPermanent(consumerErr) {
 		w.WriteHeader(http.StatusBadRequest)
@@ -373,12 +373,16 @@ func (sr *sentrytraceReceiver) appendScopeSpans(scopeSpans *ptrace.ScopeSpans, e
 		if requestUrlStr != "" {
 			urlParsed, err := url.Parse(requestUrlStr)
 			if err != nil {
-				sr.logger.Sugar().Errorf("Error parsing url request %v : %+v", requestUrlStr, err)
+				sr.logger.Error("Error parsing url request",
+					zap.String("url", requestUrlStr),
+					zap.Error(err))
 			} else {
 				for _, qParam := range sr.config.HttpQueryParamValuesToAttrs {
 					qValue := urlParsed.Query().Get(qParam)
 					rootSpan.Attributes().PutStr("http.qparam."+qParam, qValue)
-					sr.logger.Sugar().Debugf("Value QParam %v with value %v is found", qParam, qValue)
+					sr.logger.Debug("Query parameter value found",
+						zap.String("query_param", qParam),
+						zap.String("value", qValue))
 				}
 				for _, qParam := range sr.config.HttpQueryParamExistenceToAttrs {
 					qValue := urlParsed.Query().Get(qParam)
@@ -387,7 +391,9 @@ func (sr *sentrytraceReceiver) appendScopeSpans(scopeSpans *ptrace.ScopeSpans, e
 					} else {
 						qValue = "false"
 					}
-					sr.logger.Sugar().Debugf("Existence QParam %v with value %v is found", qParam, qValue)
+					sr.logger.Debug("Query parameter existence checked",
+						zap.String("query_param", qParam),
+						zap.String("value", qValue))
 					rootSpan.Attributes().PutStr("http.qparam."+qParam, qValue)
 				}
 				rootSpan.Attributes().PutStr("url_path", sr.removeIdFromURL(urlParsed.Path))
@@ -557,14 +563,16 @@ func (sr *sentrytraceReceiver) evaluateLevel(event models.Event) string {
 
 func (sr *sentrytraceReceiver) appendScopeSpansForSessionEvent(scopeSpans *ptrace.ScopeSpans, envlp *models.EnvelopEventParseResult, r *http.Request) {
 	for _, event := range envlp.SessionEvents {
-		sr.logger.Sugar().Debugf("Received session event event.Sid = %v", event.Sid)
+		sr.logger.Debug("Received session event", zap.String("session_id", event.Sid))
 		rootSpan := scopeSpans.Spans().AppendEmpty()
 		rootSpan.SetTraceID(sr.GenerateTraceID(removeHyphens(event.Sid)))
 		rootSpan.SetName("Session " + event.Sid)
 		rootSpan.SetSpanID(sr.GenerateSpanId(removeHyphens(event.Sid)[0:16]))
 		timestamp, err := time.Parse(time.RFC3339, event.Timestamp)
 		if err != nil {
-			sr.logger.Sugar().Errorf("Error parsing timestamp %v for session event : %+v", event.Timestamp, err)
+			sr.logger.Error("Error parsing timestamp for session event",
+				zap.String("timestamp", event.Timestamp),
+				zap.Error(err))
 		} else {
 			rootSpan.SetStartTimestamp(pcommon.NewTimestampFromTime(timestamp))
 		}
@@ -586,7 +594,9 @@ func (sr *sentrytraceReceiver) appendScopeSpansForSessionEvent(scopeSpans *ptrac
 func (sr *sentrytraceReceiver) GenerateTraceID(str string) pcommon.TraceID {
 	data, err := hex.DecodeString(str)
 	if err != nil {
-		sr.logger.Sugar().Errorf("SentryReceiver : GenerateTraceID : Can not decode str %v to bytes : %+v", str, err)
+		sr.logger.Error("Cannot decode trace ID hex string to bytes",
+			zap.String("value", str),
+			zap.Error(err))
 		return pcommon.TraceID([16]byte{})
 	}
 
@@ -598,7 +608,9 @@ func (sr *sentrytraceReceiver) GenerateTraceID(str string) pcommon.TraceID {
 func (sr *sentrytraceReceiver) GenerateSpanId(str string) pcommon.SpanID {
 	data, err := hex.DecodeString(str)
 	if err != nil {
-		sr.logger.Sugar().Errorf("SentryReceiver : GenerateSpanId : Can not decode str %v to bytes : %+v", str, err)
+		sr.logger.Error("Cannot decode span ID hex string to bytes",
+			zap.String("value", str),
+			zap.Error(err))
 		return pcommon.SpanID([8]byte{})
 	}
 
