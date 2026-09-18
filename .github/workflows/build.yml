@@ -15,15 +15,8 @@ on:
   pull_request:
     branches:
     - '**'
-    paths:
-      - '**'
-      - '!.github/**'
-      - '.github/workflows/build.yml'
-      - '!docs/**'
-      - '!*.md'
 
-permissions:
-  contents: read
+permissions: {}
 
 concurrency:
   # On main/release, we don't want any jobs cancelled so the sha is used to name the group
@@ -33,15 +26,62 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  multiplatform_build:
+  changes:
+    name: Detect Docker build changes
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
-      packages: write
-      id-token: write
-      pull-requests: write
-      security-events: write
-    # Build PRs only if the event comes from Dependabot. Skip branch pushes
-    if: github.event.pull_request.user.login != 'dependabot[bot]' || github.event_name == 'pull_request'
+    outputs:
+      build: ${{ steps.filter.outputs.build }}
+    steps:
+    - name: Checkout
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        fetch-depth: 0
+        persist-credentials: false
+    - name: Detect relevant changes
+      id: filter
+      env:
+        BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      run: |
+        set -euo pipefail
+
+        build=false
+        changed="$(git diff --no-renames --name-only "${BASE_SHA}...${HEAD_SHA}")"
+        if [[ -z "${changed}" ]]; then
+          build=true
+        else
+          while IFS= read -r path; do
+            case "$path" in
+              .github/workflows/build.yml)
+                build=true
+                break
+                ;;
+              .github/*|docs/*)
+                ;;
+              *.md)
+                if [[ "$path" != */* ]]; then
+                  continue
+                fi
+                build=true
+                break
+                ;;
+              *)
+                build=true
+                break
+                ;;
+            esac
+          done <<< "${changed}"
+        fi
+
+        echo "build=${build}" >> "${GITHUB_OUTPUT}"
+
+  multiplatform_build:
+    needs: changes
+    if: github.event_name == 'pull_request' && needs.changes.outputs.build != 'false'
     strategy:
       fail-fast: false
       matrix:
@@ -54,9 +94,54 @@ jobs:
           context: .
     runs-on: ubuntu-latest
     name: ${{ matrix.component.name }}
+    timeout-minutes: 45
+    permissions:
+      contents: read
     steps:
     - name: Checkout
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@1f40c72289eff860ee54a304f1438e3cff362e0a # v4.3.0
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+    - name: Build
+      uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+      with:
+        no-cache: true
+        context: ${{ matrix.component.context }}
+        file: ${{ matrix.component.file }}
+        platforms: linux/amd64
+        push: false
+        provenance: false
+
+  multiplatform_publish:
+    if: github.event_name != 'pull_request' && github.actor != 'dependabot[bot]'
+    strategy:
+      fail-fast: false
+      matrix:
+        component:
+        - name: qubership-open-telemetry-collector
+          file: Dockerfile
+          context: .
+        - name: qubership-open-telemetry-collector-transfer
+          file: docker-transfer/Dockerfile
+          context: .
+    runs-on: ubuntu-latest
+    name: Publish ${{ matrix.component.name }}
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      pull-requests: write
+      security-events: write
+    steps:
+    - name: Checkout
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
     - name: Docker meta
       id: meta
       uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
@@ -70,7 +155,7 @@ jobs:
       uses: docker/setup-qemu-action@1f40c72289eff860ee54a304f1438e3cff362e0a # v4.3.0
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
-    - name: Login to Docker Hub
+    - name: Login to GHCR
       uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
       with:
         registry: ghcr.io
@@ -84,8 +169,7 @@ jobs:
         context: ${{ matrix.component.context }}
         file: ${{ matrix.component.file }}
         platforms: linux/amd64
-        # See https://docs.github.com/en/code-security/dependabot/working-with-dependabot/automating-dependabot-with-github-actions#fetching-metadata-about-a-pull-request
-        push: ${{ github.event_name != 'pull_request' && github.actor != 'dependabot[bot]' }}
+        push: true
         provenance: false
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
@@ -110,3 +194,17 @@ jobs:
       uses: github/codeql-action/upload-sarif@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4.38.0
       with:
         sarif_file: sarif.output.json
+
+  docker-build-gate:
+    name: Docker Build Gate
+    needs: [changes, multiplatform_build]
+    if: ${{ always() && github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+    - name: Require Docker build when applicable
+      if: >-
+        needs.changes.result != 'success' ||
+        (needs.changes.outputs.build != 'false' && needs.multiplatform_build.result != 'success')
+      run: exit 1
