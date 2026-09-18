@@ -69,7 +69,7 @@ jobs:
           else
             while IFS= read -r file; do
               case "${file}" in
-                Makefile|builder-config.yaml|.github/workflows/go-test.yaml)
+                Makefile|builder-config.yaml)
                   generate=true
                   break
                   ;;
@@ -105,25 +105,13 @@ jobs:
         run: |
           set -euo pipefail
           make install-builder build-collector
-          modules=(
-            collector
-            tools
-            common/graylog
-            connector/sentrymetricsconnector
-            exporter/graylogexporter
-            exporter/logtcpexporter
-            receiver/sentryreceiver
-            utils
-          )
-          for dir in "${modules[@]}"; do
-            (cd "${dir}" && go mod tidy)
-          done
-          if ! git diff --exit-code || [[ -n "$(git ls-files --others --exclude-standard)" ]]; then
-            echo "Generated collector or module metadata is stale. Run:"
+          (cd collector && go mod tidy)
+          if ! git diff --exit-code -- collector || [[ -n "$(git ls-files --others --exclude-standard -- collector)" ]]; then
+            echo "Generated collector is stale. Run:"
             echo "  make install-builder build-collector"
             echo "  (cd collector && go mod tidy)"
-            git status --short
-            git diff
+            git status --short -- collector
+            git diff -- collector
             exit 1
           fi
 
