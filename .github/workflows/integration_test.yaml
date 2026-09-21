@@ -30,31 +30,57 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: read
-      pull-requests: read
     outputs:
-      source: ${{ steps.filter.outputs.source }}
-      workflow: ${{ steps.filter.outputs.workflow }}
+      run: ${{ steps.filter.outputs.run }}
     steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
       - name: Detect integration-relevant changes
         id: filter
-        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
-        with:
-          predicate-quantifier: some-with-excludes
-          filters: |
-            source:
-              - '**'
-              - '!**/*.md'
-              - '!docs/**'
-              - '!.github/**'
-              - '!.markdownlintignore'
-            workflow:
-              - '.github/workflows/build.yml'
-              - '.github/workflows/integration_test.yaml'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+
+          changed="$(git diff --no-renames --name-only "${BASE_SHA}...${HEAD_SHA}")"
+          echo "Changed files:"
+          printf '%s\n' "${changed}"
+
+          run=false
+          if [[ -z "${changed}" ]]; then
+            run=true
+          else
+            while IFS= read -r file; do
+              case "${file}" in
+                .github/workflows/build.yml|.github/workflows/integration_test.yaml)
+                  run=true
+                  break
+                  ;;
+                .github/*|docs/*|.markdownlintignore)
+                  ;;
+                *.md)
+                  ;;
+                *)
+                  run=true
+                  break
+                  ;;
+              esac
+            done <<< "${changed}"
+          fi
+          echo "run=${run}" >> "${GITHUB_OUTPUT}"
 
   integration:
     name: Run integration tests
     needs: changes
-    if: always() && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.source == 'true' || needs.changes.outputs.workflow == 'true')
+    if: >-
+      always() &&
+      !cancelled() &&
+      (github.event_name == 'workflow_dispatch' ||
+       (needs.changes.result == 'success' && needs.changes.outputs.run != 'false'))
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -249,30 +275,13 @@ jobs:
   integration-gate:
     name: Integration CI Gate
     needs: [changes, integration]
-    if: always()
+    if: ${{ always() && github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    permissions:
-      contents: read
+    permissions: {}
     steps:
-      - name: Check integration result
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          CHANGE_DETECTION_RESULT: ${{ needs.changes.result }}
-          SOURCE_CHANGED: ${{ needs.changes.outputs.source }}
-          WORKFLOW_CHANGED: ${{ needs.changes.outputs.workflow }}
-          INTEGRATION_RESULT: ${{ needs.integration.result }}
-        run: |
-          set -euo pipefail
-
-          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
-            test "$INTEGRATION_RESULT" = "success"
-            exit
-          fi
-
-          test "$CHANGE_DETECTION_RESULT" = "success"
-          if [ "$SOURCE_CHANGED" = "true" ] || [ "$WORKFLOW_CHANGED" = "true" ]; then
-            test "$INTEGRATION_RESULT" = "success"
-          else
-            test "$INTEGRATION_RESULT" = "skipped"
-          fi
+      - name: Require integration when applicable
+        if: >-
+          needs.changes.result != 'success' ||
+          (needs.changes.outputs.run != 'false' && needs.integration.result != 'success')
+        run: exit 1
