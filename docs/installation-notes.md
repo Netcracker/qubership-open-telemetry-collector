@@ -32,7 +32,7 @@ installation. Mandatory parameters from the list must be specified for Open Tele
 | `DEPLOYMENT_STRATEGY_MAXSURGE` | N | 25% | 25% | The parameter sets maxSurge if DEPLOYMENT_STRATEGY_TYPE is "custom_rollout". |
 | `DEPLOYMENT_STRATEGY_MAXUNAVAILABLE` | N | 25% | 25% | The parameter sets maxUnavailable if DEPLOYMENT_STRATEGY_TYPE is "custom_rollout". |
 | `LOG_LEVEL` | N | info | info | The parameter indicates the OTeC log level. The possible values are "debug", "info", "warn", and "error". |
-| `OTEC_LOG_FORMAT` | N | `json` | `text` | The parameter allows to specify log format. It might be convenient to use `text` format for dev purposes. `json` is strongly recommended on prod. |
+| `OTEC_LOG_FORMAT` | N | `json` | `text` | The parameter allows to specify log format. The possible values are `json` and `text`; the chart maps them onto the collector's `service.telemetry.logs.encoding` values `json` and `console`. It might be convenient to use `text` format for dev purposes. `json` is strongly recommended on prod. |
 | `OTEC_SENTRY_ENVELOPES_INGRESS_ENABLED` | N | false | true | The parameter allows to enable the default sentry ingress. |
 | `OTEC_SENTRY_ENVELOPES_INGRESS_ANNOTATIONS` | N | | string map in YAML format | The parameter allows to specify the annotations map for the sentry ingress. |
 | `OTEC_SENTRY_RECEIVER_PARAMETERS` | N | | Object | The parameter allows to customize sentry receiver parameters. |
@@ -43,6 +43,17 @@ installation. Mandatory parameters from the list must be specified for Open Tele
 | `OTEC_ENABLE_ARBITRARY_TRACES_LOGGING` | N | false | false | The parameter allows to enable arbitrary traces logging. |
 | `OTEC_ARBITRARY_TRACES_LOGGING_CONFIG` | N | | Object | The parameter allows to customize arbitrary traces logging configuration. |
 <!-- markdownlint-enable line-length no-inline-html -->
+
+**Note:** `OTEC_LOG_FORMAT` takes effect only when the chart generates the collector configuration. If you override the
+whole configuration with `CONFIG_MAP`, add `service.telemetry.logs.encoding` to it yourself, otherwise the collector
+falls back to its own default, `console`:
+
+```yaml
+service:
+  telemetry:
+    logs:
+      encoding: json
+```
 
 **Note:** Open Telemetry Collector preprocesses traces before they come to the Jaeger storage. For proper work, a trace
 generating application must be configured to send the traces not to Jaeger directly, but to the Open Telemetry Collector

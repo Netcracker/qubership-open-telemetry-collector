@@ -61,7 +61,7 @@ func createLogExporter(cfg *Config, settings exporter.Settings) *grayLogExporter
 	return &grayLogExporter{
 		url:      strings.Trim(cfg.Endpoint, " /"),
 		settings: settings,
-		logger:   settings.Logger,
+		logger:   settings.Logger.Named("graylogexporter"),
 		config:   cfg,
 	}
 }

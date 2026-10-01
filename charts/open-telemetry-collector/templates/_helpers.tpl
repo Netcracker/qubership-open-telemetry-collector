@@ -56,3 +56,15 @@ app.kubernetes.io/component: '{{ $component }}'
 app.kubernetes.io/part-of: open-telemetry-collector
 app.kubernetes.io/managed-by: {{ $ctx.Release.Service }}
 {{- end -}}
+
+{{/* Map the chart's OTEC_LOG_FORMAT vocabulary (json/text) onto the collector's
+     service::telemetry::logs::encoding vocabulary (json/console). Anything other
+     than "text" or "console" falls back to "json", which is the documented default. */}}
+{{- define "otec.logEncoding" -}}
+{{- $format := .Values.OTEC_LOG_FORMAT | default "json" | lower -}}
+{{- if or (eq $format "text") (eq $format "console") -}}
+console
+{{- else -}}
+json
+{{- end -}}
+{{- end -}}

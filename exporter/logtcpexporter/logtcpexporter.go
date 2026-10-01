@@ -17,7 +17,6 @@ package logtcpexporter
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -39,16 +38,19 @@ type logTcpExporter struct {
 	graylogSender      *graylog.GraylogSender
 	settings           exporter.Settings
 	logger             *zap.Logger
+	alLogger           *zap.Logger
 	config             *Config
 	traceFilterEnabled bool
 	spanFilterEnabled  bool
 }
 
 func createLogTcpExporter(cfg *Config, settings exporter.Settings) *logTcpExporter {
+	logger := settings.Logger.Named("logtcpexporter")
 	return &logTcpExporter{
 		url:                strings.Trim(cfg.Endpoint, " /"),
 		settings:           settings,
-		logger:             settings.Logger,
+		logger:             logger,
+		alLogger:           logger.Named("arbitrarylogging"),
 		config:             cfg,
 		traceFilterEnabled: len(cfg.ATLCfg.TraceFilters) > 0,
 		spanFilterEnabled:  len(cfg.ATLCfg.SpanFilters) > 0,
@@ -67,14 +69,18 @@ func (lte *logTcpExporter) start(_ context.Context, host component.Host) (err er
 		port, err = strconv.ParseUint(endpointSplitted[1], 10, 32)
 		if err != nil || port < 1 || port > 65535 {
 			errMsg := fmt.Sprintf("invalid port in endpoint: %v : %+v", endpointSplitted[1], err)
-			lte.logger.Error(errMsg)
+			lte.logger.Error("Invalid port in endpoint",
+				zap.String("port", endpointSplitted[1]),
+				zap.Error(err))
 			return fmt.Errorf("%s", errMsg)
 		}
 	}
 	freezeTime, err := time.ParseDuration(lte.config.SuccessiveSendErrFreezeTime)
 	if err != nil {
 		errMsg := fmt.Sprintf("lte.config.successiveSendErrFreezeTime is not parsable : %+v", err)
-		lte.logger.Error(errMsg)
+		lte.logger.Error("Cannot parse successiveSendErrFreezeTime",
+			zap.String("value", lte.config.SuccessiveSendErrFreezeTime),
+			zap.Error(err))
 		return fmt.Errorf("%s", errMsg)
 	}
 	lte.graylogSender = graylog.NewGraylogSender(
@@ -96,7 +102,10 @@ func (lte *logTcpExporter) start(_ context.Context, host component.Host) (err er
 
 func (lte *logTcpExporter) pushTraces(ctx context.Context, traces ptrace.Traces) error {
 	isSentry := isSentryTrace(traces)
-	lte.logger.Sugar().Debugf("PushTraces : isSentryTrace = %v; traceFilterEnabled = %v; spanFilterEnabled = %v", isSentry, lte.traceFilterEnabled, lte.spanFilterEnabled)
+	lte.logger.Debug("Pushing traces",
+		zap.Bool("is_sentry_trace", isSentry),
+		zap.Bool("trace_filter_enabled", lte.traceFilterEnabled),
+		zap.Bool("span_filter_enabled", lte.spanFilterEnabled))
 
 	if lte.traceFilterEnabled {
 		err := lte.sendArbitraryLoggingTrace(traces)
@@ -119,13 +128,13 @@ func (lte *logTcpExporter) pushTraces(ctx context.Context, traces ptrace.Traces)
 				if isSentry {
 					if span.Name() == "Event" {
 						if err := lte.sendSentrySpan(span); err != nil {
-							lte.logger.Sugar().Errorf("Failed to send sentry span: %v", err)
+							lte.logger.Error("Failed to send sentry span", zap.Error(err))
 						}
 					}
 				}
 				if lte.spanFilterEnabled {
 					if err := lte.sendArbitraryLoggingSpan(span); err != nil {
-						lte.logger.Sugar().Errorf("Failed to send arbitrary logging span: %v", err)
+						lte.logger.Error("Failed to send arbitrary logging span", zap.Error(err))
 					}
 				}
 			}
@@ -138,13 +147,13 @@ func (lte *logTcpExporter) pushTraces(ctx context.Context, traces ptrace.Traces)
 func (lte *logTcpExporter) sendArbitraryLoggingTrace(traces ptrace.Traces) error {
 	alIndex := lte.getATLTraceFilterIndex(traces)
 	if alIndex < 0 {
-		lte.logger.Sugar().Debugf("Arbitrary logging : Trace is filtered out : alIndex = %v", alIndex)
+		lte.alLogger.Debug("Trace is filtered out", zap.Int("al_index", alIndex))
 		return nil
 	}
 
 	messageBytes, err := atlmarshaller.MarshalTraces(traces)
 	if err != nil {
-		lte.logger.Sugar().Errorf("Arbitrary logging : Error marshalling trace : %+v\n", err)
+		lte.alLogger.Error("Error marshalling trace", zap.Error(err))
 		return err
 	}
 	traceId := lte.getTraceId(traces)
@@ -164,10 +173,13 @@ func (lte *logTcpExporter) sendArbitraryLoggingTrace(traces ptrace.Traces) error
 	}
 	err = lte.graylogSender.SendToQueue(&msg)
 	if err != nil {
-		lte.logger.Sugar().Errorf("Arbitrary logging : Message with timestamp %v has not been put to the graylog queue: %+v\n", msg.Timestamp, err)
+		lte.alLogger.Error("Failed to put message on the graylog queue",
+			zap.Int64("msg_timestamp", msg.Timestamp),
+			zap.Error(err))
 		return err
 	}
-	lte.logger.Sugar().Debugf("Arbitrary logging : Message with timestamp %v has been put successfully to the graylog queue\n", msg.Timestamp)
+	lte.alLogger.Debug("Message put on the graylog queue",
+		zap.Int64("msg_timestamp", msg.Timestamp))
 
 	return nil
 }
@@ -175,10 +187,10 @@ func (lte *logTcpExporter) sendArbitraryLoggingTrace(traces ptrace.Traces) error
 func (lte *logTcpExporter) sendArbitraryLoggingSpan(span ptrace.Span) error {
 	alIndex := lte.getATLSpanFilterIndex(span)
 	if alIndex < 0 {
-		lte.logger.Sugar().Debugf("Arbitrary logging : Span is filtered out : alIndex = %v", alIndex)
+		lte.alLogger.Debug("Span is filtered out", zap.Int("al_index", alIndex))
 		return nil
 	}
-	lte.logger.Sugar().Debugf("Arbitrary logging : alIndex = %v", alIndex)
+	lte.alLogger.Debug("Arbitrary logging span matched", zap.Int("al_index", alIndex))
 	mapping := lte.config.ATLCfg.SpanFilters[alIndex].Mapping
 
 	extra := make(map[string]string)
@@ -209,7 +221,9 @@ func (lte *logTcpExporter) sendArbitraryLoggingSpan(span ptrace.Span) error {
 	}
 
 	if len(messageStr) == 0 {
-		lte.logger.Sugar().Debugf("Arbitrary logging : Span (traceId= %v, spanId = %v) is filtered out because message is empty", span.TraceID().String(), span.SpanID().String())
+		lte.alLogger.Debug("Span is filtered out because message is empty",
+			zap.String("trace_id", span.TraceID().String()),
+			zap.String("span_id", span.SpanID().String()))
 		return nil
 	}
 
@@ -223,10 +237,13 @@ func (lte *logTcpExporter) sendArbitraryLoggingSpan(span ptrace.Span) error {
 	}
 	err := lte.graylogSender.SendToQueue(&msg)
 	if err != nil {
-		lte.logger.Sugar().Errorf("Arbitrary logging : Message with timestamp %v has not been put to the graylog queue: %+v\n", msg.Timestamp, err)
+		lte.alLogger.Error("Failed to put message on the graylog queue",
+			zap.Int64("msg_timestamp", msg.Timestamp),
+			zap.Error(err))
 		return err
 	}
-	lte.logger.Sugar().Debugf("Arbitrary logging : Message with timestamp %v has been put successfully to the graylog queue\n", msg.Timestamp)
+	lte.alLogger.Debug("Message put on the graylog queue",
+		zap.Int64("msg_timestamp", msg.Timestamp))
 
 	return nil
 }
@@ -291,10 +308,14 @@ func (lte *logTcpExporter) getATLSpanFilterIndex(span ptrace.Span) int {
 
 	for filterIndex, filter := range spanFilters {
 		if lte.checkSpanFilterCondition(span, filter) {
-			lte.logger.Sugar().Debugf("Arbitrary logging : spanfilterIndex = %v ; filter is true", filterIndex)
+			lte.alLogger.Debug("Span filter evaluated",
+				zap.Int("span_filter_index", filterIndex),
+				zap.Bool("matched", true))
 			return filterIndex
 		} else {
-			lte.logger.Sugar().Debugf("Arbitrary logging : spanfilterIndex = %v ; filter is false", filterIndex)
+			lte.alLogger.Debug("Span filter evaluated",
+				zap.Int("span_filter_index", filterIndex),
+				zap.Bool("matched", false))
 		}
 	}
 
@@ -347,10 +368,14 @@ func (lte *logTcpExporter) getATLTraceFilterIndex(traces ptrace.Traces) int {
 	traceFilters := lte.config.ATLCfg.TraceFilters
 	for filterIndex, filter := range traceFilters {
 		if lte.checkTraceFilterCondition(traces, filter) {
-			lte.logger.Sugar().Debugf("Arbitrary logging : tracefilterIndex = %v ; filter is true", filterIndex)
+			lte.alLogger.Debug("Trace filter evaluated",
+				zap.Int("trace_filter_index", filterIndex),
+				zap.Bool("matched", true))
 			return filterIndex
 		} else {
-			lte.logger.Sugar().Debugf("Arbitrary logging : tracefilterIndex = %v ; filter is false", filterIndex)
+			lte.alLogger.Debug("Trace filter evaluated",
+				zap.Int("trace_filter_index", filterIndex),
+				zap.Bool("matched", false))
 		}
 	}
 
@@ -558,10 +583,15 @@ func (lte *logTcpExporter) sendSentrySpan(span ptrace.Span) error {
 	}
 	err := lte.graylogSender.SendToQueue(&msg)
 	if err != nil {
-		lte.logger.Sugar().Errorf("Message with trace_id %v and span_id %v has not been put to the graylog queue: %+v\n", traceIdStr, spanIdStr, err)
+		lte.logger.Error("Failed to put message on the graylog queue",
+			zap.String("trace_id", traceIdStr),
+			zap.String("span_id", spanIdStr),
+			zap.Error(err))
 		return err
 	}
-	lte.logger.Sugar().Debugf("Message with trace_id %v and span_id %v has been put successfully to the graylog queue\n", traceIdStr, spanIdStr)
+	lte.logger.Debug("Message put on the graylog queue",
+		zap.String("trace_id", traceIdStr),
+		zap.String("span_id", spanIdStr))
 
 	if graylogLevel == 3 {
 		breadcrumbs, ok := span.Attributes().Get("breadcrumbs")
@@ -572,7 +602,8 @@ func (lte *logTcpExporter) sendSentrySpan(span ptrace.Span) error {
 		for i, breadcrumb := range breadcrumbsList {
 			breadcrumbMap, ok := breadcrumb.(map[string]interface{})
 			if !ok {
-				lte.logger.Sugar().Errorf("Type assertion error : got type %v", reflect.TypeOf(breadcrumb))
+				lte.logger.Error("Type assertion error",
+					zap.String("actual_type", fmt.Sprintf("%T", breadcrumb)))
 			}
 			levelB, _ := breadcrumbMap["level"].(string)
 			timestampB, _ := breadcrumbMap["timestamp"].(float64)
@@ -614,10 +645,17 @@ func (lte *logTcpExporter) sendSentrySpan(span ptrace.Span) error {
 			}
 			err := lte.graylogSender.SendToQueue(&msg)
 			if err != nil {
-				lte.logger.Sugar().Errorf("Message with trace_id %v and span_id %v has not been put to the graylog queue for breadcrumb %v : %+v\n", traceIdStr, spanIdStr, i, err)
+				lte.logger.Error("Failed to put breadcrumb message on the graylog queue",
+					zap.String("trace_id", traceIdStr),
+					zap.String("span_id", spanIdStr),
+					zap.Int("breadcrumb_index", i),
+					zap.Error(err))
 				return err
 			}
-			lte.logger.Sugar().Debugf("Message with trace_id %v and span_id %v has been put successfully to the graylog queue for breadcrumb %v\n", traceIdStr, spanIdStr, i)
+			lte.logger.Debug("Breadcrumb message put on the graylog queue",
+				zap.String("trace_id", traceIdStr),
+				zap.String("span_id", spanIdStr),
+				zap.Int("breadcrumb_index", i))
 		}
 	}
 	return nil
@@ -656,6 +694,8 @@ func (lte *logTcpExporter) getGraylogLevel(level string) uint {
 	case "debug":
 		return 7
 	}
-	lte.logger.Sugar().Errorf("Unknown logging level %v is received from Sentry. Graylog level 3 is used for this level", level)
+	lte.logger.Error("Unknown logging level received from Sentry, falling back to Graylog level 3",
+		zap.String("sentry_level", level),
+		zap.Uint("graylog_level", 3))
 	return 3
 }
