@@ -53,7 +53,7 @@ func CreateSentryMetricsConnector(config *Config, metricsConsumer consumer.Metri
 	result := sentrymetrics{}
 	result.config = config
 	result.metricsConsumer = metricsConsumer
-	result.logger = set.Logger
+	result.logger = set.Logger.Named("sentrymetricsconnector")
 	result.measurementsHist = metrics.NewCustomHistogram(set.Logger)
 	result.defaultMeasurementsBuckets = config.SentryMeasurementsCfg.DefaultBuckets
 	result.measurementsBuckets = make(map[string][]float64)
@@ -61,12 +61,15 @@ func CreateSentryMetricsConnector(config *Config, metricsConsumer consumer.Metri
 		result.measurementsBuckets[k] = v.Buckets
 	}
 	result.defaultMeasurementsLabels = config.SentryMeasurementsCfg.DefaultLabels
-	result.logger.Sugar().Infof("DefaultMeasurementsLabels %+v", result.defaultMeasurementsLabels)
+	result.logger.Info("Default measurements labels resolved",
+		zap.Any("default_measurements_labels", result.defaultMeasurementsLabels))
 	result.measurementsLabels = make(map[string]map[string]string)
 	for k, v := range config.SentryMeasurementsCfg.Custom {
 		if v.Labels != nil {
 			result.measurementsLabels[k] = *v.Labels
-			result.logger.Sugar().Infof("Custom measurementsLabels for %v : %+v", k, result.measurementsLabels[k])
+			result.logger.Info("Custom measurements labels resolved",
+				zap.String("measurement_type", k),
+				zap.Any("measurements_labels", result.measurementsLabels[k]))
 		}
 	}
 	return &result
@@ -200,7 +203,9 @@ func (c *sentrymetrics) calculateMeasurementsMetric(metric pmetric.Metric, td pt
 					measurementsCommonMap = measurements.Map()
 				}
 				configurableLabels := c.getConfigurableMeasurementLabels(span, "")
-				c.logger.Sugar().Debugf("SentryMetricsConnector : GOT TRANSACTION with measurements size=%v, configurableLabels=%+v", measurementsCommonMap.Len(), configurableLabels)
+				c.logger.Debug("Processing transaction",
+					zap.Int("measurements_size", measurementsCommonMap.Len()),
+					zap.Any("configurable_labels", configurableLabels))
 				measurementsCommonMap.Range(func(k string, v pcommon.Value) bool {
 					labels := make(map[string]string)
 					labels["type"] = k
@@ -225,11 +230,14 @@ func (c *sentrymetrics) calculateMeasurementsMetric(metric pmetric.Metric, td pt
 						unitStr = unit.AsString()
 					}
 
-					c.logger.Sugar().Debugf("SentryMetricsConnector : Measurements datapoint : labels=%+v, value=%v, unitStr=%v", labels, measurementFloat, unitStr)
+					c.logger.Debug("Measurements datapoint",
+						zap.Any("labels", labels),
+						zap.Float64("value", measurementFloat),
+						zap.String("unit", unitStr))
 					if okVal {
 						c.measurementsHist.ObserveSingle(normalizeUnit(measurementFloat, unitStr), c.getMeasurementBuckets(k), labels)
 					} else {
-						c.logger.Error("SentryMetricsConnector : Error reading measurements value")
+						c.logger.Error("Error reading measurements value")
 					}
 					return true
 				})
@@ -247,7 +255,10 @@ func (c *sentrymetrics) calculateMeasurementsMetric(metric pmetric.Metric, td pt
 				}
 				var unitStr string
 				durationFloat := float64(span.EndTimestamp().AsTime().Sub(span.StartTimestamp().AsTime()).Milliseconds())
-				c.logger.Sugar().Debugf("SentryMetricsConnector : Measurements datapoint : labels=%+v, value=%v, unitStr=%v", labels, durationFloat, unitStr)
+				c.logger.Debug("Measurements datapoint",
+					zap.Any("labels", labels),
+					zap.Float64("value", durationFloat),
+					zap.String("unit", unitStr))
 				c.measurementsHist.ObserveSingle(normalizeUnit(durationFloat, unitStr), c.getMeasurementBuckets("transaction_duration"), labels)
 			}
 		}
@@ -267,7 +278,9 @@ func (c *sentrymetrics) getConfigurableMeasurementLabels(span ptrace.Span, measu
 	if labelsToExtract == nil {
 		labelsToExtract = c.defaultMeasurementsLabels
 		c.measurementsLabels[measurementType] = labelsToExtract
-		c.logger.Sugar().Debugf("Set default labelsToExtract %+v for measurement %v", labelsToExtract, measurementType)
+		c.logger.Debug("Set default labels to extract for measurement",
+			zap.Any("labels_to_extract", labelsToExtract),
+			zap.String("measurement_type", measurementType))
 	}
 
 	return c.getLabels(span, labelsToExtract)
@@ -292,7 +305,9 @@ func (c *sentrymetrics) getMeasurementBuckets(measurementType string) []float64 
 	if len(buckets) == 0 {
 		buckets = c.defaultMeasurementsBuckets
 		c.measurementsBuckets[measurementType] = buckets
-		c.logger.Sugar().Debugf("Set default buckets %+v for measurement %v", buckets, measurementType)
+		c.logger.Debug("Set default buckets for measurement",
+			zap.Float64s("buckets", buckets),
+			zap.String("measurement_type", measurementType))
 	}
 	return buckets
 }
