@@ -163,7 +163,7 @@ func (sr *sentrytraceReceiver) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	sr.logger.Sugar().Debugf("SentryReceiver : For %v got trace with %v SpanCount() : %+v", envlp.Type, td.SpanCount(), td)
+	sr.logger.Sugar().Debugf("SentryReceiver : For %v got trace with %v resource spans and %v spans", envlp.Type, td.ResourceSpans().Len(), td.SpanCount())
 
 	consumerErr := sr.nextConsumer.ConsumeTraces(ctx, td)
 
