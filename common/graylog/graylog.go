@@ -24,6 +24,7 @@ import (
 	"unicode/utf8"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 type Transport string
@@ -97,19 +98,26 @@ func (gs *GraylogSender) Stop() {
 }
 
 func (gs *GraylogSender) tcpConnGoroutine(connNumber int) {
-	defer gs.logger.Sugar().Infof("GraylogTcpConnection : Goroutine #%d finished", connNumber)
+	logger := gs.logger.Named("graylogtcpconnection").With(zap.Int("goroutine_number", connNumber))
+
+	defer logger.Info("Goroutine finished")
 
 	defer func() {
 		if rec := recover(); rec != nil {
-			gs.logger.Sugar().Errorf("GraylogTcpConnection : Panic in goroutine #%d : %+v ; Stacktrace : %s", connNumber, rec, string(debug.Stack()))
+			// The collector core leaves DisableStacktrace false, so zap appends its own
+			// "stacktrace" key on every Error entry. Raise the automatic threshold here so
+			// the panic stack supplied below is the only "stacktrace" field on the line.
+			logger.WithOptions(zap.AddStacktrace(zapcore.FatalLevel)).Error("Panic in goroutine",
+				zap.Any("error", rec),
+				zap.String("stacktrace", string(debug.Stack())))
 			time.Sleep(gs.successiveSendErrFreezeTime)
-			gs.logger.Sugar().Infof("GraylogTcpConnection : Restarting goroutine #%d ...", connNumber)
+			logger.Info("Restarting goroutine")
 			go gs.tcpConnGoroutine(connNumber)
 		}
 	}()
 
 	tcpAddress := net.JoinHostPort(gs.endpoint.Address, fmt.Sprintf("%d", gs.endpoint.Port))
-	gs.logger.Sugar().Infof("GraylogTcpConnection : Goroutine #%d for %s started", connNumber, tcpAddress)
+	logger.Info("Goroutine started", zap.String("tcp_address", tcpAddress))
 
 	var (
 		successiveGraylogErrCnt = 0
@@ -120,15 +128,15 @@ func (gs *GraylogSender) tcpConnGoroutine(connNumber int) {
 	for {
 		select {
 		case <-gs.ctx.Done():
-			gs.logger.Sugar().Infof("GraylogTcpConnection : Context canceled, stopping goroutine #%d", connNumber)
+			logger.Info("Context canceled, stopping goroutine")
 			return
 		default:
 		}
 
-		gs.logger.Sugar().Infof("GraylogTcpConnection : Creating TCP connection #%d to Graylog", connNumber)
+		logger.Info("Creating TCP connection to Graylog")
 		tcpConn, err := net.Dial(string(gs.endpoint.Transport), tcpAddress)
 		if err != nil {
-			gs.logger.Sugar().Errorf("GraylogTcpConnection : Error creating TCP connection #%d to Graylog: %+v", connNumber, err)
+			logger.Error("Error creating TCP connection to Graylog", zap.Error(err))
 			time.Sleep(gs.successiveSendErrFreezeTime)
 			continue
 		}
@@ -136,14 +144,16 @@ func (gs *GraylogSender) tcpConnGoroutine(connNumber int) {
 		for {
 			select {
 			case <-gs.ctx.Done():
-				gs.logger.Sugar().Infof("GraylogTcpConnection : Context canceled, stopping goroutine #%d", connNumber)
+				logger.Info("Context canceled, stopping goroutine")
 				_ = tcpConn.Close()
 				return
 			default:
 			}
 
 			if messageRetryCnt > gs.maxMessageSendRetryCnt {
-				gs.logger.Sugar().Errorf("GraylogTcpConnection : Message %+v skipped after %d retries in goroutine #%d", retryData, messageRetryCnt-1, connNumber)
+				logger.Error("Message skipped after retries",
+					zap.Any("dropped_message", retryData),
+					zap.Int("retry_count", messageRetryCnt-1))
 				retryData = nil
 				messageRetryCnt = 0
 			}
@@ -152,22 +162,24 @@ func (gs *GraylogSender) tcpConnGoroutine(connNumber int) {
 
 			if retryData != nil {
 				data = *retryData
-				gs.logger.Sugar().Infof("GraylogTcpConnection : Retrying message send #%d in goroutine #%d", messageRetryCnt, connNumber)
+				logger.Info("Retrying message send", zap.Int("retry_count", messageRetryCnt))
 			} else {
 				msg, ok := <-gs.msgQueue
 				if !ok {
-					gs.logger.Sugar().Infof("GraylogTcpConnection : msgQueue closed, stopping goroutine #%d", connNumber)
+					logger.Info("msgQueue closed, stopping goroutine")
 					_ = tcpConn.Close()
 					return
 				}
 				if msg == nil {
-					gs.logger.Sugar().Warnf("GraylogTcpConnection : nil message received in goroutine #%d, skipping", connNumber)
+					logger.Warn("nil message received, skipping")
 					continue
 				}
 
 				data, err = prepareMessage(msg)
 				if err != nil {
-					gs.logger.Sugar().Errorf("GraylogTcpConnection : Error preparing message %+v in goroutine #%d: %+v", msg, connNumber, err)
+					logger.Error("Error preparing message",
+						zap.Any("graylog_message", msg),
+						zap.Error(err))
 					continue
 				}
 			}
@@ -175,15 +187,17 @@ func (gs *GraylogSender) tcpConnGoroutine(connNumber int) {
 			gs.logger.Sugar().Debugf("GraylogTcpConnection : Sending message in goroutine #%d: %s", connNumber, string(data))
 			_, err = tcpConn.Write(data)
 			if err != nil {
-				gs.logger.Sugar().Errorf("GraylogTcpConnection : Failed to send message in goroutine #%d: %v. Closing connection and retrying...", connNumber, err)
+				logger.Error("Failed to send message, closing connection and retrying", zap.Error(err))
 				if errClose := tcpConn.Close(); errClose != nil {
-					gs.logger.Sugar().Errorf("GraylogTcpConnection : Error closing TCP connection #%d: %+v", connNumber, errClose)
+					logger.Error("Error closing TCP connection", zap.Error(errClose))
 				}
 				retryData = &data
 				messageRetryCnt++
 				successiveGraylogErrCnt++
 				if successiveGraylogErrCnt > gs.maxSuccessiveSendErrCnt {
-					gs.logger.Sugar().Errorf("GraylogTcpConnection : %d successive errors in goroutine #%d, freezing for %s", successiveGraylogErrCnt, connNumber, gs.successiveSendErrFreezeTime)
+					logger.Error("Successive send errors, freezing goroutine",
+						zap.Int("successive_error_count", successiveGraylogErrCnt),
+						zap.Duration("freeze_time", gs.successiveSendErrFreezeTime))
 					time.Sleep(gs.successiveSendErrFreezeTime)
 					successiveGraylogErrCnt = 0
 				}
@@ -192,7 +206,7 @@ func (gs *GraylogSender) tcpConnGoroutine(connNumber int) {
 				messageRetryCnt = 0
 				successiveGraylogErrCnt = 0
 				retryData = nil
-				gs.logger.Sugar().Debugf("GraylogTcpConnection : Message sent successfully in goroutine #%d", connNumber)
+				logger.Debug("Message sent successfully")
 			}
 		}
 	}
