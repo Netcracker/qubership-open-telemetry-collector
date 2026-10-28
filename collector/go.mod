@@ -5,10 +5,10 @@ module github.com/Netcracker/qubership-open-telemetry-collector
 go 1.26.0
 
 require (
-	github.com/Netcracker/qubership-open-telemetry-collector/connector/sentrymetricsconnector v0.0.0-20261026023537-8d5b5d7b268d
-	github.com/Netcracker/qubership-open-telemetry-collector/exporter/graylogexporter v0.0.0-20261026023537-8d5b5d7b268d
-	github.com/Netcracker/qubership-open-telemetry-collector/exporter/logtcpexporter v0.0.0-20261026023537-8d5b5d7b268d
-	github.com/Netcracker/qubership-open-telemetry-collector/receiver/sentryreceiver v0.0.0-20261026023537-8d5b5d7b268d
+	github.com/Netcracker/qubership-open-telemetry-collector/connector/sentrymetricsconnector v0.0.0-20261028102222-a1bc9bd74a79
+	github.com/Netcracker/qubership-open-telemetry-collector/exporter/graylogexporter v0.0.0-20261028102222-a1bc9bd74a79
+	github.com/Netcracker/qubership-open-telemetry-collector/exporter/logtcpexporter v0.0.0-20261028102222-a1bc9bd74a79
+	github.com/Netcracker/qubership-open-telemetry-collector/receiver/sentryreceiver v0.0.0-20261028102222-a1bc9bd74a79
 	github.com/open-telemetry/opentelemetry-collector-contrib/connector/spanmetricsconnector v0.162.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/exporter/prometheusexporter v0.162.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/exporter/prometheusremotewriteexporter v0.162.0
@@ -32,6 +32,7 @@ require (
 	go.opentelemetry.io/collector/connector v0.162.0
 	go.opentelemetry.io/collector/exporter v1.68.0
 	go.opentelemetry.io/collector/exporter/debugexporter v0.162.0
+	go.opentelemetry.io/collector/exporter/nopexporter v0.162.0
 	go.opentelemetry.io/collector/exporter/otlpexporter v0.162.0
 	go.opentelemetry.io/collector/exporter/otlphttpexporter v0.162.0
 	go.opentelemetry.io/collector/extension v1.68.0
@@ -39,6 +40,7 @@ require (
 	go.opentelemetry.io/collector/otelcol v0.162.0
 	go.opentelemetry.io/collector/processor v1.68.0
 	go.opentelemetry.io/collector/processor/batchprocessor v0.162.0
+	go.opentelemetry.io/collector/processor/memorylimiterprocessor v0.162.0
 	go.opentelemetry.io/collector/receiver v1.68.0
 	go.opentelemetry.io/collector/receiver/otlpreceiver v0.162.0
 	go.opentelemetry.io/collector/service v0.162.0
