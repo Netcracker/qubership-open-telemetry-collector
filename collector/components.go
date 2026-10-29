@@ -81,7 +81,7 @@ func components() (otelcol.Factories, error) {
 		return otelcol.Factories{}, err
 	}
 	factories.ReceiverModules = makeModulesMap(factories.Receivers, map[component.Type]string{
-		sentryreceiver.NewFactory().Type(): "github.com/Netcracker/qubership-open-telemetry-collector/receiver/sentryreceiver main",
+		sentryreceiver.NewFactory().Type(): "github.com/Netcracker/qubership-open-telemetry-collector/receiver/sentryreceiver v0.0.0",
 		jaegerreceiver.NewFactory().Type(): "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/jaegerreceiver v0.162.0",
 		prometheusremotewritereceiver.NewFactory().Type(): "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/prometheusremotewritereceiver v0.162.0",
 		zipkinreceiver.NewFactory().Type(): "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/zipkinreceiver v0.162.0",
@@ -101,8 +101,8 @@ func components() (otelcol.Factories, error) {
 		return otelcol.Factories{}, err
 	}
 	factories.ExporterModules = makeModulesMap(factories.Exporters, map[component.Type]string{
-		graylogexporter.NewFactory().Type(): "github.com/Netcracker/qubership-open-telemetry-collector/exporter/graylogexporter main",
-		logtcpexporter.NewFactory().Type(): "github.com/Netcracker/qubership-open-telemetry-collector/exporter/logtcpexporter main",
+		graylogexporter.NewFactory().Type(): "github.com/Netcracker/qubership-open-telemetry-collector/exporter/graylogexporter v0.0.0",
+		logtcpexporter.NewFactory().Type(): "github.com/Netcracker/qubership-open-telemetry-collector/exporter/logtcpexporter v0.0.0",
 		prometheusexporter.NewFactory().Type(): "github.com/open-telemetry/opentelemetry-collector-contrib/exporter/prometheusexporter v0.162.0",
 		prometheusremotewriteexporter.NewFactory().Type(): "github.com/open-telemetry/opentelemetry-collector-contrib/exporter/prometheusremotewriteexporter v0.162.0",
 		debugexporter.NewFactory().Type(): "go.opentelemetry.io/collector/exporter/debugexporter v0.162.0",
@@ -138,7 +138,7 @@ func components() (otelcol.Factories, error) {
 		return otelcol.Factories{}, err
 	}
 	factories.ConnectorModules = makeModulesMap(factories.Connectors, map[component.Type]string{
-		sentrymetricsconnector.NewFactory().Type(): "github.com/Netcracker/qubership-open-telemetry-collector/connector/sentrymetricsconnector main",
+		sentrymetricsconnector.NewFactory().Type(): "github.com/Netcracker/qubership-open-telemetry-collector/connector/sentrymetricsconnector v0.0.0",
 		spanmetricsconnector.NewFactory().Type(): "github.com/open-telemetry/opentelemetry-collector-contrib/connector/spanmetricsconnector v0.162.0",
 	})
 
