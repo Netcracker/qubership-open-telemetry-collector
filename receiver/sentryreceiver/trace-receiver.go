@@ -376,15 +376,15 @@ func (sr *sentrytraceReceiver) appendScopeSpans(scopeSpans *ptrace.ScopeSpans, e
 			urlParsed, err := url.Parse(requestUrlStr)
 			if err != nil {
 				sr.logger.Error("Error parsing url request",
-					zap.String("url", requestUrlStr),
-					zap.Error(err))
+					zap.String("event_id", event.EventId),
+					zap.String("error_type", fmt.Sprintf("%T", err)))
 			} else {
 				for _, qParam := range sr.config.HttpQueryParamValuesToAttrs {
 					qValue := urlParsed.Query().Get(qParam)
 					rootSpan.Attributes().PutStr("http.qparam."+qParam, qValue)
 					sr.logger.Debug("Query parameter value found",
 						zap.String("query_param", qParam),
-						zap.String("value", qValue))
+						zap.Bool("present", qValue != ""))
 				}
 				for _, qParam := range sr.config.HttpQueryParamExistenceToAttrs {
 					qValue := urlParsed.Query().Get(qParam)

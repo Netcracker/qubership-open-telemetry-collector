@@ -160,6 +160,14 @@ func TestServeHTTPLogsExcludeTelemetryPayloads(t *testing.T) {
 {"type":"event"}
 {"event_id":"0123456789abcdef0123456789abcdef","message":"secret-message","timestamp":123.4,"request":{"headers":{"Authorization":"Bearer secret-token"}},"contexts":{"trace":{"span_id":"0123456789abcdef","trace_id":"0123456789abcdef0123456789abcdef"}}}
 `, http.StatusOK},
+		{"invalid request URL", `{}
+{"type":"event"}
+{"event_id":"0123456789abcdef0123456789abcdef","timestamp":123.4,"request":{"url":"http://example.test/%secret-path?token=secret-token"},"contexts":{"trace":{"span_id":"0123456789abcdef","trace_id":"0123456789abcdef0123456789abcdef"}}}
+`, http.StatusOK},
+		{"query parameter", `{}
+{"type":"event"}
+{"event_id":"0123456789abcdef0123456789abcdef","timestamp":123.4,"request":{"url":"http://example.test/?token=secret-token"},"contexts":{"trace":{"span_id":"0123456789abcdef","trace_id":"0123456789abcdef0123456789abcdef"}}}
+`, http.StatusOK},
 		{"invalid event", `{}
 {"type":"event"}
 {"Authorization":"Bearer secret-token","timestamp":"invalid"}
@@ -173,6 +181,7 @@ func TestServeHTTPLogsExcludeTelemetryPayloads(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var output bytes.Buffer
 			sr := newTestHTTPReceiver(t, &tracesSink{})
+			sr.config.HttpQueryParamValuesToAttrs = []string{"token"}
 			sr.logger = zap.New(zapcore.NewCore(zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig()), zapcore.AddSync(&output), zap.DebugLevel)).Named("sentryreceiver")
 			rec := httptest.NewRecorder()
 			sr.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/frontend/api", strings.NewReader(tt.body)))
