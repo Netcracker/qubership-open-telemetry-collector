@@ -655,6 +655,8 @@ go.opentelemetry.io/collector/exporter/exporterhelper/xexporterhelper v0.162.0 h
 go.opentelemetry.io/collector/exporter/exporterhelper/xexporterhelper v0.162.0/go.mod h1:pxeyMLAAwJk3vvLPfEeH3LbLqWpj9auDdrM/WU7cotI=
 go.opentelemetry.io/collector/exporter/exportertest v0.162.0 h1:JQwIP4jb1znH5cDy5xg+fHBRqP8mx4ZkYiuA3dHw94U=
 go.opentelemetry.io/collector/exporter/exportertest v0.162.0/go.mod h1:Xiggw2O5SD5MNhoTgsXSTVyius5GPzPbrvi1FOcChKw=
+go.opentelemetry.io/collector/exporter/nopexporter v0.162.0 h1:28s1p4KOnnLuKnV+TB7rgHFCuZb70n1SK3o97CHyY90=
+go.opentelemetry.io/collector/exporter/nopexporter v0.162.0/go.mod h1:htNoBFuttbCLYn0ufjAwgKd0d1ls69y9HalvdGgX8oo=
 go.opentelemetry.io/collector/exporter/otlpexporter v0.162.0 h1:mWjgMYx/t13NOa5TTxWWfOK8qIVBucZQudgvFo11uog=
 go.opentelemetry.io/collector/exporter/otlpexporter v0.162.0/go.mod h1:YY4ss+i1kijzlXZIOlP47ODFKvDMUxfcSz/jCJgwZg0=
 go.opentelemetry.io/collector/exporter/otlphttpexporter v0.162.0 h1:fMNW9zfcRFpytImNJ3KMoZDq27DBmN3AgRnVewa4mRE=
@@ -715,6 +717,8 @@ go.opentelemetry.io/collector/processor v1.68.0 h1:LxCsYmkvhJ2CZXrYma06OY3gDBNAf
 go.opentelemetry.io/collector/processor v1.68.0/go.mod h1:k3UfAJSt8lnB508ngNMNlvaeLAl9zubpLYEbT91KfMw=
 go.opentelemetry.io/collector/processor/batchprocessor v0.162.0 h1:bYbuA+547x0hzKcF1jdI7PwSdBhgYDGPK/2NKQ6BGXM=
 go.opentelemetry.io/collector/processor/batchprocessor v0.162.0/go.mod h1:DFBy7BhgRYgbAD4bCjr8eVg3hZswgc6PiLvfTI0hW6k=
+go.opentelemetry.io/collector/processor/memorylimiterprocessor v0.162.0 h1:uQO3rprlGDg1IaHtDcmg7RMoDbInYFO+FyLzd1u75ZE=
+go.opentelemetry.io/collector/processor/memorylimiterprocessor v0.162.0/go.mod h1:ey6zHMqc/kMtPM2gcsdUYI9RwpbMeCABdyakyOeM/4o=
 go.opentelemetry.io/collector/processor/processorhelper v0.162.0 h1:ljWeYqOqoITm2n/RkUj1GVLrMR1Y+lEp0fHlaEP6g50=
 go.opentelemetry.io/collector/processor/processorhelper v0.162.0/go.mod h1:f4Xm+DOCBzG1LTva344kipzBlU3ZpUeEGsVVayW6qB4=
 go.opentelemetry.io/collector/processor/processorhelper/xprocessorhelper v0.162.0 h1:MiWRCfi51OXXS46NSL5zr5zWAkEth1+x91ycXEIVgjA=
