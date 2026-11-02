@@ -131,6 +131,7 @@ data:
       telemetry:
         logs:
           level: "{{ .Values.LOG_LEVEL }}"
+          encoding: "{{ include "otec.logEncoding" . }}"
         metrics:
           readers:
           - pull:
@@ -159,7 +160,7 @@ data:
         {{- toYaml (.Values.OTEC_LOGTCPEXPORTER_PARAMETERS) | nindent 8 }}
       graylogexporter:
         endpoint: {{ .Values.GRAYLOG_COLLECTOR_HOST }}:{{ .Values.GRAYLOG_COLLECTOR_PORT }}
-        {{- toYaml (.Values.OTEC_LOGTCPEXPORTER_PARAMETERS) | nindent 8 }}
+        {{- toYaml (.Values.OTEC_GRAYLOGEXPORTER_PARAMETERS) | nindent 8 }}
         field_mapping:
         {{- toYaml .Values.OTEC_GELF_FIELD_MAPPING | nindent 10 }}
     processors:
@@ -230,6 +231,7 @@ data:
       telemetry:
         logs:
           level: "{{ .Values.LOG_LEVEL }}"
+          encoding: "{{ include "otec.logEncoding" . }}"
         metrics:
           readers:
           - pull:
