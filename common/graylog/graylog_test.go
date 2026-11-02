@@ -247,7 +247,11 @@ func TestNewGraylogSenderSendsMessageOverTCP(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer logger.Sync()
+	defer func() {
+		if err := logger.Sync(); err != nil {
+			t.Errorf("flush JSON log: %v", err)
+		}
+	}()
 	sender := NewGraylogSender(
 		Endpoint{Transport: TCP, Address: tcpAddr.IP.String(), Port: uint(tcpAddr.Port)},
 		logger,
