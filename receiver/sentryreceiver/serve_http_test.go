@@ -1,7 +1,9 @@
 package sentryreceiver
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -16,6 +18,7 @@ import (
 	"go.opentelemetry.io/otel/metric/noop"
 	tracenoop "go.opentelemetry.io/otel/trace/noop"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 type tracesSink struct {
@@ -145,5 +148,52 @@ func TestServeHTTPConsumerErrors(t *testing.T) {
 	}
 	if got := strings.TrimSpace(transientRec.Body.String()); got != string(errNextConsumerRespBody) {
 		t.Fatalf("unexpected transient error body: %q", got)
+	}
+}
+
+func TestServeHTTPLogsExcludeTelemetryPayloads(t *testing.T) {
+	tests := []struct {
+		name, body string
+		status     int
+	}{
+		{"event", `{"dsn":"https://secret-dsn@example.test/1"}
+{"type":"event"}
+{"event_id":"0123456789abcdef0123456789abcdef","message":"secret-message","timestamp":123.4,"request":{"headers":{"Authorization":"Bearer secret-token"}},"contexts":{"trace":{"span_id":"0123456789abcdef","trace_id":"0123456789abcdef0123456789abcdef"}}}
+`, http.StatusOK},
+		{"invalid event", `{}
+{"type":"event"}
+{"Authorization":"Bearer secret-token","timestamp":"invalid"}
+`, http.StatusNotAcceptable},
+		{"invalid session", `{}
+{"type":"session"}
+{"Authorization":"Bearer secret-token","timestamp":42}
+`, http.StatusNotAcceptable},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var output bytes.Buffer
+			sr := newTestHTTPReceiver(t, &tracesSink{})
+			sr.logger = zap.New(zapcore.NewCore(zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig()), zapcore.AddSync(&output), zap.DebugLevel)).Named("sentryreceiver")
+			rec := httptest.NewRecorder()
+			sr.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/frontend/api", strings.NewReader(tt.body)))
+			if rec.Code != tt.status {
+				t.Fatalf("status = %d, want %d", rec.Code, tt.status)
+			}
+			if output.Len() == 0 {
+				t.Fatal("expected diagnostic records")
+			}
+			if strings.Contains(output.String(), "secret-") {
+				t.Fatalf("telemetry leaked to logs: %s", output.String())
+			}
+			for _, line := range bytes.Split(bytes.TrimSpace(output.Bytes()), []byte("\n")) {
+				var entry map[string]any
+				if err := json.Unmarshal(line, &entry); err != nil {
+					t.Fatalf("invalid JSON record %q: %v", line, err)
+				}
+				if entry["logger"] != "sentryreceiver" {
+					t.Fatalf("logger = %v, want sentryreceiver", entry["logger"])
+				}
+			}
+		})
 	}
 }
