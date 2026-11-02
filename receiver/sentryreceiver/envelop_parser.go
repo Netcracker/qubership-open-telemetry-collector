@@ -24,7 +24,7 @@ import (
 
 func (sr *sentrytraceReceiver) ParseEnvelopEvent(body string) (*models.EnvelopEventParseResult, error) {
 	logger := sr.logger
-	logger.Sugar().Debugf("SentryReceiver : Start parsing envelop :\n---START---\n%+v\n---END---\n", body)
+	logger.Sugar().Debugf("SentryReceiver : Start parsing envelop : %v bytes", len(body))
 	lines := strings.Split(body, "\n")
 
 	var header models.EnvelopEventHeader

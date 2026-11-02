@@ -143,7 +143,7 @@ func (gs *GraylogSender) tcpConnGoroutine(connNumber int) {
 			}
 
 			if messageRetryCnt > gs.maxMessageSendRetryCnt {
-				gs.logger.Sugar().Errorf("GraylogTcpConnection : Message %+v skipped after %d retries in goroutine #%d", retryData, messageRetryCnt-1, connNumber)
+				gs.logger.Sugar().Errorf("GraylogTcpConnection : Message of %d bytes skipped after %d retries in goroutine #%d", payloadSize(retryData), messageRetryCnt-1, connNumber)
 				retryData = nil
 				messageRetryCnt = 0
 			}
@@ -167,12 +167,12 @@ func (gs *GraylogSender) tcpConnGoroutine(connNumber int) {
 
 				data, err = prepareMessage(msg)
 				if err != nil {
-					gs.logger.Sugar().Errorf("GraylogTcpConnection : Error preparing message %+v in goroutine #%d: %+v", msg, connNumber, err)
+					gs.logger.Sugar().Errorf("GraylogTcpConnection : Error preparing message from host %v with level %v and timestamp %v in goroutine #%d: %+v", msg.Host, msg.Level, msg.Timestamp, connNumber, err)
 					continue
 				}
 			}
 
-			gs.logger.Sugar().Debugf("GraylogTcpConnection : Sending message in goroutine #%d: %s", connNumber, string(data))
+			gs.logger.Sugar().Debugf("GraylogTcpConnection : Sending message of %d bytes in goroutine #%d", len(data), connNumber)
 			_, err = tcpConn.Write(data)
 			if err != nil {
 				gs.logger.Sugar().Errorf("GraylogTcpConnection : Failed to send message in goroutine #%d: %v. Closing connection and retrying...", connNumber, err)
@@ -196,6 +196,15 @@ func (gs *GraylogSender) tcpConnGoroutine(connNumber int) {
 			}
 		}
 	}
+}
+
+// payloadSize returns the length in bytes of a pending GELF payload, treating a
+// nil buffer as zero. It keeps message contents out of the logs.
+func payloadSize(data *[]byte) int {
+	if data == nil {
+		return 0
+	}
+	return len(*data)
 }
 
 func (gs *GraylogSender) SendToQueue(m *Message) error {
