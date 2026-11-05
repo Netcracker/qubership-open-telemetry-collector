@@ -2,11 +2,13 @@ package logtcpexporter
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"io"
 	"net"
+	"strings"
 	"testing"
 	"time"
 
@@ -15,6 +17,9 @@ import (
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/ptrace"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+
+	"github.com/Netcracker/qubership-open-telemetry-collector/common/graylog"
 )
 
 func closeCapturedConn(t *testing.T, c net.Conn) {
@@ -332,4 +337,219 @@ func TestSendArbitraryLoggingSpanSkipsFilteredOutSpan(t *testing.T) {
 	}
 
 	mustNotReadCapturedMessage(t, messages)
+}
+
+func newJSONLoggedExporter(t *testing.T, cfg *Config) (*logTcpExporter, *bytes.Buffer) {
+	t.Helper()
+	var output bytes.Buffer
+	logger := zap.New(zapcore.NewCore(zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig()), zapcore.AddSync(&output), zap.DebugLevel))
+	return createLogTcpExporter(cfg, exporter.Settings{TelemetrySettings: component.TelemetrySettings{Logger: logger}}), &output
+}
+
+func requireJSONLog(t *testing.T, output *bytes.Buffer, message string) map[string]any {
+	t.Helper()
+	decoder := json.NewDecoder(bytes.NewReader(output.Bytes()))
+	var found map[string]any
+	for decoder.More() {
+		var entry map[string]any
+		if err := decoder.Decode(&entry); err != nil {
+			t.Fatalf("decode structured log: %v; output: %s", err, output)
+		}
+		if entry["msg"] == message {
+			if found != nil {
+				t.Fatalf("log %q emitted more than once: %s", message, output)
+			}
+			found = entry
+		}
+	}
+	if found == nil {
+		t.Fatalf("log %q missing from %s", message, output)
+	}
+	return found
+}
+
+func fullGraylogQueue(t *testing.T) *graylog.GraylogSender {
+	t.Helper()
+	// No consumers keeps backpressure deterministic without racing a TCP worker.
+	sender := graylog.NewGraylogSender(graylog.Endpoint{Transport: graylog.TCP}, zap.NewNop(), 0, 1, 0, 0, 0)
+	t.Cleanup(sender.Stop)
+	if err := sender.SendToQueue(&graylog.Message{ShortMessage: "occupied"}); err != nil {
+		t.Fatalf("fill queue: %v", err)
+	}
+	return sender
+}
+
+func TestStartInvalidConfigurationLogsJSONFields(t *testing.T) {
+	for _, tt := range []struct {
+		name, endpoint, freezeTime, message, field, value string
+	}{
+		{"invalid port", "collector.invalid:bad\"\\\nport", "1s", "Invalid port in endpoint", "port", "bad\"\\\nport"},
+		{"out of range port", "collector.invalid:65536", "1s", "Invalid port in endpoint", "port", "65536"},
+		{"invalid freeze time", "collector.invalid:12201", "bad\"\\\nduration", "Cannot parse successiveSendErrFreezeTime", "value", "bad\"\\\nduration"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := createDefaultConfig().(*Config)
+			cfg.Endpoint, cfg.SuccessiveSendErrFreezeTime = tt.endpoint, tt.freezeTime
+			lte, output := newJSONLoggedExporter(t, cfg)
+			if err := lte.start(context.Background(), nil); err == nil {
+				t.Fatal("start(invalid configuration) returned nil, want error")
+			}
+			if lte.graylogSender != nil {
+				t.Fatal("start(invalid configuration) created a sender")
+			}
+			entry := requireJSONLog(t, output, tt.message)
+			if entry["level"] != "error" || entry[tt.field] != tt.value {
+				t.Fatalf("invalid configuration log = %#v, want error with %s=%q", entry, tt.field, tt.value)
+			}
+		})
+	}
+}
+
+func TestPushTracesReturnsQueueFailureWithoutLoggingTracePayload(t *testing.T) {
+	cfg := createDefaultConfig().(*Config)
+	cfg.ATLCfg.TraceFilters = []ATLFilter{{Tags: map[string]string{"deployment.environment": "prod"}}}
+	lte, output := newJSONLoggedExporter(t, cfg)
+	lte.graylogSender = fullGraylogQueue(t)
+	traces := ptrace.NewTraces()
+	rs := traces.ResourceSpans().AppendEmpty()
+	rs.Resource().Attributes().PutStr("deployment.environment", "prod")
+	span := rs.ScopeSpans().AppendEmpty().Spans().AppendEmpty()
+	span.Attributes().PutStr("authorization", "private-trace-payload")
+	span.SetEndTimestamp(pcommon.NewTimestampFromTime(time.Unix(123, 0)))
+
+	if err := lte.pushTraces(context.Background(), traces); err == nil {
+		t.Fatal("pushTraces(full queue) returned nil, want error")
+	}
+	entry := requireJSONLog(t, output, "Failed to put message on the graylog queue")
+	if entry["level"] != "error" || entry["msg_timestamp"] != float64(123) || entry["error"] == nil {
+		t.Fatalf("queue failure log = %#v, want error, timestamp 123, and cause", entry)
+	}
+	if strings.Contains(output.String(), "private-trace-payload") {
+		t.Fatal("queue failure log contains trace payload")
+	}
+}
+
+func TestPushTracesLogsSpanQueueFailureWithoutLoggingPayload(t *testing.T) {
+	cfg := createDefaultConfig().(*Config)
+	cfg.ATLCfg.SpanFilters = []ATLFilter{{Mapping: map[string][]string{"__message__": {"message"}}}}
+	lte, output := newJSONLoggedExporter(t, cfg)
+	lte.graylogSender = fullGraylogQueue(t)
+	traces := ptrace.NewTraces()
+	span := traces.ResourceSpans().AppendEmpty().ScopeSpans().AppendEmpty().Spans().AppendEmpty()
+	span.Attributes().PutStr("message", "private-span-payload")
+	span.SetEndTimestamp(pcommon.NewTimestampFromTime(time.Unix(124, 0)))
+
+	if err := lte.pushTraces(context.Background(), traces); err != nil {
+		t.Fatalf("pushTraces(best-effort span) = %v, want nil", err)
+	}
+	entry := requireJSONLog(t, output, "Failed to put message on the graylog queue")
+	if entry["level"] != "error" || entry["msg_timestamp"] != float64(124) || entry["error"] == nil {
+		t.Fatalf("span queue failure log = %#v, want error, timestamp 124, and cause", entry)
+	}
+	entry = requireJSONLog(t, output, "Failed to send arbitrary logging span")
+	if entry["level"] != "error" || entry["error"] == nil {
+		t.Fatalf("span send failure log = %#v, want error and cause", entry)
+	}
+	if strings.Contains(output.String(), "private-span-payload") {
+		t.Fatal("span queue failure log contains message payload")
+	}
+}
+
+func TestPushTracesLogsSentryQueueFailureWithIdentifiersOnly(t *testing.T) {
+	lte, output := newJSONLoggedExporter(t, createDefaultConfig().(*Config))
+	lte.graylogSender = fullGraylogQueue(t)
+	traces := ptrace.NewTraces()
+	rs := traces.ResourceSpans().AppendEmpty()
+	rs.Resource().Attributes().PutStr("trace.source.type", "sentry")
+	span := rs.ScopeSpans().AppendEmpty().Spans().AppendEmpty()
+	span.SetName("Event")
+	span.Attributes().PutStr("contexts.trace.trace_id", "trace-123")
+	span.Attributes().PutStr("contexts.trace.span_id", "span-123")
+	span.Attributes().PutStr("message", "private-sentry-payload")
+
+	if err := lte.pushTraces(context.Background(), traces); err != nil {
+		t.Fatalf("pushTraces(best-effort Sentry event) = %v, want nil", err)
+	}
+	entry := requireJSONLog(t, output, "Failed to put message on the graylog queue")
+	if entry["level"] != "error" || entry["trace_id"] != "trace-123" || entry["span_id"] != "span-123" || entry["error"] == nil {
+		t.Fatalf("Sentry queue failure log = %#v, want error, trace/span IDs, and cause", entry)
+	}
+	requireJSONLog(t, output, "Failed to send sentry span")
+	if strings.Contains(output.String(), "private-sentry-payload") {
+		t.Fatal("Sentry queue failure log contains event payload")
+	}
+}
+
+func TestSendSentrySpanBreadcrumbFailureLogsTypeAndIndexWithoutPayload(t *testing.T) {
+	lte, output := newJSONLoggedExporter(t, createDefaultConfig().(*Config))
+	// One slot accepts the event before its breadcrumb encounters backpressure.
+	lte.graylogSender = graylog.NewGraylogSender(graylog.Endpoint{Transport: graylog.TCP}, zap.NewNop(), 0, 1, 0, 0, 0)
+	t.Cleanup(lte.graylogSender.Stop)
+	span := ptrace.NewSpan()
+	span.Attributes().PutStr("contexts.trace.trace_id", "trace-456")
+	span.Attributes().PutStr("contexts.trace.span_id", "span-456")
+	span.Attributes().PutStr("message", "private-event-payload")
+	span.Attributes().PutStr("level", "error")
+	span.Attributes().PutEmptySlice("breadcrumbs").AppendEmpty().SetStr("private-breadcrumb-payload")
+
+	if err := lte.sendSentrySpan(span); err == nil {
+		t.Fatal("sendSentrySpan(full breadcrumb queue) returned nil, want error")
+	}
+	entry := requireJSONLog(t, output, "Type assertion error")
+	if entry["level"] != "error" || entry["actual_type"] != "string" {
+		t.Fatalf("invalid breadcrumb log = %#v, want error and actual_type=string", entry)
+	}
+	entry = requireJSONLog(t, output, "Failed to put breadcrumb message on the graylog queue")
+	if entry["trace_id"] != "trace-456" || entry["span_id"] != "span-456" || entry["breadcrumb_index"] != float64(0) || entry["error"] == nil {
+		t.Fatalf("breadcrumb failure log = %#v, want IDs, index 0, and cause", entry)
+	}
+	if strings.Contains(output.String(), "private-event-payload") || strings.Contains(output.String(), "private-breadcrumb-payload") {
+		t.Fatal("breadcrumb failure log contains event or breadcrumb payload")
+	}
+}
+
+func TestTraceFilteringLogsRejectionWithoutPayload(t *testing.T) {
+	cfg := createDefaultConfig().(*Config)
+	cfg.ATLCfg.TraceFilters = []ATLFilter{{Tags: map[string]string{"deployment.environment": "prod"}}}
+	lte, output := newJSONLoggedExporter(t, cfg)
+	traces := ptrace.NewTraces()
+	rs := traces.ResourceSpans().AppendEmpty()
+	rs.Resource().Attributes().PutStr("deployment.environment", "dev")
+	rs.Resource().Attributes().PutStr("authorization", "private-filtered-payload")
+
+	if err := lte.pushTraces(context.Background(), traces); err != nil {
+		t.Fatalf("pushTraces(filtered trace) = %v, want nil", err)
+	}
+	entry := requireJSONLog(t, output, "Trace filter evaluated")
+	if entry["trace_filter_index"] != float64(0) || entry["matched"] != false {
+		t.Fatalf("trace filter log = %#v, want filter 0 and matched=false", entry)
+	}
+	entry = requireJSONLog(t, output, "Trace is filtered out")
+	if entry["al_index"] != float64(-1) {
+		t.Fatalf("trace rejection log = %#v, want al_index=-1", entry)
+	}
+	if strings.Contains(output.String(), "private-filtered-payload") {
+		t.Fatal("trace filtering log contains resource attributes")
+	}
+}
+
+func TestEmptyMappedMessageLogsSpanIdentifiersWithoutPayload(t *testing.T) {
+	cfg := createDefaultConfig().(*Config)
+	cfg.ATLCfg.SpanFilters = []ATLFilter{{Mapping: map[string][]string{"__message__": {"missing"}}}}
+	lte, output := newJSONLoggedExporter(t, cfg)
+	span := ptrace.NewSpan()
+	span.SetTraceID(newTraceID())
+	span.SetSpanID(newSpanID())
+	span.Attributes().PutStr("authorization", "private-empty-span-payload")
+
+	if err := lte.sendArbitraryLoggingSpan(span); err != nil {
+		t.Fatalf("sendArbitraryLoggingSpan(empty message) = %v, want nil", err)
+	}
+	entry := requireJSONLog(t, output, "Span is filtered out because message is empty")
+	if entry["trace_id"] != span.TraceID().String() || entry["span_id"] != span.SpanID().String() {
+		t.Fatalf("empty message log = %#v, want trace/span IDs", entry)
+	}
+	if strings.Contains(output.String(), "private-empty-span-payload") {
+		t.Fatal("empty message log contains span attributes")
+	}
 }

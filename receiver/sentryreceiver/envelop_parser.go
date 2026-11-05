@@ -19,12 +19,14 @@ import (
 	"fmt"
 	"strings"
 
+	"go.uber.org/zap"
+
 	"github.com/Netcracker/qubership-open-telemetry-collector/receiver/sentryreceiver/models"
 )
 
 func (sr *sentrytraceReceiver) ParseEnvelopEvent(body string) (*models.EnvelopEventParseResult, error) {
 	logger := sr.logger
-	logger.Sugar().Debugf("SentryReceiver : Start parsing envelop :\n---START---\n%+v\n---END---\n", body)
+	logger.Debug("Parsing envelope", zap.Int("body_bytes", len(body)))
 	lines := strings.Split(body, "\n")
 
 	var header models.EnvelopEventHeader
@@ -37,7 +39,7 @@ func (sr *sentrytraceReceiver) ParseEnvelopEvent(body string) (*models.EnvelopEv
 	}
 
 	if err := json.Unmarshal([]byte(lines[0]), &header); err != nil {
-		logger.Sugar().Errorf("SentryReceiver : Unmarshal header error: %+v", err.Error())
+		logger.Error("Unmarshal header error", zap.Error(err))
 		return nil, err
 	}
 
@@ -52,7 +54,7 @@ func (sr *sentrytraceReceiver) ParseEnvelopEvent(body string) (*models.EnvelopEv
 			continue
 		}
 		if err := json.Unmarshal([]byte(header), &type_header); err != nil {
-			logger.Sugar().Errorf("SentryReceiver : Unmarshal type_header error: %+v", err.Error())
+			logger.Error("Unmarshal type_header error", zap.Error(err))
 			return nil, err
 		}
 		switch type_header.Type {
@@ -63,21 +65,26 @@ func (sr *sentrytraceReceiver) ParseEnvelopEvent(body string) (*models.EnvelopEv
 		case "session":
 			envelopType = models.ENVELOP_TYPE_SESSION
 		default:
-			logger.Sugar().Infof("SentryReceiver : Received %v item header. Skipping this item", type_header.Type)
+			logger.Info("Received item header, skipping this item",
+				zap.String("item_type", type_header.Type))
 			continue
 		}
 
 		if envelopType == models.ENVELOP_TYPE_SESSION {
 			var sessionEvent models.SessionEvent
 			if err := json.Unmarshal([]byte(payload), &sessionEvent); err != nil {
-				logger.Sugar().Errorf("SentryReceiver : Unmarshal session event error: %+v ; Payload: %+v", err.Error(), payload)
+				logger.Error("Unmarshal session event error",
+					zap.Error(err),
+					zap.Int("payload_bytes", len(payload)))
 				return nil, err
 			}
 			sessionEvents = append(sessionEvents, sessionEvent)
 		} else {
 			var event models.Event
 			if err := json.Unmarshal([]byte(payload), &event); err != nil {
-				logger.Sugar().Errorf("SentryReceiver : Unmarshal event error: %+v ; Payload: %+v", err.Error(), payload)
+				logger.Error("Unmarshal event error",
+					zap.Error(err),
+					zap.Int("payload_bytes", len(payload)))
 				return nil, err
 			}
 			events = append(events, event)

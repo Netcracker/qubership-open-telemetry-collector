@@ -5,10 +5,10 @@ module github.com/Netcracker/qubership-open-telemetry-collector
 go 1.26.0
 
 require (
-	github.com/Netcracker/qubership-open-telemetry-collector/connector/sentrymetricsconnector v0.0.0-20261026023537-8d5b5d7b268d
-	github.com/Netcracker/qubership-open-telemetry-collector/exporter/graylogexporter v0.0.0-20261026023537-8d5b5d7b268d
-	github.com/Netcracker/qubership-open-telemetry-collector/exporter/logtcpexporter v0.0.0-20261026023537-8d5b5d7b268d
-	github.com/Netcracker/qubership-open-telemetry-collector/receiver/sentryreceiver v0.0.0-20261026023537-8d5b5d7b268d
+	github.com/Netcracker/qubership-open-telemetry-collector/connector/sentrymetricsconnector v0.0.0-20261104120838-066eb177088b
+	github.com/Netcracker/qubership-open-telemetry-collector/exporter/graylogexporter v0.0.0-20261104120838-066eb177088b
+	github.com/Netcracker/qubership-open-telemetry-collector/exporter/logtcpexporter v0.0.0-20261104120838-066eb177088b
+	github.com/Netcracker/qubership-open-telemetry-collector/receiver/sentryreceiver v0.0.0-20261104120838-066eb177088b
 	github.com/open-telemetry/opentelemetry-collector-contrib/connector/spanmetricsconnector v0.163.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/exporter/prometheusexporter v0.163.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/exporter/prometheusremotewriteexporter v0.163.0
@@ -279,7 +279,7 @@ require (
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.org/x/crypto v0.58.0 // indirect
 	golang.org/x/exp v0.0.0-20260727155853-b88d891fe743 // indirect
-	golang.org/x/net v0.61.0 // indirect
+	golang.org/x/net v0.62.0 // indirect
 	golang.org/x/oauth2 v0.37.0 // indirect
 	golang.org/x/sync v0.24.0 // indirect
 	golang.org/x/term v0.47.0 // indirect
@@ -311,3 +311,5 @@ replace github.com/Netcracker/qubership-open-telemetry-collector/exporter/graylo
 replace github.com/Netcracker/qubership-open-telemetry-collector/exporter/logtcpexporter => ../exporter/logtcpexporter
 
 replace github.com/Netcracker/qubership-open-telemetry-collector/receiver/sentryreceiver => ../receiver/sentryreceiver
+
+replace github.com/Netcracker/qubership-open-telemetry-collector/common/graylog => ../common/graylog
