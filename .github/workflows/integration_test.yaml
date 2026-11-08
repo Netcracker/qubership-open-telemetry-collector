@@ -140,6 +140,9 @@ jobs:
       - name: Install Helm
         run: |
           curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+      - name: Check chart logging configuration
+        run: bash qubership-open-telemetry-collector/charts/open-telemetry-collector/tests/logging_test.sh
+
       - name: Install kubectl
         run: |
           curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
@@ -242,6 +245,15 @@ jobs:
              echo "============ Jaeger collector status"
              kubectl get pods -n ${{ env.jaeger_namespace }}
              telemetrygen traces --otlp-insecure --otlp-insecure-skip-verify --duration 10s --otlp-endpoint localhost:4318 --child-spans 10 --otlp-http --service testservice --workers 1 --rate 100
+
+      - name: Require JSON collector logs
+        run: |
+          set -euo pipefail
+          pod_name=$(kubectl get pods --namespace ${{ env.collector_namespace }} \
+            -l "app.kubernetes.io/name=qubership-open-telemetry-collector" -o jsonpath="{.items[0].metadata.name}")
+          kubectl logs "${pod_name}" -n ${{ env.collector_namespace }} > "${RUNNER_TEMP}/collector.jsonl"
+          jq -s -e 'length > 0 and all(.[]; type == "object" and has("level") and has("msg") and has("ts"))' \
+            "${RUNNER_TEMP}/collector.jsonl"
 
       - name: Check traces are coming
         run: |

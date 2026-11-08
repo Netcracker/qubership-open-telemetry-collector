@@ -2,15 +2,20 @@ package graylog
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"io"
 	"net"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 func closeListener(t *testing.T, listener net.Listener) {
@@ -234,9 +239,22 @@ func TestNewGraylogSenderSendsMessageOverTCP(t *testing.T) {
 	payloadCh, serverDone := startTCPPayloadServer(t, listener)
 
 	tcpAddr := listener.Addr().(*net.TCPAddr)
+	logPath := filepath.Join(t.TempDir(), "sender.jsonl")
+	loggerConfig := zap.NewProductionConfig()
+	loggerConfig.Level = zap.NewAtomicLevelAt(zap.DebugLevel)
+	loggerConfig.OutputPaths = []string{logPath}
+	logger, err := loggerConfig.Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := logger.Sync(); err != nil {
+			t.Errorf("flush JSON log: %v", err)
+		}
+	}()
 	sender := NewGraylogSender(
 		Endpoint{Transport: TCP, Address: tcpAddr.IP.String(), Port: uint(tcpAddr.Port)},
-		zap.NewNop(),
+		logger,
 		1,
 		1,
 		1,
@@ -249,6 +267,7 @@ func TestNewGraylogSenderSendsMessageOverTCP(t *testing.T) {
 		Version:      "1.1",
 		Host:         "frontend",
 		ShortMessage: "hello tcp",
+		FullMessage:  "Bearer secret-token",
 		Extra: map[string]string{
 			"trace_id": "abc123",
 		},
@@ -266,4 +285,130 @@ func TestNewGraylogSenderSendsMessageOverTCP(t *testing.T) {
 
 	closeListener(t, listener)
 	<-serverDone
+	if err := logger.Sync(); err != nil {
+		t.Fatal(err)
+	}
+	logs, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(logs), "secret-token") {
+		t.Fatalf("payload leaked to logs: %s", logs)
+	}
+	var sending map[string]any
+	for _, line := range strings.Split(strings.TrimSpace(string(logs)), "\n") {
+		var entry map[string]any
+		if err := json.Unmarshal([]byte(line), &entry); err != nil {
+			t.Fatalf("invalid JSON: %v", err)
+		}
+		if entry["msg"] == "Sending message" {
+			sending = entry
+		}
+	}
+	if sending == nil || sending["payload_bytes"] == nil || sending["goroutine_number"] != float64(0) {
+		t.Fatalf("missing structured send record: %s", logs)
+	}
+
+}
+
+func TestConnectionLifecycleLogsCarryGoroutineContext(t *testing.T) {
+	for _, scenario := range []string{"canceled", "closed queue", "nil message", "connection failure"} {
+		t.Run(scenario, func(t *testing.T) {
+			listener, err := net.Listen("tcp", "127.0.0.1:0")
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer closeListener(t, listener)
+			addr := listener.Addr().(*net.TCPAddr)
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			sender := &GraylogSender{ctx: ctx, cancel: cancel, endpoint: Endpoint{Transport: TCP, Address: "127.0.0.1", Port: uint(addr.Port)}, msgQueue: make(chan *Message, 1)}
+			want := "msgQueue closed, stopping goroutine"
+			switch scenario {
+			case "canceled":
+				cancel()
+				want = "Context canceled, stopping goroutine"
+			case "nil message":
+				sender.msgQueue <- nil
+				close(sender.msgQueue)
+				want = "nil message received, skipping"
+			case "closed queue":
+				close(sender.msgQueue)
+			case "connection failure":
+				sender.endpoint.Transport = "invalid"
+				want = "Error creating TCP connection to Graylog"
+			}
+			var output bytes.Buffer
+			config := zap.NewProductionEncoderConfig()
+			sender.logger = zap.New(zapcore.NewCore(zapcore.NewJSONEncoder(config), zapcore.Lock(zapcore.AddSync(&output)), zap.DebugLevel), zap.Hooks(func(entry zapcore.Entry) error {
+				if entry.Message == "Error creating TCP connection to Graylog" {
+					cancel()
+				}
+				return nil
+			}))
+			sender.tcpConnGoroutine(7)
+			var found bool
+			for _, line := range bytes.Split(bytes.TrimSpace(output.Bytes()), []byte("\n")) {
+				var entry map[string]any
+				if err := json.Unmarshal(line, &entry); err != nil {
+					t.Fatalf("invalid JSON: %v", err)
+				}
+				if entry["msg"] == want {
+					found = true
+					if entry["goroutine_number"] != float64(7) || entry["logger"] != "graylogtcpconnection" {
+						t.Fatalf("missing connection context: %s", line)
+					}
+				}
+			}
+			if !found {
+				t.Fatalf("missing %q record: %s", want, output.String())
+			}
+		})
+	}
+}
+
+func TestRecoveredPanicHasOneStacktraceField(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	var output bytes.Buffer
+	finished := make(chan struct{}, 2)
+	sender := &GraylogSender{ctx: ctx, cancel: cancel, msgQueue: make(chan *Message)}
+	sender.logger = zap.New(zapcore.NewCore(zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig()), zapcore.Lock(zapcore.AddSync(&output)), zap.DebugLevel), zap.AddStacktrace(zap.ErrorLevel), zap.Hooks(func(entry zapcore.Entry) error {
+		switch entry.Message {
+		case "Creating TCP connection to Graylog":
+			panic("connection failure")
+		case "Restarting goroutine":
+			cancel()
+		case "Goroutine finished":
+			finished <- struct{}{}
+		}
+		return nil
+	}))
+	sender.tcpConnGoroutine(3)
+	for range 2 {
+		select {
+		case <-finished:
+		case <-time.After(3 * time.Second):
+			t.Fatal("sender goroutine did not finish")
+		}
+	}
+	var found bool
+	for _, line := range bytes.Split(bytes.TrimSpace(output.Bytes()), []byte("\n")) {
+		var entry map[string]any
+		if err := json.Unmarshal(line, &entry); err != nil {
+			t.Fatalf("invalid JSON: %v", err)
+		}
+		if entry["msg"] == "Panic in goroutine" {
+			found = true
+			if bytes.Count(line, []byte(`"stacktrace":`)) != 1 {
+				t.Fatalf("expected one stacktrace key: %s", line)
+			}
+			if !strings.Contains(entry["stacktrace"].(string), "tcpConnGoroutine") {
+				t.Fatalf("missing recovered stack: %s", line)
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("missing recovered panic record: %s", output.String())
+	}
 }
