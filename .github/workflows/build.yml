@@ -177,7 +177,7 @@ jobs:
     - name: Analyze for critical and high CVEs
       if: ${{ steps.meta.outputs.tags != '' }}
       id: docker-scout-cves
-      uses: docker/scout-action@a4119c5a8c5076236a54e4ce99531f7e4dd2ef84 # v1.27.0
+      uses: docker/scout-action@e7e2a72bf1485d10a58f30696b6c513b261ce4fa # v1.29.0
       continue-on-error: true
       with:
         command: cves,recommendations
